@@ -23,6 +23,7 @@ def _tensor_to_b64(tensor):
 
 
 def _poll(base_url, api_key, task_id, timeout=600, interval=5):
+    """Polling for Seedance 1.0 — response nested in data.data."""
     headers = {"Authorization": f"Bearer {api_key}"}
     url = f"{base_url}/v1/video/generations/{task_id}"
     deadline = time.time() + timeout
@@ -36,7 +37,7 @@ def _poll(base_url, api_key, task_id, timeout=600, interval=5):
         inner = body.get("data", {})
         status = inner.get("status", "")
 
-        print(f"[Seedance] task_id={task_id}  status={status}")
+        print(f"[Seedance 1.0] task_id={task_id}  status={status}")
 
         if status == "SUCCESS":
             return inner["data"]["video_url"]
@@ -48,7 +49,33 @@ def _poll(base_url, api_key, task_id, timeout=600, interval=5):
     raise TimeoutError(f"Seedance timed out after {timeout}s (task_id={task_id})")
 
 
-def _submit_and_poll(api, payload):
+def _poll_v2(base_url, api_key, task_id, timeout=600, interval=5):
+    """Polling for Seedance 2.0 — status and video_url at root level."""
+    headers = {"Authorization": f"Bearer {api_key}"}
+    url = f"{base_url}/v1/video/generations/{task_id}"
+    deadline = time.time() + timeout
+
+    time.sleep(3)
+
+    while time.time() < deadline:
+        r = requests.get(url, headers=headers, timeout=30)
+        r.raise_for_status()
+        body = r.json()
+        status = body.get("status", "")
+
+        print(f"[Seedance 2.0] task_id={task_id}  status={status}")
+
+        if status == "completed":
+            return body["video_url"]
+        if status == "failed":
+            raise RuntimeError(f"Seedance 2.0 generation failed: {body.get('error', 'unknown')}")
+
+        time.sleep(interval)
+
+    raise TimeoutError(f"Seedance 2.0 timed out after {timeout}s (task_id={task_id})")
+
+
+def _submit_and_poll(api, payload, version=1):
     base_url = api["base_url"].rstrip("/")
     api_key = api["api_key"].strip()
 
@@ -65,9 +92,10 @@ def _submit_and_poll(api, payload):
         raise RuntimeError(f"Seedance API error {r.status_code}: {r.text}")
 
     task_id = r.json()["id"]
-    print(f"[Seedance] Job submitted — task_id={task_id}")
+    print(f"[Seedance {version}.0] Job submitted — task_id={task_id}")
 
-    video_url = _poll(base_url, api_key, task_id)
+    poll_fn = _poll_v2 if version == 2 else _poll
+    video_url = poll_fn(base_url, api_key, task_id)
     return video_url, task_id
 
 
@@ -75,10 +103,17 @@ def _submit_and_poll(api, payload):
 # Constants
 # --------------------------------------------------------------------------- #
 
+# Seedance 1.0
 RES_PRO  = ["1080p", "720p", "480p"]
 RES_FAST = ["720p", "480p"]
 RATIO    = ["16:9", "9:16"]
 MAX_DURATION = 5
+
+# Seedance 2.0
+RES_V2         = ["1080p", "720p", "480p"]   # standard & fast
+RES_V2_ULTRA   = ["2K", "1080p", "720p"]     # ultra only (no 480p, adds 2K)
+RATIO_V2       = ["16:9", "9:16", "4:3", "3:4", "1:1", "21:9", "adaptive"]
+MAX_DURATION_V2 = 15
 
 
 # --------------------------------------------------------------------------- #
@@ -291,6 +326,101 @@ class SeedanceI2VFast:
 
 
 # --------------------------------------------------------------------------- #
+# Seedance 2.0 nodes
+# — Flexible: T2V when no image connected, I2V when first_frame connected
+# — Supports reference_image for style/context anchoring
+# — generate_audio available on all 2.0 models
+# --------------------------------------------------------------------------- #
+
+class _V2Base:
+    CATEGORY    = "Seedance"
+    RESOLUTIONS = RES_V2
+    MODEL_ID    = "seedance"
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "api":             ("SEEDANCE_API",),
+                "prompt":          ("STRING", {"multiline": True, "default": ""}),
+                "resolution":      (cls.RESOLUTIONS,),
+                "ratio":           (RATIO_V2,),
+                "duration":        ("INT", {"default": 5, "min": 4, "max": MAX_DURATION_V2, "step": 1}),
+                "generate_audio":  ("BOOLEAN", {"default": True}),
+                "watermark":       ("BOOLEAN", {"default": False}),
+                "seed":            ("INT", {"default": -1, "min": -1, "max": 2147483647}),
+            },
+            "optional": {
+                "first_frame":     ("IMAGE",),
+                "last_frame":      ("IMAGE",),
+                "reference_image": ("IMAGE",),
+            }
+        }
+
+    RETURN_TYPES = ("STRING", "STRING")
+    RETURN_NAMES = ("video_url", "task_id")
+    FUNCTION     = "generate"
+    OUTPUT_NODE  = True
+
+    def generate(self, api, prompt, resolution, ratio, duration, generate_audio,
+                 watermark, seed, first_frame=None, last_frame=None, reference_image=None):
+
+        content = [{"type": "text", "text": prompt}]
+
+        if first_frame is not None:
+            content.append({
+                "type":      "image_url",
+                "image_url": {"url": _tensor_to_b64(first_frame)},
+                "role":      "first_frame",
+            })
+        if last_frame is not None:
+            content.append({
+                "type":      "image_url",
+                "image_url": {"url": _tensor_to_b64(last_frame)},
+                "role":      "last_frame",
+            })
+        if reference_image is not None:
+            content.append({
+                "type":      "image_url",
+                "image_url": {"url": _tensor_to_b64(reference_image)},
+                "role":      "reference_image",
+            })
+
+        payload = {
+            "model":          self.MODEL_ID,
+            "content":        content,
+            "resolution":     resolution,
+            "ratio":          ratio,
+            "duration":       duration,
+            "generate_audio": generate_audio,
+            "watermark":      watermark,
+        }
+        if seed != -1:
+            payload["seed"] = seed
+
+        url, task_id = _submit_and_poll(api, payload, version=2)
+        return (url, task_id)
+
+
+class Seedance2(_V2Base):
+    """Seedance 2.0 — Text/Image to Video (480 / 720 / 1080p, up to 15s, with audio)."""
+    RESOLUTIONS = RES_V2
+    MODEL_ID    = "seedance"
+
+
+class Seedance2Fast(_V2Base):
+    """Seedance 2.0 Fast — Same capabilities as standard, faster generation."""
+    RESOLUTIONS = RES_V2
+    MODEL_ID    = "seedance-fast"
+
+
+class Seedance2Ultra(_V2Base):
+    """Seedance 2.0 Ultra — Highest quality (720p / 1080p / 2K, up to 15s, with audio)."""
+    RESOLUTIONS = RES_V2_ULTRA
+    MODEL_ID    = "seedance-2.0-ultra"
+
+
+# --------------------------------------------------------------------------- #
 # Save Video node — downloads video_url and saves to ComfyUI output folder
 # --------------------------------------------------------------------------- #
 
@@ -336,19 +466,33 @@ class SeedanceSaveVideo:
 # --------------------------------------------------------------------------- #
 
 NODE_CLASS_MAPPINGS = {
+    # Config
     "SeedanceApiKey":    SeedanceApiKey,
+    # 1.0
     "SeedanceT2V":       SeedanceT2V,
     "SeedanceT2VFast":   SeedanceT2VFast,
     "SeedanceI2V":       SeedanceI2V,
     "SeedanceI2VFast":   SeedanceI2VFast,
+    # 2.0
+    "Seedance2":         Seedance2,
+    "Seedance2Fast":     Seedance2Fast,
+    "Seedance2Ultra":    Seedance2Ultra,
+    # Output
     "SeedanceSaveVideo": SeedanceSaveVideo,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
+    # Config
     "SeedanceApiKey":    "Seedance — API Key",
-    "SeedanceT2V":       "Seedance — Text→Video (Pro)",
-    "SeedanceT2VFast":   "Seedance — Text→Video (Fast)",
-    "SeedanceI2V":       "Seedance — Image→Video (Pro)",
-    "SeedanceI2VFast":   "Seedance — Image→Video (Fast)",
+    # 1.0
+    "SeedanceT2V":       "Seedance 1.0 — Text→Video (Pro)",
+    "SeedanceT2VFast":   "Seedance 1.0 — Text→Video (Fast)",
+    "SeedanceI2V":       "Seedance 1.0 — Image→Video (Pro)",
+    "SeedanceI2VFast":   "Seedance 1.0 — Image→Video (Fast)",
+    # 2.0
+    "Seedance2":         "Seedance 2.0 — Standard",
+    "Seedance2Fast":     "Seedance 2.0 — Fast",
+    "Seedance2Ultra":    "Seedance 2.0 — Ultra",
+    # Output
     "SeedanceSaveVideo": "Seedance — Save Video",
 }
