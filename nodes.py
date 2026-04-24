@@ -13,7 +13,7 @@ from PIL import Image
 def _tensor_to_b64(tensor):
     """ComfyUI IMAGE tensor (B, H, W, C float32 0-1) → PNG data URI."""
     img_np = (tensor[0].numpy() * 255).clip(0, 255).astype(np.uint8)
-    pil = Image.fromarray(img_np, mode="RGB")
+    pil = Image.fromarray(img_np).convert("RGB")  # handles RGBA and grayscale
     buf = io.BytesIO()
     pil.save(buf, format="PNG")
     return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
@@ -24,6 +24,8 @@ def _poll(base_url, api_key, task_id, timeout=600, interval=5):
     url = f"{base_url}/v1/video/generations/{task_id}"
     deadline = time.time() + timeout
 
+    time.sleep(3)  # job is always queued immediately after submit, skip the first useless poll
+
     while time.time() < deadline:
         r = requests.get(url, headers=headers, timeout=30)
         r.raise_for_status()
@@ -31,10 +33,12 @@ def _poll(base_url, api_key, task_id, timeout=600, interval=5):
         inner = body.get("data", {})
         status = inner.get("status", "")
 
+        print(f"[Seedance] task_id={task_id}  status={status}")
+
         if status == "SUCCESS":
             return inner["data"]["video_url"]
         if status == "FAILED":
-            raise RuntimeError(f"Seedance failed: {inner.get('fail_reason', 'unknown')}")
+            raise RuntimeError(f"Seedance generation failed: {inner.get('fail_reason', 'unknown')}")
 
         time.sleep(interval)
 
@@ -43,7 +47,7 @@ def _poll(base_url, api_key, task_id, timeout=600, interval=5):
 
 def _submit_and_poll(api, payload):
     base_url = api["base_url"].rstrip("/")
-    api_key = api["api_key"]
+    api_key = api["api_key"].strip()
 
     if not api_key:
         raise ValueError("Seedance API key is empty — enter your AnyFast key in the SeedanceApiKey node.")
@@ -53,8 +57,12 @@ def _submit_and_poll(api, payload):
         "Content-Type": "application/json",
     }
     r = requests.post(f"{base_url}/v1/video/generations", json=payload, headers=headers, timeout=60)
-    r.raise_for_status()
+
+    if not r.ok:
+        raise RuntimeError(f"Seedance API error {r.status_code}: {r.text}")
+
     task_id = r.json()["id"]
+    print(f"[Seedance] Job submitted — task_id={task_id}")
 
     video_url = _poll(base_url, api_key, task_id)
     return video_url, task_id
