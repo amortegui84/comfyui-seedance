@@ -5,9 +5,11 @@ app.registerExtension({
     async beforeRegisterNodeDef(nodeType, nodeData) {
         if (nodeData.name !== "SeedanceImageBatch") return;
 
+        console.log("[Seedance] ImageBatch extension registered");
+
         nodeType.prototype._syncImageInputs = function (count) {
-            // image_1 and image_2 are always defined in Python — only manage 3..9
             const current = this.inputs.filter(i => /^image_\d+$/.test(i.name)).length;
+            console.log(`[Seedance] _syncImageInputs: current=${current} target=${count}`);
 
             if (count > current) {
                 for (let n = current + 1; n <= count; n++) {
@@ -27,19 +29,24 @@ app.registerExtension({
         const onNodeCreated = nodeType.prototype.onNodeCreated;
         nodeType.prototype.onNodeCreated = function () {
             onNodeCreated?.apply(this, arguments);
+
             const countWidget = this.widgets?.find(w => w.name === "inputcount");
-            if (!countWidget) return;
+            console.log("[Seedance] onNodeCreated — widgets:", this.widgets?.map(w => w.name), "countWidget:", countWidget);
 
-            // "Update Inputs" button — same pattern as KJ nodes ImageBatchMulti
+            if (!countWidget) {
+                console.warn("[Seedance] inputcount widget NOT found — button will not be added");
+                return;
+            }
+
             this.addWidget("button", "Update Inputs", null, () => {
+                console.log("[Seedance] Update Inputs clicked, count =", countWidget.value);
                 this._syncImageInputs(countWidget.value);
-            });
+            }, { serialize: false });
 
-            // Sync immediately on node creation
+            console.log("[Seedance] Update Inputs button added");
             this._syncImageInputs(countWidget.value);
         };
 
-        // Restore correct number of inputs when loading a saved workflow
         const onConfigure = nodeType.prototype.onConfigure;
         nodeType.prototype.onConfigure = function (config) {
             onConfigure?.apply(this, arguments);
