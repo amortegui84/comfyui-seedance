@@ -26,18 +26,24 @@ app.registerExtension({
         const onNodeCreated = nodeType.prototype.onNodeCreated;
         nodeType.prototype.onNodeCreated = function () {
             onNodeCreated?.apply(this, arguments);
-            const w = this.widgets?.find(w => w.name === "inputcount");
-            if (!w) return;
-            this._syncImageInputs(w.value);
-            w.callback = (val) => this._syncImageInputs(val);
+            const countWidget = this.widgets?.find(w => w.name === "inputcount");
+            if (!countWidget) return;
+
+            // "Update Inputs" button — same pattern as KJ nodes ImageBatchMulti
+            this.addWidget("button", "Update Inputs", null, () => {
+                this._syncImageInputs(countWidget.value);
+            });
+
+            // Sync immediately on node creation
+            this._syncImageInputs(countWidget.value);
         };
 
         // Restore correct number of inputs when loading a saved workflow
         const onConfigure = nodeType.prototype.onConfigure;
         nodeType.prototype.onConfigure = function (config) {
             onConfigure?.apply(this, arguments);
-            const w = this.widgets?.find(w => w.name === "inputcount");
-            if (w) this._syncImageInputs(w.value);
+            const countWidget = this.widgets?.find(w => w.name === "inputcount");
+            if (countWidget) this._syncImageInputs(countWidget.value);
         };
     },
 });
