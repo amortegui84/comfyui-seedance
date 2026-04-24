@@ -235,6 +235,94 @@ class SeedanceRefImages:
 
 
 # --------------------------------------------------------------------------- #
+# Reference Video / Audio loader nodes
+# --------------------------------------------------------------------------- #
+
+def _list_files(extensions):
+    """Return files found in ComfyUI input directory with given extensions."""
+    input_dir = folder_paths.get_input_directory()
+    files = []
+    for f in sorted(os.listdir(input_dir)):
+        if os.path.splitext(f)[1].lower() in extensions:
+            files.append(f)
+    return files if files else ["none"]
+
+
+class SeedanceReferenceVideo:
+    """Upload a local video file as a Seedance reference video.
+
+    Place your video in the ComfyUI input folder, select it here, and
+    wire 'reference_video' into any Seedance 2.0 generation node."""
+
+    CATEGORY = "Seedance"
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "api":        ("SEEDANCE_API",),
+                "video_file": (_list_files([".mp4", ".mov", ".avi", ".webm"]),),
+                "name":       ("STRING", {"default": "ref_video"}),
+                "group_name": ("STRING", {"default": "comfyui-assets"}),
+            }
+        }
+
+    RETURN_TYPES = ("STRING",)
+    RETURN_NAMES = ("reference_video",)
+    FUNCTION     = "upload"
+
+    @classmethod
+    def IS_CHANGED(cls, **kwargs):
+        return float("nan")
+
+    def upload(self, api, video_file, name, group_name):
+        if video_file == "none":
+            raise ValueError("No video files found in ComfyUI input folder.")
+        file_path = os.path.join(folder_paths.get_input_directory(), video_file)
+        group_id  = _ensure_group(api, group_name)
+        asset_id  = _upload_asset(api, "Video", name, group_id, file_path=file_path)
+        print(f"[Seedance] Reference video uploaded: {asset_id}")
+        return (asset_id,)
+
+
+class SeedanceReferenceAudio:
+    """Upload a local audio file as a Seedance reference audio.
+
+    Place your audio in the ComfyUI input folder, select it here, and
+    wire 'reference_audio' into any Seedance 2.0 generation node."""
+
+    CATEGORY = "Seedance"
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "api":        ("SEEDANCE_API",),
+                "audio_file": (_list_files([".mp3", ".wav", ".ogg", ".flac", ".m4a"]),),
+                "name":       ("STRING", {"default": "ref_audio"}),
+                "group_name": ("STRING", {"default": "comfyui-assets"}),
+            }
+        }
+
+    RETURN_TYPES = ("STRING",)
+    RETURN_NAMES = ("reference_audio",)
+    FUNCTION     = "upload"
+
+    @classmethod
+    def IS_CHANGED(cls, **kwargs):
+        return float("nan")
+
+    def upload(self, api, audio_file, name, group_name):
+        if audio_file == "none":
+            raise ValueError("No audio files found in ComfyUI input folder.")
+        file_path = os.path.join(folder_paths.get_input_directory(), audio_file)
+        group_id  = _ensure_group(api, group_name)
+        asset_id  = _upload_asset(api, "Audio", name, group_id, file_path=file_path)
+        print(f"[Seedance] Reference audio uploaded: {asset_id}")
+        return (asset_id,)
+
+
+# --------------------------------------------------------------------------- #
 # Upload Asset node — handles group creation + upload in one step
 # --------------------------------------------------------------------------- #
 
@@ -444,7 +532,9 @@ NODE_CLASS_MAPPINGS = {
     "Seedance2Fast":       Seedance2Fast,
     "Seedance2Ultra":      Seedance2Ultra,
     # Assets
-    "SeedanceUploadAsset": SeedanceUploadAsset,
+    "SeedanceUploadAsset":    SeedanceUploadAsset,
+    "SeedanceReferenceVideo": SeedanceReferenceVideo,
+    "SeedanceReferenceAudio": SeedanceReferenceAudio,
     # Utilities
     "SeedanceImageBatch":  SeedanceImageBatch,
     "SeedanceRefImages":   SeedanceRefImages,
@@ -460,7 +550,9 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "Seedance2Fast":       "Seedance 2.0 — Fast",
     "Seedance2Ultra":      "Seedance 2.0 — Ultra",
     # Assets
-    "SeedanceUploadAsset": "Seedance — Upload Asset",
+    "SeedanceUploadAsset":    "Seedance — Upload Asset",
+    "SeedanceReferenceVideo": "Seedance — Reference Video",
+    "SeedanceReferenceAudio": "Seedance — Reference Audio",
     # Utilities
     "SeedanceImageBatch":  "Seedance — Image Batch (References)",
     "SeedanceRefImages":   "Seedance — Reference Images (9 slots)",
