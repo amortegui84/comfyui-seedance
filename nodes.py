@@ -177,11 +177,28 @@ class SeedanceApiKey:
 # --------------------------------------------------------------------------- #
 
 class SeedanceImageBatch:
-    """Collect 1–9 reference images for Seedance 2.0 generation nodes.
+    """Legacy — kept so existing workflows don't break. Use SeedanceRefImages instead."""
+    CATEGORY = "Seedance"
 
-    Increase 'inputcount' to add more image slots. Connect the
-    'reference_images' output to any Seedance 2.0 node.
-    Use this for both single and multiple reference images."""
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {"required": {"image_1": ("IMAGE",)}, "optional": {"image_2": ("IMAGE",)}}
+
+    RETURN_TYPES = ("SEEDANCE_IMAGE_LIST",)
+    RETURN_NAMES = ("reference_images",)
+    FUNCTION     = "batch"
+
+    def batch(self, image_1, image_2=None):
+        images = [image_1]
+        if image_2 is not None:
+            images.append(image_2)
+        return (images,)
+
+
+class SeedanceRefImages:
+    """Send up to 9 reference images to any Seedance 2.0 node.
+
+    image_1 is required. Connect image_2 through image_9 as needed."""
 
     CATEGORY = "Seedance"
 
@@ -189,23 +206,31 @@ class SeedanceImageBatch:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "inputcount": ("INT", {"default": 2, "min": 2, "max": 9, "step": 1}),
-                "image_1":    ("IMAGE",),
-                "image_2":    ("IMAGE",),
+                "image_1": ("IMAGE",),
+            },
+            "optional": {
+                "image_2": ("IMAGE",),
+                "image_3": ("IMAGE",),
+                "image_4": ("IMAGE",),
+                "image_5": ("IMAGE",),
+                "image_6": ("IMAGE",),
+                "image_7": ("IMAGE",),
+                "image_8": ("IMAGE",),
+                "image_9": ("IMAGE",),
             }
         }
 
     RETURN_TYPES = ("SEEDANCE_IMAGE_LIST",)
     RETURN_NAMES = ("reference_images",)
-    FUNCTION     = "batch"
+    FUNCTION     = "collect"
 
-    def batch(self, inputcount, image_1, image_2, **kwargs):
-        images = [image_1, image_2]
-        for i in range(3, inputcount + 1):
-            img = kwargs.get(f"image_{i}")
+    def collect(self, image_1, image_2=None, image_3=None, image_4=None,
+                image_5=None, image_6=None, image_7=None, image_8=None, image_9=None):
+        images = [image_1]
+        for img in [image_2, image_3, image_4, image_5, image_6, image_7, image_8, image_9]:
             if img is not None:
                 images.append(img)
-        print(f"[Seedance] ImageBatch: {len(images)} image(s) collected")
+        print(f"[Seedance] RefImages: {len(images)} image(s) collected")
         return (images,)
 
 
@@ -422,6 +447,7 @@ NODE_CLASS_MAPPINGS = {
     "SeedanceUploadAsset": SeedanceUploadAsset,
     # Utilities
     "SeedanceImageBatch":  SeedanceImageBatch,
+    "SeedanceRefImages":   SeedanceRefImages,
     # Output
     "SeedanceSaveVideo":   SeedanceSaveVideo,
 }
@@ -437,6 +463,7 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "SeedanceUploadAsset": "Seedance — Upload Asset",
     # Utilities
     "SeedanceImageBatch":  "Seedance — Image Batch (References)",
+    "SeedanceRefImages":   "Seedance — Reference Images (9 slots)",
     # Output
     "SeedanceSaveVideo":   "Seedance — Save Video",
 }
