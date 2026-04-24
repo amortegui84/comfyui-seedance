@@ -377,6 +377,43 @@ class SeedanceI2VFast:
 
 
 # --------------------------------------------------------------------------- #
+# Image Batch node — collect multiple reference images for 2.0 nodes
+# --------------------------------------------------------------------------- #
+
+class SeedanceImageBatch:
+    """Collect 1–9 reference images for Seedance 2.0.
+    Increase inputcount to add more slots. Connect output to
+    reference_images on any Seedance 2.0 generation node."""
+
+    CATEGORY = "Seedance"
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "inputcount": ("INT", {"default": 2, "min": 1, "max": 9, "step": 1}),
+                "image_1":    ("IMAGE",),
+                "image_2":    ("IMAGE",),
+            }
+        }
+
+    RETURN_TYPES = ("SEEDANCE_IMAGE_LIST",)
+    RETURN_NAMES = ("reference_images",)
+    FUNCTION     = "batch"
+
+    def batch(self, inputcount, **kwargs):
+        images = []
+        for i in range(1, inputcount + 1):
+            img = kwargs.get(f"image_{i}")
+            if img is not None:
+                images.append(img)
+        if not images:
+            raise ValueError("[Seedance] ImageBatch: no images connected.")
+        print(f"[Seedance] ImageBatch: {len(images)} image(s) collected")
+        return (images,)
+
+
+# --------------------------------------------------------------------------- #
 # Asset Management nodes
 # --------------------------------------------------------------------------- #
 
@@ -473,12 +510,14 @@ class _V2Base:
             },
             "optional": {
                 # Image inputs — pass IMAGE tensor (base64 inline) or leave empty
-                "first_frame":      ("IMAGE",),
-                "last_frame":       ("IMAGE",),
-                "reference_image":  ("IMAGE",),
+                "first_frame":       ("IMAGE",),
+                "last_frame":        ("IMAGE",),
+                "reference_image":   ("IMAGE",),
+                # Multiple reference images via SeedanceImageBatch node
+                "reference_images":  ("SEEDANCE_IMAGE_LIST",),
                 # Asset ID inputs — connect output of SeedanceUploadAsset node
-                "reference_video":  ("STRING", {"forceInput": True}),  # Asset://...
-                "reference_audio":  ("STRING", {"forceInput": True}),  # Asset://...
+                "reference_video":   ("STRING", {"forceInput": True}),  # Asset://...
+                "reference_audio":   ("STRING", {"forceInput": True}),  # Asset://...
             }
         }
 
@@ -489,7 +528,8 @@ class _V2Base:
 
     def generate(self, api, prompt, resolution, ratio, duration, generate_audio,
                  watermark, seed, first_frame=None, last_frame=None,
-                 reference_image=None, reference_video=None, reference_audio=None):
+                 reference_image=None, reference_images=None,
+                 reference_video=None, reference_audio=None):
 
         content = [{"type": "text", "text": prompt}]
 
@@ -511,6 +551,13 @@ class _V2Base:
                 "image_url": {"url": _tensor_to_b64(reference_image)},
                 "role":      "reference_image",
             })
+        if reference_images is not None:
+            for img_tensor in reference_images:
+                content.append({
+                    "type":      "image_url",
+                    "image_url": {"url": _tensor_to_b64(img_tensor)},
+                    "role":      "reference_image",
+                })
         if reference_video and reference_video.strip():
             content.append({
                 "type":      "video_url",
@@ -618,6 +665,8 @@ NODE_CLASS_MAPPINGS = {
     # Asset Management
     "SeedanceCreateGroup":  SeedanceCreateGroup,
     "SeedanceUploadAsset":  SeedanceUploadAsset,
+    # Utilities
+    "SeedanceImageBatch":   SeedanceImageBatch,
     # Output
     "SeedanceSaveVideo":    SeedanceSaveVideo,
 }
@@ -637,6 +686,8 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     # Asset Management
     "SeedanceCreateGroup":  "Seedance — Create Asset Group",
     "SeedanceUploadAsset":  "Seedance — Upload Asset",
+    # Utilities
+    "SeedanceImageBatch":   "Seedance — Image Batch (References)",
     # Output
     "SeedanceSaveVideo":    "Seedance — Save Video",
 }
