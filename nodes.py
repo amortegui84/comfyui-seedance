@@ -189,8 +189,9 @@ class SeedanceImageBatch:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "inputcount": ("INT", {"default": 2, "min": 1, "max": 9, "step": 1}),
+                "inputcount": ("INT", {"default": 2, "min": 2, "max": 9, "step": 1}),
                 "image_1":    ("IMAGE",),
+                "image_2":    ("IMAGE",),
             }
         }
 
@@ -198,9 +199,9 @@ class SeedanceImageBatch:
     RETURN_NAMES = ("reference_images",)
     FUNCTION     = "batch"
 
-    def batch(self, inputcount, image_1, **kwargs):
-        images = [image_1]
-        for i in range(2, inputcount + 1):
+    def batch(self, inputcount, image_1, image_2, **kwargs):
+        images = [image_1, image_2]
+        for i in range(3, inputcount + 1):
             img = kwargs.get(f"image_{i}")
             if img is not None:
                 images.append(img)

@@ -6,6 +6,7 @@ app.registerExtension({
         if (nodeData.name !== "SeedanceImageBatch") return;
 
         nodeType.prototype._syncImageInputs = function (count) {
+            // image_1 and image_2 are always defined in Python — only manage 3..9
             const current = this.inputs.filter(i => /^image_\d+$/.test(i.name)).length;
 
             if (count > current) {

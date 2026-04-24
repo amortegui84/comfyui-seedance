@@ -131,13 +131,13 @@ Collects multiple images into a single list to pass as style references. Follows
 
 | Parameter | Type | Description |
 |---|---|---|
-| `inputcount` | int (1–9) | Desired number of image slots |
+| `inputcount` | int (2–9) | Desired number of image slots |
 | **Update Inputs** *(button)* | — | Click after changing `inputcount` to add or remove image slots |
 | `image_1` … `image_N` | IMAGE | Connect one image per slot |
 
 **Output:** `reference_images` (SEEDANCE_IMAGE_LIST) — wire to any generation node.
 
-> Set `inputcount` to the number of images you need, then click **Update Inputs** to apply. Use this even for a single reference image (set `inputcount` to 1).
+> Set `inputcount` (2–9), then click **Update Inputs** to apply. The node always starts with 2 slots (`image_1` and `image_2`) — the button adds or removes slots from 3 onward.
 
 ---
 
