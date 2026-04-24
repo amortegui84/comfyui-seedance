@@ -5,53 +5,30 @@ app.registerExtension({
     async beforeRegisterNodeDef(nodeType, nodeData) {
         if (nodeData.name !== "SeedanceImageBatch") return;
 
-        console.log("[Seedance] ImageBatch extension registered");
-
-        nodeType.prototype._syncImageInputs = function (count) {
-            const current = this.inputs.filter(i => /^image_\d+$/.test(i.name)).length;
-            console.log(`[Seedance] _syncImageInputs: current=${current} target=${count}`);
-
-            if (count > current) {
-                for (let n = current + 1; n <= count; n++) {
-                    this.addInput("image_" + n, "IMAGE");
-                }
-            } else if (count < current) {
-                for (let n = current; n > count; n--) {
-                    const idx = this.inputs.findIndex(i => i.name === "image_" + n);
-                    if (idx !== -1) this.removeInput(idx);
-                }
-            }
-
-            this.setSize(this.computeSize());
-            app.graph.setDirtyCanvas(true, true);
-        };
-
-        const onNodeCreated = nodeType.prototype.onNodeCreated;
         nodeType.prototype.onNodeCreated = function () {
-            onNodeCreated?.apply(this, arguments);
-
-            const countWidget = this.widgets?.find(w => w.name === "inputcount");
-            console.log("[Seedance] onNodeCreated — widgets:", this.widgets?.map(w => w.name), "countWidget:", countWidget);
-
-            if (!countWidget) {
-                console.warn("[Seedance] inputcount widget NOT found — button will not be added");
-                return;
-            }
-
+            this._type = "IMAGE";
             this.addWidget("button", "Update Inputs", null, () => {
-                console.log("[Seedance] Update Inputs clicked, count =", countWidget.value);
-                this._syncImageInputs(countWidget.value);
-            }, { serialize: false });
+                if (!this.inputs) this.inputs = [];
 
-            console.log("[Seedance] Update Inputs button added");
-            this._syncImageInputs(countWidget.value);
-        };
+                const countWidget = this.widgets.find(w => w.name === "inputcount");
+                if (!countWidget) return;
 
-        const onConfigure = nodeType.prototype.onConfigure;
-        nodeType.prototype.onConfigure = function (config) {
-            onConfigure?.apply(this, arguments);
-            const countWidget = this.widgets?.find(w => w.name === "inputcount");
-            if (countWidget) this._syncImageInputs(countWidget.value);
+                const target  = countWidget.value;
+                const current = this.inputs.filter(i => i.type === this._type).length;
+
+                if (target === current) return;
+
+                if (target < current) {
+                    const toRemove = current - target;
+                    for (let i = 0; i < toRemove; i++) {
+                        this.removeInput(this.inputs.length - 1);
+                    }
+                } else {
+                    for (let i = current + 1; i <= target; i++) {
+                        this.addInput(`image_${i}`, this._type, { shape: 7 });
+                    }
+                }
+            });
         };
     },
 });
