@@ -249,19 +249,18 @@ def _list_files(extensions):
 
 
 class SeedanceReferenceVideo:
-    """Upload a local video file as a Seedance reference video.
-
-    Place your video in the ComfyUI input folder, select it here, and
-    wire 'reference_video' into any Seedance 2.0 generation node."""
+    """Pick a video from your local disk, upload it, and get an Asset:// ID
+    ready to wire into reference_video on any Seedance 2.0 generation node."""
 
     CATEGORY = "Seedance"
 
     @classmethod
     def INPUT_TYPES(cls):
+        files = _list_files([".mp4", ".mov", ".avi", ".webm"])
         return {
             "required": {
                 "api":        ("SEEDANCE_API",),
-                "video_file": (_list_files([".mp4", ".mov", ".avi", ".webm"]),),
+                "video_file": (files,),
                 "name":       ("STRING", {"default": "ref_video"}),
                 "group_name": ("STRING", {"default": "comfyui-assets"}),
             }
@@ -272,12 +271,12 @@ class SeedanceReferenceVideo:
     FUNCTION     = "upload"
 
     @classmethod
-    def IS_CHANGED(cls, **kwargs):
-        return float("nan")
+    def IS_CHANGED(cls, api, video_file, name, group_name):
+        return video_file
 
     def upload(self, api, video_file, name, group_name):
         if video_file == "none":
-            raise ValueError("No video files found in ComfyUI input folder.")
+            raise ValueError("No video found — use the 'Choose Video' button to upload one.")
         file_path = os.path.join(folder_paths.get_input_directory(), video_file)
         group_id  = _ensure_group(api, group_name)
         asset_id  = _upload_asset(api, "Video", name, group_id, file_path=file_path)
@@ -286,19 +285,18 @@ class SeedanceReferenceVideo:
 
 
 class SeedanceReferenceAudio:
-    """Upload a local audio file as a Seedance reference audio.
-
-    Place your audio in the ComfyUI input folder, select it here, and
-    wire 'reference_audio' into any Seedance 2.0 generation node."""
+    """Pick an audio file from your local disk, upload it, and get an Asset:// ID
+    ready to wire into reference_audio on any Seedance 2.0 generation node."""
 
     CATEGORY = "Seedance"
 
     @classmethod
     def INPUT_TYPES(cls):
+        files = _list_files([".mp3", ".wav", ".ogg", ".flac", ".m4a"])
         return {
             "required": {
                 "api":        ("SEEDANCE_API",),
-                "audio_file": (_list_files([".mp3", ".wav", ".ogg", ".flac", ".m4a"]),),
+                "audio_file": (files,),
                 "name":       ("STRING", {"default": "ref_audio"}),
                 "group_name": ("STRING", {"default": "comfyui-assets"}),
             }
@@ -309,12 +307,12 @@ class SeedanceReferenceAudio:
     FUNCTION     = "upload"
 
     @classmethod
-    def IS_CHANGED(cls, **kwargs):
-        return float("nan")
+    def IS_CHANGED(cls, api, audio_file, name, group_name):
+        return audio_file
 
     def upload(self, api, audio_file, name, group_name):
         if audio_file == "none":
-            raise ValueError("No audio files found in ComfyUI input folder.")
+            raise ValueError("No audio found — use the 'Choose Audio' button to upload one.")
         file_path = os.path.join(folder_paths.get_input_directory(), audio_file)
         group_id  = _ensure_group(api, group_name)
         asset_id  = _upload_asset(api, "Audio", name, group_id, file_path=file_path)
