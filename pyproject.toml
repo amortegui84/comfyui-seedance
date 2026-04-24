@@ -1,0 +1,15 @@
+[project]
+name = "comfyui-seedance"
+version = "0.1.0"
+description = "ComfyUI nodes for Seedance video generation (Text→Video and Image→Video, Pro and Fast)"
+license = {text = "Apache-2.0"}
+dependencies = ["requests", "Pillow"]
+
+[project.urls]
+Repository = "https://github.com/amortegui84/comfyui-seedance"
+Documentation = "https://github.com/amortegui84/comfyui-seedance#readme"
+
+[tool.comfy]
+PublisherId = "amortegui84"
+DisplayName = "ComfyUI Seedance"
+Icon = ""
