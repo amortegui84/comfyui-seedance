@@ -3,6 +3,7 @@ import time
 import base64
 import io
 import tempfile
+import re
 import requests
 import numpy as np
 from PIL import Image
@@ -254,14 +255,34 @@ def _fal_generate(api, params):
 # --------------------------------------------------------------------------- #
 
 def _extract_id(resp_json, *keys):
-    """Try several field name candidates; raise with raw response if none found."""
-    for k in keys:
-        if k in resp_json:
-            return resp_json[k]
+    """Try several field name candidates with forgiving key normalization."""
+    def _canon(value):
+        return re.sub(r"[^a-z0-9]", "", str(value).lower())
+
+    def _lookup(source):
+        if not isinstance(source, dict):
+            return None
+
+        for k in keys:
+            if k in source:
+                return source[k]
+
+        canon_map = {_canon(k): v for k, v in source.items()}
+        for k in keys:
+            ck = _canon(k)
+            if ck in canon_map:
+                return canon_map[ck]
+        return None
+
+    direct = _lookup(resp_json)
+    if direct is not None:
+        return direct
+
     nested = resp_json.get("data", {})
-    for k in keys:
-        if k in nested:
-            return nested[k]
+    nested_value = _lookup(nested)
+    if nested_value is not None:
+        return nested_value
+
     raise RuntimeError(f"Cannot find ID in response (tried {keys}): {resp_json}")
 
 
