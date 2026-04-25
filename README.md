@@ -45,7 +45,7 @@ For text-to-video, leave image inputs disconnected. To switch to image-to-video,
 | `Seedance 2.0 - Ultra` | Highest quality variant, up to 2K |
 | `Seedance - Extend Video` | Extend a previous generation using its `task_id` |
 | `Seedance - Reference Images (9 slots)` | Collect up to 9 reference images |
-| `Seedance - Create Human Asset (ID Verified)` | Upload a real-human portrait and get `asset_id`, `group_id`, and `verify_url` |
+| `Seedance - Create Human Asset (ID Verified)` | First run starts H5 verification, later run creates the final `asset_id` using the verified `group_id` |
 | `Seedance - Human Asset Panel` | Show `asset_id`, `group_id`, and `verify_url` together in one centered panel and pass them through |
 | `Seedance - Upload Asset` | Upload a generic image, audio, or video asset |
 | `Seedance - Reference Video` | Pick a local video from the input folder and upload it |
@@ -96,8 +96,10 @@ Rules:
 1. Connect a portrait to `Seedance - Create Human Asset (ID Verified)`
 2. Leave `existing_group_id` empty
 3. Run the node
-4. Open the returned verification link and complete the liveness check
-5. Save the returned `group_id`
+4. Click `Start Verification` inside the node
+5. Complete the H5 liveness check in your browser or phone
+6. The node fills `existing_group_id` automatically
+7. Queue the node again to create the final `asset_id`
 
 If you want the verification link and IDs in one place, connect the outputs to `Seedance - Human Asset Panel`.
 
