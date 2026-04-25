@@ -665,30 +665,6 @@ class SeedanceCreateHumanAsset:
     def upload(self, api, image, name, group_name, existing_group_id=None):
         eid = existing_group_id.strip() if existing_group_id else None
 
-        # AnyFast's documented direct asset APIs do not return the H5 verification
-        # link used by ComfyUI's built-in ByteDance workflow. For first-time real
-        # human setup, hand control to the local ComfyUI proxy auth flow in JS,
-        # then rerun this node with the verified existing_group_id it obtains.
-        if not eid and api.get("provider") == "anyfast":
-            lines = [
-                "VERIFICATION REQUIRED",
-                "",
-                "1. Click 'Start Verification' in this node.",
-                "2. Complete the H5 liveness check in your browser or phone.",
-                "3. The node will fill existing_group_id automatically.",
-                "4. Queue the node again to create the final asset_id.",
-            ]
-            return {
-                "ui": {
-                    "text": lines,
-                    "verify_url": [""],
-                    "needs_h5_auth": ["1"],
-                    "asset_id": [""],
-                    "group_id": [""],
-                },
-                "result": ("", "", ""),
-            }
-
         if eid:
             group_id = eid
             asset_uri, verify_url, resolved_group_id = _upload_asset(
@@ -708,6 +684,32 @@ class SeedanceCreateHumanAsset:
                         api, "Image", name, group_id, image_tensor=image
                     )
                 except RuntimeError as retry_error:
+                    provider = api.get("provider")
+                    if provider == "anyfast":
+                        lines = [
+                            "VERIFICATION SETUP REQUIRED",
+                            "",
+                            "Direct asset upload did not return a usable verification flow.",
+                            "Try the local H5 verification button in this node.",
+                            "",
+                            "1. Click 'Start Verification' below.",
+                            "2. Complete the H5 liveness check in your browser or phone.",
+                            "3. The node should fill existing_group_id automatically.",
+                            "4. Queue the node again to create the final asset_id.",
+                            "",
+                            f"Direct CreateAsset error: {original_error}",
+                            f"CreateAssetGroup+CreateAsset error: {retry_error}",
+                        ]
+                        return {
+                            "ui": {
+                                "text": lines,
+                                "verify_url": [""],
+                                "needs_h5_auth": ["1"],
+                                "asset_id": [""],
+                                "group_id": [""],
+                            },
+                            "result": ("", "", ""),
+                        }
                     raise RuntimeError(
                         "Human asset upload failed on both provider flows. "
                         f"Direct CreateAsset error: {original_error} | "

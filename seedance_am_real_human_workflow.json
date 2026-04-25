@@ -1,0 +1,400 @@
+{
+  "id": "8fd5d389-8b67-4b7e-a1d9-2d70e6280f5f",
+  "revision": 0,
+  "last_node_id": 8,
+  "last_link_id": 6,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "SeedanceApiKey",
+      "pos": [
+        60,
+        120
+      ],
+      "size": [
+        360,
+        170
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "api",
+          "type": "SEEDANCE_API",
+          "links": [
+            1,
+            4
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SeedanceApiKey"
+      },
+      "widgets_values": [
+        "",
+        "anyfast",
+        "https://www.anyfast.ai"
+      ]
+    },
+    {
+      "id": 2,
+      "type": "LoadImage",
+      "pos": [
+        60,
+        380
+      ],
+      "size": [
+        360,
+        520
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            2
+          ]
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": null
+        }
+      ],
+      "title": "Load Image (One Person Only)",
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "portrait.png",
+        "image"
+      ]
+    },
+    {
+      "id": 3,
+      "type": "SeedanceCreateHumanAsset",
+      "pos": [
+        520,
+        300
+      ],
+      "size": [
+        420,
+        260
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "api",
+          "type": "SEEDANCE_API",
+          "link": 1
+        },
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 2
+        }
+      ],
+      "outputs": [
+        {
+          "name": "asset_id",
+          "type": "STRING",
+          "links": [
+            3,
+            5
+          ]
+        },
+        {
+          "name": "group_id",
+          "type": "STRING",
+          "links": [
+            6
+          ]
+        },
+        {
+          "name": "verify_url",
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SeedanceCreateHumanAsset"
+      },
+      "widgets_values": [
+        "portrait",
+        "comfyui-human-assets",
+        ""
+      ]
+    },
+    {
+      "id": 4,
+      "type": "SeedanceShowText",
+      "pos": [
+        1010,
+        220
+      ],
+      "size": [
+        320,
+        140
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "text",
+          "type": "STRING",
+          "link": 5
+        }
+      ],
+      "outputs": [
+        {
+          "name": "text",
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "title": "Show Text (asset_id)",
+      "properties": {
+        "Node name for S&R": "SeedanceShowText"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 5,
+      "type": "SeedanceShowText",
+      "pos": [
+        1010,
+        410
+      ],
+      "size": [
+        320,
+        140
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "text",
+          "type": "STRING",
+          "link": 6
+        }
+      ],
+      "outputs": [
+        {
+          "name": "text",
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "title": "Show Text (group_id)",
+      "properties": {
+        "Node name for S&R": "SeedanceShowText"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 6,
+      "type": "Seedance2",
+      "pos": [
+        520,
+        680
+      ],
+      "size": [
+        460,
+        360
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "api",
+          "type": "SEEDANCE_API",
+          "link": 4
+        },
+        {
+          "name": "first_frame",
+          "type": "IMAGE",
+          "link": null
+        },
+        {
+          "name": "last_frame",
+          "type": "IMAGE",
+          "link": null
+        },
+        {
+          "name": "reference_images",
+          "type": "SEEDANCE_IMAGE_LIST",
+          "link": null
+        },
+        {
+          "name": "reference_video",
+          "type": "STRING",
+          "link": null
+        },
+        {
+          "name": "reference_audio",
+          "type": "STRING",
+          "link": null
+        },
+        {
+          "name": "human_asset_id",
+          "type": "STRING",
+          "link": 3
+        }
+      ],
+      "outputs": [
+        {
+          "name": "video_url",
+          "type": "STRING",
+          "links": [
+            7
+          ]
+        },
+        {
+          "name": "task_id",
+          "type": "STRING",
+          "links": null
+        },
+        {
+          "name": "first_frame",
+          "type": "IMAGE",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "Seedance2"
+      },
+      "widgets_values": [
+        "A cinematic close-up portrait video of the verified person. Natural facial motion, subtle head movement, realistic lighting, shallow depth of field.",
+        "720p",
+        "16:9",
+        5,
+        true,
+        false,
+        -1
+      ]
+    },
+    {
+      "id": 7,
+      "type": "SeedanceSaveVideo",
+      "pos": [
+        1060,
+        760
+      ],
+      "size": [
+        320,
+        120
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "video_url",
+          "type": "STRING",
+          "link": 7
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "SeedanceSaveVideo"
+      },
+      "widgets_values": [
+        "seedance_real_human"
+      ]
+    },
+    {
+      "id": 8,
+      "type": "MarkdownNote",
+      "pos": [
+        1450,
+        210
+      ],
+      "size": [
+        420,
+        290
+      ],
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "properties": {},
+      "widgets_values": [
+        "### Workflow order\n1. Leave `existing_group_id` empty in `SeedanceCreateHumanAsset`\n2. Queue only that node first\n3. Complete **Start Verification** inside the node\n4. Queue the same node again to get the final `asset_id`\n5. Save the `group_id`\n6. Then queue `Seedance2` to generate the video\n\n### Important\n- The verification button/link appears in `SeedanceCreateHumanAsset`\n- `SeedanceShowText` is only for reading `asset_id` and `group_id`\n- Real-human verification works with `AnyFast`, not `fal.ai`"
+      ]
+    }
+  ],
+  "links": [
+    [
+      1,
+      1,
+      0,
+      3,
+      0,
+      "SEEDANCE_API"
+    ],
+    [
+      2,
+      2,
+      0,
+      3,
+      1,
+      "IMAGE"
+    ],
+    [
+      3,
+      3,
+      0,
+      6,
+      6,
+      "STRING"
+    ],
+    [
+      4,
+      1,
+      0,
+      6,
+      0,
+      "SEEDANCE_API"
+    ],
+    [
+      5,
+      3,
+      0,
+      4,
+      0,
+      "STRING"
+    ],
+    [
+      6,
+      3,
+      1,
+      5,
+      0,
+      "STRING"
+    ],
+    [
+      7,
+      6,
+      0,
+      7,
+      0,
+      "STRING"
+    ]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {},
+  "version": 0.4
+}
