@@ -592,23 +592,18 @@ class SeedanceUploadAsset:
 # --------------------------------------------------------------------------- #
 
 class SeedanceCreateHumanAsset:
-    """Upload a portrait image for identity-verified real human video generation.
+    """Upload a portrait for identity-verified real human video generation.
 
-    WORKFLOW — FIRST RUN:
-      1. Connect portrait → run this node.
-      2. Wire verify_url to a "Show Text" node and open the link on your phone.
-      3. Complete the liveness check (< 30 s).
-      4. Wire group_id to a "Show Text" / Primitive node and SAVE that value.
-      5. Now wire asset_id → Reference Images → generation node and generate.
+    First run  — leave existing_group_id empty. The node will display a
+    verification link directly in its preview area. Open that link on your
+    phone, complete the liveness check, then copy the Group ID shown below
+    and save it.
 
-    SUBSEQUENT RUNS (same person):
-      Paste the saved group_id into existing_group_id → verify_url will be
-      empty (no re-verification needed) and asset_id is ready to use directly.
+    Next runs  — paste the saved Group ID into existing_group_id. No new
+    verification is needed; the API matches faces automatically."""
 
-    IMPORTANT: One group_id per person. Each account's group IDs cannot be
-    used by other accounts."""
-
-    CATEGORY = "Seedance"
+    CATEGORY   = "Seedance"
+    OUTPUT_NODE = True
 
     @classmethod
     def INPUT_TYPES(cls):
@@ -630,19 +625,34 @@ class SeedanceCreateHumanAsset:
     FUNCTION     = "upload"
 
     def upload(self, api, image, name, group_name, existing_group_id=None):
-        eid = existing_group_id.strip() if existing_group_id else None
-        group_id  = _ensure_group(api, group_name, eid or None)
+        eid      = existing_group_id.strip() if existing_group_id else None
+        group_id = _ensure_group(api, group_name, eid or None)
         asset_uri, verify_url = _upload_asset(api, "Image", name, group_id, image_tensor=image)
 
         if verify_url:
-            print(f"[Seedance Human] *** VERIFICATION REQUIRED — open this link on your phone: {verify_url}")
-            print(f"[Seedance Human] Group ID (save this): {group_id}")
-            print(f"[Seedance Human] Asset ID (use after verification): {asset_uri}")
+            lines = [
+                "⚠  VERIFICATION REQUIRED",
+                "",
+                "1. Copy the link below and open it on your phone:",
+                verify_url,
+                "",
+                "2. Complete the liveness check (under 30 seconds).",
+                "",
+                "3. Save your Group ID for future uploads:",
+                group_id,
+                "",
+                "4. After verifying, use the asset_id output for generation:",
+                asset_uri,
+            ]
         else:
-            print(f"[Seedance Human] Portrait uploaded — no verification needed.")
-            print(f"[Seedance Human] asset_id={asset_uri}  group_id={group_id}")
+            lines = [
+                "✓  Ready — no verification needed",
+                "",
+                f"asset_id   {asset_uri}",
+                f"group_id   {group_id}",
+            ]
 
-        return (asset_uri, group_id, verify_url or "")
+        return {"ui": {"text": lines}, "result": (asset_uri, group_id, verify_url or "")}
 
 
 # --------------------------------------------------------------------------- #
@@ -903,6 +913,29 @@ class SeedanceSaveVideo:
 
 
 # --------------------------------------------------------------------------- #
+# Show Text node — display any STRING output directly in the node body
+# --------------------------------------------------------------------------- #
+
+class SeedanceShowText:
+    """Display any text value (asset_id, group_id, verify_url, video_url…)
+    directly inside the node so you can read and copy it without extra nodes."""
+
+    CATEGORY    = "Seedance"
+    OUTPUT_NODE = True
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {"required": {"text": ("STRING", {"forceInput": True})}}
+
+    RETURN_TYPES = ("STRING",)
+    RETURN_NAMES = ("text",)
+    FUNCTION     = "show"
+
+    def show(self, text):
+        return {"ui": {"text": [str(text)]}, "result": (str(text),)}
+
+
+# --------------------------------------------------------------------------- #
 # Registration
 # --------------------------------------------------------------------------- #
 
@@ -925,6 +958,7 @@ NODE_CLASS_MAPPINGS = {
     "SeedanceExtend":      SeedanceExtend,
     # Output
     "SeedanceSaveVideo":   SeedanceSaveVideo,
+    "SeedanceShowText":    SeedanceShowText,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
@@ -946,4 +980,5 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "SeedanceExtend":      "Seedance — Extend Video",
     # Output
     "SeedanceSaveVideo":   "Seedance — Save Video",
+    "SeedanceShowText":    "Seedance — Show Text",
 }
