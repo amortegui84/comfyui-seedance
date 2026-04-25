@@ -265,6 +265,28 @@ def _extract_id(resp_json, *keys):
     raise RuntimeError(f"Cannot find ID in response (tried {keys}): {resp_json}")
 
 
+def _extract_optional_id(resp_json, *keys):
+    """Best-effort ID lookup that returns None instead of raising."""
+    try:
+        return _extract_id(resp_json, *keys)
+    except RuntimeError:
+        return None
+
+
+def _extract_verify_url(resp_json):
+    return (resp_json.get("VerifyUrl") or resp_json.get("verify_url") or
+            resp_json.get("data", {}).get("VerifyUrl") or
+            resp_json.get("data", {}).get("verify_url"))
+
+
+def _looks_like_missing_group_error(message):
+    """Detect providers that require GroupId on CreateAsset."""
+    text = (message or "").lower()
+    group_terms = ("groupid", "group_id", "group id", "assetgroup", "asset group")
+    missing_terms = ("required", "missing", "invalid", "empty", "must")
+    return any(term in text for term in group_terms) and any(term in text for term in missing_terms)
+
+
 def _ensure_group(api, group_name, existing_group_id=None):
     """Return existing_group_id if provided, otherwise create a new asset group."""
     if existing_group_id and existing_group_id.strip():
@@ -287,11 +309,11 @@ def _ensure_group(api, group_name, existing_group_id=None):
     return group_id
 
 
-def _upload_asset(api, asset_type, name, group_id, image_tensor=None, file_path=None):
+def _upload_asset(api, asset_type, name, group_id=None, image_tensor=None, file_path=None):
     """Upload an image tensor or a local file to Seedance Asset Management.
 
-    Returns (asset_uri, verify_url) where verify_url may be None if the API
-    does not require a liveness check for this upload."""
+    Returns (asset_uri, verify_url, resolved_group_id) where verify_url may be
+    None if the API does not require a liveness check for this upload."""
     base_url = api["base_url"].rstrip("/")
     api_key  = api["api_key"].strip()
     headers  = {"Authorization": f"Bearer {api_key}"}
@@ -320,7 +342,9 @@ def _upload_asset(api, asset_type, name, group_id, image_tensor=None, file_path=
         raise ValueError("Provide either an image input or a valid file_path.")
 
     files = {"file": (filename, file_bytes, mime_map[asset_type])}
-    data  = {"GroupId": group_id, "Name": name, "model": model_map[asset_type]}
+    data  = {"Name": name, "model": model_map[asset_type]}
+    if group_id:
+        data["GroupId"] = group_id
 
     r = requests.post(f"{base_url}/volc/asset/CreateAsset",
                       files=files, data=data, headers=headers, timeout=120)
@@ -329,15 +353,16 @@ def _upload_asset(api, asset_type, name, group_id, image_tensor=None, file_path=
 
     resp = r.json()
     raw_id     = _extract_id(resp, "AssetId", "asset_id", "id", "ID")
-    verify_url = (resp.get("VerifyUrl") or resp.get("verify_url") or
-                  resp.get("data", {}).get("VerifyUrl") or resp.get("data", {}).get("verify_url"))
+    verify_url = _extract_verify_url(resp)
+    resolved_group_id = group_id or _extract_optional_id(resp, "GroupId", "group_id", "GroupID")
 
     if verify_url:
         print(f"[Seedance Assets] *** IDENTITY VERIFICATION REQUIRED ***")
         print(f"[Seedance Assets] Open this link on your phone or browser (< 30 s): {verify_url}")
-        print(f"[Seedance Assets] After completing the liveness check, save your Group ID: {group_id}")
+        if resolved_group_id:
+            print(f"[Seedance Assets] After completing the liveness check, save your Group ID: {resolved_group_id}")
 
-    return f"Asset://{raw_id}", verify_url
+    return f"Asset://{raw_id}", verify_url, resolved_group_id
 
 
 # --------------------------------------------------------------------------- #
@@ -492,7 +517,7 @@ class SeedanceReferenceVideo:
             raise ValueError("No video found — use the 'Choose Video' button to upload one.")
         file_path = os.path.join(folder_paths.get_input_directory(), video_file)
         group_id  = _ensure_group(api, group_name, existing_group_id)
-        asset_uri, _ = _upload_asset(api, "Video", name, group_id, file_path=file_path)
+        asset_uri, _, group_id = _upload_asset(api, "Video", name, group_id, file_path=file_path)
         print(f"[Seedance] Reference video uploaded: {asset_uri}  group_id={group_id}")
         return (asset_uri, group_id)
 
@@ -534,7 +559,7 @@ class SeedanceReferenceAudio:
             raise ValueError("No audio found — use the 'Choose Audio' button to upload one.")
         file_path = os.path.join(folder_paths.get_input_directory(), audio_file)
         group_id  = _ensure_group(api, group_name, existing_group_id)
-        asset_uri, _ = _upload_asset(api, "Audio", name, group_id, file_path=file_path)
+        asset_uri, _, group_id = _upload_asset(api, "Audio", name, group_id, file_path=file_path)
         print(f"[Seedance] Reference audio uploaded: {asset_uri}  group_id={group_id}")
         return (asset_uri, group_id)
 
@@ -576,8 +601,8 @@ class SeedanceUploadAsset:
             raise ValueError("Connect either an image or a file_path (for video/audio).")
 
         group_id  = _ensure_group(api, group_name, existing_group_id)
-        asset_uri, _ = _upload_asset(api, asset_type, name, group_id,
-                                     image_tensor=image, file_path=file_path)
+        asset_uri, _, group_id = _upload_asset(api, asset_type, name, group_id,
+                                               image_tensor=image, file_path=file_path)
         print(f"[Seedance Assets] Uploaded {asset_type}: {asset_uri}  group_id={group_id}")
         return (asset_uri, group_id)
 
@@ -625,9 +650,30 @@ class SeedanceCreateHumanAsset:
     FUNCTION     = "upload"
 
     def upload(self, api, image, name, group_name, existing_group_id=None):
-        eid      = existing_group_id.strip() if existing_group_id else None
-        group_id = _ensure_group(api, group_name, eid or None)
-        asset_uri, verify_url = _upload_asset(api, "Image", name, group_id, image_tensor=image)
+        eid = existing_group_id.strip() if existing_group_id else None
+
+        if eid:
+            group_id = eid
+            asset_uri, verify_url, resolved_group_id = _upload_asset(
+                api, "Image", name, group_id, image_tensor=image
+            )
+            group_id = resolved_group_id or group_id
+        else:
+            try:
+                asset_uri, verify_url, group_id = _upload_asset(
+                    api, "Image", name, image_tensor=image
+                )
+            except RuntimeError as e:
+                if not _looks_like_missing_group_error(str(e)):
+                    raise
+                group_id = _ensure_group(api, group_name, None)
+                asset_uri, verify_url, resolved_group_id = _upload_asset(
+                    api, "Image", name, group_id, image_tensor=image
+                )
+                group_id = resolved_group_id or group_id
+
+        if not group_id:
+            raise RuntimeError("Asset upload succeeded but no group_id was returned by the provider.")
 
         if verify_url:
             lines = [
@@ -954,6 +1000,61 @@ class SeedanceShowText:
 
 
 # --------------------------------------------------------------------------- #
+# Human Asset Panel — show asset_id, group_id, verify_url in one place
+# --------------------------------------------------------------------------- #
+
+class SeedanceHumanAssetPanel:
+    """Consolidate human asset outputs into one centered panel.
+
+    Use this right after Create Human Asset so the verification link, asset_id,
+    and group_id stay together in one readable block while still passing all
+    values through to the rest of the graph."""
+
+    CATEGORY    = "Seedance"
+    OUTPUT_NODE = True
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "asset_id": ("STRING", {"forceInput": True}),
+                "group_id": ("STRING", {"forceInput": True}),
+            },
+            "optional": {
+                "verify_url": ("STRING", {"forceInput": True}),
+            }
+        }
+
+    RETURN_TYPES = ("STRING", "STRING", "STRING")
+    RETURN_NAMES = ("asset_id", "group_id", "verify_url")
+    FUNCTION     = "show"
+
+    def show(self, asset_id, group_id, verify_url=""):
+        asset_id = str(asset_id or "")
+        group_id = str(group_id or "")
+        verify_url = str(verify_url or "")
+
+        lines = [
+            "HUMAN ASSET PANEL",
+            "",
+            f"asset_id   {asset_id}",
+            f"group_id   {group_id}",
+        ]
+        if verify_url:
+            lines.extend(["", f"verify_url {verify_url}"])
+
+        return {
+            "ui": {
+                "text": lines,
+                "asset_id": [asset_id],
+                "group_id": [group_id],
+                "verify_url": [verify_url],
+            },
+            "result": (asset_id, group_id, verify_url),
+        }
+
+
+# --------------------------------------------------------------------------- #
 # Registration
 # --------------------------------------------------------------------------- #
 
@@ -977,6 +1078,7 @@ NODE_CLASS_MAPPINGS = {
     # Output
     "SeedanceSaveVideo":   SeedanceSaveVideo,
     "SeedanceShowText":    SeedanceShowText,
+    "SeedanceHumanAssetPanel": SeedanceHumanAssetPanel,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
@@ -999,4 +1101,5 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     # Output
     "SeedanceSaveVideo":   "Seedance — Save Video",
     "SeedanceShowText":    "Seedance — Show Text",
+    "SeedanceHumanAssetPanel": "Seedance — Human Asset Panel",
 }

@@ -51,6 +51,7 @@ That's it for text-to-video. Connect a `first_frame` image to switch to image-to
 | **Seedance — Extend Video** | Continue a generated video using its task_id |
 | **Seedance — Reference Images (9 slots)** | Pass up to 9 reference images to a generation node |
 | **Seedance — Create Human Asset** | Upload a portrait for real human video. Shows a **clickable verification link** in the node on first use. Outputs `asset_id`, `group_id`, `verify_url` |
+| **Seedance — Human Asset Panel** | Shows `asset_id`, `group_id`, and `verify_url` together in one centered panel and passes them through |
 | **Seedance — Upload Asset** | Upload a video or audio file as a reference |
 | **Seedance — Reference Video** | Pick a video from your input folder and upload it |
 | **Seedance — Reference Audio** | Pick an audio from your input folder and upload it |
@@ -94,6 +95,8 @@ ByteDance requires identity verification before generating videos with a real pe
 
 **Step 3.** Copy and save the **`group_id` output** shown in the node — you'll need it for every future run.
 
+If you want everything in one place, connect the three outputs to **Seedance — Human Asset Panel**. It shows the verification button, `asset_id`, and `group_id` in a single centered block.
+
 ### Generate the video
 
 Connect `asset_id` directly to the `human_asset_id` input of any generation node — no extra nodes needed:
@@ -116,6 +119,8 @@ Connect `asset_id` directly to the `human_asset_id` input of any generation node
 The `@image1` tag is added to your prompt automatically if you forget it.
 
 > **Show Text nodes** — connect `asset_id` or `group_id` to a **Seedance — Show Text** node to read and copy the values easily inside the graph.
+>
+> **Human Asset Panel** — use this when you want `asset_id`, `group_id`, and `verify_url` centralized in one dedicated node instead of separate text previews.
 
 ### Next time — same person, no re-verification
 
