@@ -393,7 +393,7 @@ MAX_DURATION = 15
 # --------------------------------------------------------------------------- #
 
 class SeedanceApiKey:
-    CATEGORY = "Seedance"
+    CATEGORY = "Seedance AM"
 
     @classmethod
     def INPUT_TYPES(cls):
@@ -420,7 +420,7 @@ class SeedanceApiKey:
 
 class SeedanceImageBatch:
     """Legacy — kept so existing workflows don't break. Use SeedanceRefImages instead."""
-    CATEGORY = "Seedance"
+    CATEGORY = "Seedance AM"
 
     @classmethod
     def INPUT_TYPES(cls):
@@ -442,7 +442,7 @@ class SeedanceRefImages:
 
     image_1 is required. Connect image_2 through image_9 as needed."""
 
-    CATEGORY = "Seedance"
+    CATEGORY = "Seedance AM"
 
     @classmethod
     def INPUT_TYPES(cls):
@@ -500,7 +500,7 @@ class SeedanceReferenceVideo:
     Pass an existing_group_id to reuse a previously verified identity group
     and avoid creating a new one each time."""
 
-    CATEGORY = "Seedance"
+    CATEGORY = "Seedance AM"
 
     @classmethod
     def INPUT_TYPES(cls):
@@ -542,7 +542,7 @@ class SeedanceReferenceAudio:
     Pass an existing_group_id to reuse a previously verified identity group
     and avoid creating a new one each time."""
 
-    CATEGORY = "Seedance"
+    CATEGORY = "Seedance AM"
 
     @classmethod
     def INPUT_TYPES(cls):
@@ -587,7 +587,7 @@ class SeedanceUploadAsset:
     Returns an Asset:// ID and the Group ID. Pass an existing_group_id to
     reuse a previously verified identity group without creating a new one."""
 
-    CATEGORY = "Seedance/Assets"
+    CATEGORY = "Seedance AM/Assets"
 
     @classmethod
     def INPUT_TYPES(cls):
@@ -640,7 +640,7 @@ class SeedanceCreateHumanAsset:
     Next runs  — paste the saved Group ID into existing_group_id. No new
     verification is needed; the API matches faces automatically."""
 
-    CATEGORY   = "Seedance"
+    CATEGORY   = "Seedance AM"
     OUTPUT_NODE = True
 
     @classmethod
@@ -757,7 +757,7 @@ class SeedanceCreateHumanAsset:
 # --------------------------------------------------------------------------- #
 
 class _V2Base:
-    CATEGORY    = "Seedance"
+    CATEGORY    = "Seedance AM"
     RESOLUTIONS = RES_V2
     MODEL_ID    = "seedance"
 
@@ -928,7 +928,7 @@ class SeedanceExtend:
     the clip. Returns the extended video_url, the new task_id, and the first
     frame of the extended video for further chaining."""
 
-    CATEGORY = "Seedance"
+    CATEGORY = "Seedance AM"
 
     @classmethod
     def INPUT_TYPES(cls):
@@ -989,7 +989,7 @@ class SeedanceExtend:
 class SeedanceSaveVideo:
     """Download and save the generated video to the ComfyUI output folder."""
 
-    CATEGORY = "Seedance"
+    CATEGORY = "Seedance AM"
 
     @classmethod
     def INPUT_TYPES(cls):
@@ -1031,7 +1031,7 @@ class SeedanceShowText:
     """Display any text value (asset_id, group_id, verify_url, video_url…)
     directly inside the node so you can read and copy it without extra nodes."""
 
-    CATEGORY    = "Seedance"
+    CATEGORY    = "Seedance AM"
     OUTPUT_NODE = True
 
     @classmethod
@@ -1044,61 +1044,6 @@ class SeedanceShowText:
 
     def show(self, text):
         return {"ui": {"text": [str(text)]}, "result": (str(text),)}
-
-
-# --------------------------------------------------------------------------- #
-# Human Asset Panel — show asset_id, group_id, verify_url in one place
-# --------------------------------------------------------------------------- #
-
-class SeedanceHumanAssetPanel:
-    """Consolidate human asset outputs into one centered panel.
-
-    Use this right after Create Human Asset so the verification link, asset_id,
-    and group_id stay together in one readable block while still passing all
-    values through to the rest of the graph."""
-
-    CATEGORY    = "Seedance"
-    OUTPUT_NODE = True
-
-    @classmethod
-    def INPUT_TYPES(cls):
-        return {
-            "required": {
-                "asset_id": ("STRING", {"forceInput": True}),
-                "group_id": ("STRING", {"forceInput": True}),
-            },
-            "optional": {
-                "verify_url": ("STRING", {"forceInput": True}),
-            }
-        }
-
-    RETURN_TYPES = ("STRING", "STRING", "STRING")
-    RETURN_NAMES = ("asset_id", "group_id", "verify_url")
-    FUNCTION     = "show"
-
-    def show(self, asset_id, group_id, verify_url=""):
-        asset_id = str(asset_id or "")
-        group_id = str(group_id or "")
-        verify_url = str(verify_url or "")
-
-        lines = [
-            "HUMAN ASSET PANEL",
-            "",
-            f"asset_id   {asset_id}",
-            f"group_id   {group_id}",
-        ]
-        if verify_url:
-            lines.extend(["", f"verify_url {verify_url}"])
-
-        return {
-            "ui": {
-                "text": lines,
-                "asset_id": [asset_id],
-                "group_id": [group_id],
-                "verify_url": [verify_url],
-            },
-            "result": (asset_id, group_id, verify_url),
-        }
 
 
 # --------------------------------------------------------------------------- #
@@ -1125,28 +1070,26 @@ NODE_CLASS_MAPPINGS = {
     # Output
     "SeedanceSaveVideo":   SeedanceSaveVideo,
     "SeedanceShowText":    SeedanceShowText,
-    "SeedanceHumanAssetPanel": SeedanceHumanAssetPanel,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
     # Config
-    "SeedanceApiKey":      "Seedance — API Key",
+    "SeedanceApiKey":      "Seedance AM - API Key",
     # 2.0 generation
-    "Seedance2":           "Seedance 2.0 — Standard",
-    "Seedance2Fast":       "Seedance 2.0 — Fast",
-    "Seedance2Ultra":      "Seedance 2.0 — Ultra",
+    "Seedance2":           "Seedance AM 2.0 - Standard",
+    "Seedance2Fast":       "Seedance AM 2.0 - Fast",
+    "Seedance2Ultra":      "Seedance AM 2.0 - Ultra",
     # Assets
-    "SeedanceCreateHumanAsset": "Seedance — Create Human Asset (ID Verified)",
-    "SeedanceUploadAsset":      "Seedance — Upload Asset",
-    "SeedanceReferenceVideo":   "Seedance — Reference Video",
-    "SeedanceReferenceAudio":   "Seedance — Reference Audio",
+    "SeedanceCreateHumanAsset": "Seedance AM - Create Human Asset",
+    "SeedanceUploadAsset":      "Seedance AM - Upload Asset",
+    "SeedanceReferenceVideo":   "Seedance AM - Reference Video",
+    "SeedanceReferenceAudio":   "Seedance AM - Reference Audio",
     # Utilities
-    "SeedanceImageBatch":  "Seedance — Image Batch (References)",
-    "SeedanceRefImages":   "Seedance — Reference Images (9 slots)",
+    "SeedanceImageBatch":  "Seedance AM - Image Batch",
+    "SeedanceRefImages":   "Seedance AM - Reference Images (9 slots)",
     # Extend
-    "SeedanceExtend":      "Seedance — Extend Video",
+    "SeedanceExtend":      "Seedance AM - Extend Video",
     # Output
-    "SeedanceSaveVideo":   "Seedance — Save Video",
-    "SeedanceShowText":    "Seedance — Show Text",
-    "SeedanceHumanAssetPanel": "Seedance — Human Asset Panel",
+    "SeedanceSaveVideo":   "Seedance AM - Save Video",
+    "SeedanceShowText":    "Seedance AM - Show Text",
 }

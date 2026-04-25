@@ -1,6 +1,6 @@
-# ComfyUI-Seedance
+# ComfyUI-Seedance AM
 
-Generate AI videos with [ByteDance Seedance 2.0](https://seedance2.ai) directly inside ComfyUI. This node pack supports text-to-video, image-to-video, reference images, reference audio/video uploads, real-human asset verification, and video saving.
+Generate AI videos with [ByteDance Seedance 2.0](https://seedance2.ai) directly inside ComfyUI. This `Seedance AM` pack supports text-to-video, image-to-video, reference images, reference audio/video uploads, real-human asset verification, and video saving.
 
 Works with `AnyFast` and `fal.ai`. Pick your provider in the API Key node.
 
@@ -17,9 +17,9 @@ Restart ComfyUI.
 
 ## Quick Start
 
-1. Add `Seedance - API Key`
+1. Add `Seedance AM - API Key`
 2. Paste your API key and choose `anyfast` or `fal.ai`
-3. Add `Seedance 2.0 - Standard`
+3. Add `Seedance AM 2.0 - Standard`
 4. Connect `api` and run
 
 For text-to-video, leave image inputs disconnected. To switch to image-to-video, connect a `Load Image` node to `first_frame`.
@@ -39,19 +39,18 @@ For text-to-video, leave image inputs disconnected. To switch to image-to-video,
 
 | Node | What it does |
 |---|---|
-| `Seedance - API Key` | Configure provider, API key, and base URL |
-| `Seedance 2.0 - Standard` | Main Seedance 2.0 generation node |
-| `Seedance 2.0 - Fast` | Faster generation variant |
-| `Seedance 2.0 - Ultra` | Highest quality variant, up to 2K |
-| `Seedance - Extend Video` | Extend a previous generation using its `task_id` |
-| `Seedance - Reference Images (9 slots)` | Collect up to 9 reference images |
-| `Seedance - Create Human Asset (ID Verified)` | First run starts H5 verification, later run creates the final `asset_id` using the verified `group_id` |
-| `Seedance - Human Asset Panel` | Show `asset_id`, `group_id`, and `verify_url` together in one centered panel and pass them through |
-| `Seedance - Upload Asset` | Upload a generic image, audio, or video asset |
-| `Seedance - Reference Video` | Pick a local video from the input folder and upload it |
-| `Seedance - Reference Audio` | Pick a local audio file from the input folder and upload it |
-| `Seedance - Save Video` | Download and save the generated video |
-| `Seedance - Show Text` | Display any string value directly in the node |
+| `Seedance AM - API Key` | Configure provider, API key, and base URL |
+| `Seedance AM 2.0 - Standard` | Main Seedance 2.0 generation node |
+| `Seedance AM 2.0 - Fast` | Faster generation variant |
+| `Seedance AM 2.0 - Ultra` | Highest quality variant, up to 2K |
+| `Seedance AM - Extend Video` | Extend a previous generation using its `task_id` |
+| `Seedance AM - Reference Images (9 slots)` | Collect up to 9 reference images |
+| `Seedance AM - Create Human Asset` | First run starts H5 verification, later run creates the final `asset_id` using the verified `group_id` |
+| `Seedance AM - Upload Asset` | Upload a generic image, audio, or video asset |
+| `Seedance AM - Reference Video` | Pick a local video from the input folder and upload it |
+| `Seedance AM - Reference Audio` | Pick a local audio file from the input folder and upload it |
+| `Seedance AM - Save Video` | Download and save the generated video |
+| `Seedance AM - Show Text` | Display any string value directly in the node |
 
 ## Usage
 
@@ -60,7 +59,7 @@ For text-to-video, leave image inputs disconnected. To switch to image-to-video,
 Connect:
 
 ```text
-Seedance - API Key -> Seedance 2.0 - Standard -> Seedance - Save Video
+Seedance AM - API Key -> Seedance AM 2.0 - Standard -> Seedance AM - Save Video
 ```
 
 Write a prompt and queue it.
@@ -71,15 +70,15 @@ Connect a `Load Image` node to `first_frame`. Optionally connect a second image 
 
 ### Reference Images
 
-Connect images to `Seedance - Reference Images (9 slots)`, then connect that output to a generation node. Reference them in the prompt as `@image1`, `@image2`, and so on.
+Connect images to `Seedance AM - Reference Images (9 slots)`, then connect that output to a generation node. Reference them in the prompt as `@image1`, `@image2`, and so on.
 
 ### Reference Audio or Video
 
-Use `Seedance - Reference Video` or `Seedance - Reference Audio` to upload files from ComfyUI's input folder, then connect the returned asset IDs to the generation node.
+Use `Seedance AM - Reference Video` or `Seedance AM - Reference Audio` to upload files from ComfyUI's input folder, then connect the returned asset IDs to the generation node.
 
 ### Extend Video
 
-Connect a generation node's `task_id` output to `Seedance - Extend Video`, add a continuation prompt, and run again.
+Connect a generation node's `task_id` output to `Seedance AM - Extend Video`, add a continuation prompt, and run again.
 
 ## Real Human Video
 
@@ -93,7 +92,7 @@ Rules:
 
 ### First-time verification
 
-1. Connect a portrait to `Seedance - Create Human Asset (ID Verified)`
+1. Connect a portrait to `Seedance AM - Create Human Asset`
 2. Leave `existing_group_id` empty
 3. Run the node
 4. Click `Start Verification` inside the node
@@ -101,7 +100,7 @@ Rules:
 6. The node fills `existing_group_id` automatically
 7. Queue the node again to create the final `asset_id`
 
-If you want the verification link and IDs in one place, connect the outputs to `Seedance - Human Asset Panel`.
+The verification controls now live directly inside `Seedance AM - Create Human Asset`, so no extra panel node is needed.
 
 ### Generate with a verified human
 
@@ -109,8 +108,8 @@ Connect the returned `asset_id` directly to `human_asset_id` on a Seedance gener
 
 ```text
 Load Image
-  -> Seedance - Create Human Asset (ID Verified)
-      asset_id -> Seedance 2.0 - Standard.human_asset_id
+  -> Seedance AM - Create Human Asset
+      asset_id -> Seedance AM 2.0 - Standard.human_asset_id
       group_id -> save for future uploads
 ```
 
@@ -122,8 +121,8 @@ Paste the saved `group_id` into `existing_group_id`. The node skips new verifica
 
 ### Keep IDs readable in the graph
 
-- Use `Seedance - Human Asset Panel` when you want `asset_id`, `group_id`, and `verify_url` centralized in one dedicated node
-- Use `Seedance - Show Text` for simple one-value previews anywhere else in the graph
+- Use `Seedance AM - Create Human Asset` for the full first-time verification flow and final asset creation
+- Use `Seedance AM - Show Text` for simple one-value previews anywhere else in the graph
 
 ## Key Parameters
 
@@ -137,7 +136,7 @@ Paste the saved `group_id` into `existing_group_id`. The node skips new verifica
 | `seed` | `-1` for random, any other value for reproducible results |
 | `first_frame` | Enables image-to-video |
 | `last_frame` | Guides how the video ends |
-| `human_asset_id` | Verified real-human asset ID from `Seedance - Create Human Asset (ID Verified)` |
+| `human_asset_id` | Verified real-human asset ID from `Seedance AM - Create Human Asset` |
 
 ## License
 

@@ -1,7 +1,7 @@
 [project]
 name = "comfyui-seedance"
-version = "0.1.1"
-description = "ComfyUI nodes for Seedance 2.0 video generation, real-human asset verification, and reference asset workflows"
+version = "0.1.2"
+description = "Seedance AM nodes for ComfyUI with Seedance 2.0 generation, H5 human verification, and reference asset workflows"
 license = {text = "Apache-2.0"}
 dependencies = ["requests", "Pillow"]
 
@@ -11,5 +11,5 @@ Documentation = "https://github.com/amortegui84/comfyui-seedance#readme"
 
 [tool.comfy]
 PublisherId = "amortegui84"
-DisplayName = "Seedance 2.0 for ComfyUI"
+DisplayName = "Seedance AM for ComfyUI"
 Icon = ""
