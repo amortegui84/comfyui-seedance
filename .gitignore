@@ -5,3 +5,6 @@ __pycache__/
 *.pyc
 *.pyo
 .env
+.claude/
+nodes-check.pyc*
+*.tmp
