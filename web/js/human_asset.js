@@ -1,6 +1,8 @@
 import { app } from "../../scripts/app.js";
 import { api } from "../../scripts/api.js";
 
+const VERIFY_SESSION_PATH = "/proxy/seedance/visual-validate/sessions";
+
 function renderMessage(el, { title, body, accent = "#c03030", background = "#5a0e0e" }) {
     el.style.display = "";
     el.innerHTML = `
@@ -17,6 +19,45 @@ function getWidget(node, name) {
     return node.widgets?.find((w) => w.name === name);
 }
 
+function renderIdleState(el) {
+    renderMessage(el, {
+        title: "Real Human Verification",
+        body: `
+            <div style="color:#ddd;text-align:center;line-height:1.45;">
+                Run this node once with <strong style="color:#fff">existing_group_id</strong> empty.
+                After execution, use the verification control shown here to start the H5 flow.
+            </div>
+        `,
+        accent: "#3c5f8a",
+        background: "#182433",
+    });
+}
+
+function renderProxyHelp(el, details) {
+    const safeDetails = details ? `<div style="margin-top:8px;color:#ffd1d1;">${details}</div>` : "";
+    renderMessage(el, {
+        title: "Verification Proxy Unavailable",
+        body: `
+            <div style="color:#ffe1e1;line-height:1.45;">
+                The Seedance verification session could not be started from ComfyUI.
+            </div>
+            <div style="margin-top:8px;color:#ddd;line-height:1.45;">
+                Check these requirements:
+            </div>
+            <div style="margin-top:6px;color:#ddd;line-height:1.5;">
+                1. Update ComfyUI to the latest nightly or newest desktop build.<br>
+                2. Open ComfyUI from <strong style="color:#fff">127.0.0.1</strong> or <strong style="color:#fff">localhost</strong>.<br>
+                3. Make sure you are logged into ComfyUI API nodes / ByteDance access.<br>
+                4. Avoid running this through <strong style="color:#fff">--listen</strong> on a LAN URL for verification.
+            </div>
+            <div style="margin-top:8px;color:#bbb;font-family:monospace;font-size:11px;word-break:break-all;">
+                POST ${VERIFY_SESSION_PATH}
+            </div>
+            ${safeDetails}
+        `,
+    });
+}
+
 async function startVerification(node, el) {
     if (node._sdVerifyBusy) return;
     node._sdVerifyBusy = true;
@@ -29,11 +70,27 @@ async function startVerification(node, el) {
     });
 
     try {
-        const createResp = await api.fetchApi("/proxy/seedance/visual-validate/sessions", {
+        const createResp = await api.fetchApi(VERIFY_SESSION_PATH, {
             method: "POST",
         });
         if (!createResp.ok) {
-            throw new Error(`Session request failed: ${createResp.status}`);
+            let responseText = "";
+            try {
+                responseText = await createResp.text();
+            } catch {
+                responseText = "";
+            }
+            if (createResp.status === 404) {
+                renderProxyHelp(el, "ComfyUI did not expose the Seedance verification endpoint.");
+                node._sdVerifyBusy = false;
+                return;
+            }
+            if (createResp.status === 401 || createResp.status === 403) {
+                renderProxyHelp(el, "Authentication failed. ComfyUI may not be logged in for API partner nodes.");
+                node._sdVerifyBusy = false;
+                return;
+            }
+            throw new Error(`Session request failed: ${createResp.status}${responseText ? ` - ${responseText}` : ""}`);
         }
 
         const session = await createResp.json();
@@ -59,7 +116,7 @@ async function startVerification(node, el) {
         });
 
         const poll = async () => {
-            const statusResp = await api.fetchApi(`/proxy/seedance/visual-validate/sessions/${encodeURIComponent(sessionId)}`);
+            const statusResp = await api.fetchApi(`${VERIFY_SESSION_PATH}/${encodeURIComponent(sessionId)}`);
             if (!statusResp.ok) {
                 throw new Error(`Status poll failed: ${statusResp.status}`);
             }
@@ -104,10 +161,15 @@ async function startVerification(node, el) {
 
         window.setTimeout(poll, 3000);
     } catch (err) {
-        renderMessage(el, {
-            title: "Verification Error",
-            body: `<div style="color:#ffd1d1;text-align:center;">${String(err.message || err)}</div>`,
-        });
+        const message = String(err.message || err);
+        if (message.includes("Failed to fetch")) {
+            renderProxyHelp(el, "Browser request failed before reaching the verification endpoint.");
+        } else {
+            renderMessage(el, {
+                title: "Verification Error",
+                body: `<div style="color:#ffd1d1;text-align:center;line-height:1.45;">${message}</div>`,
+            });
+        }
         node._sdVerifyBusy = false;
     }
 }
@@ -123,7 +185,7 @@ app.registerExtension({
             onNodeCreated?.apply(this, arguments);
 
             const el = document.createElement("div");
-            el.style.display = "none";
+            el.style.display = "";
             el.style.padding = "4px 2px";
 
             this._sdVerifyEl = el;
@@ -131,6 +193,7 @@ app.registerExtension({
                 serialize: false,
                 computeSize: () => [this.size[0], 130],
             });
+            renderIdleState(el);
         };
 
         const onExecuted = nodeType.prototype.onExecuted;
@@ -144,6 +207,7 @@ app.registerExtension({
             const needsH5Auth = (message?.needs_h5_auth?.[0] || "") === "1";
             const assetId = message?.asset_id?.[0] || "";
             const groupId = message?.group_id?.[0] || "";
+            const lines = Array.isArray(message?.text) ? message.text : [];
 
             if (needsH5Auth) {
                 renderMessage(el, {
@@ -161,6 +225,23 @@ app.registerExtension({
                 });
                 const button = el.querySelector("button");
                 button?.addEventListener("click", () => startVerification(this, el));
+                this.setSize([this.size[0], this.computeSize()[1]]);
+                return;
+            }
+
+            if (lines.length && !url && !assetId && !groupId) {
+                renderMessage(el, {
+                    title: "Node Output",
+                    body: `
+                        <div style="
+                            margin-top:4px;padding:8px 10px;border-radius:6px;
+                            background:#101010;border:1px solid #3a3a3a;color:#f3f3f3;
+                            font-family:monospace;font-size:12px;line-height:1.45;white-space:pre-wrap;
+                        ">${lines.join("\n")}</div>
+                    `,
+                    accent: "#3c5f8a",
+                    background: "#182433",
+                });
                 this.setSize([this.size[0], this.computeSize()[1]]);
                 return;
             }
@@ -201,7 +282,7 @@ app.registerExtension({
                 return;
             }
 
-            el.style.display = "none";
+            renderIdleState(el);
         };
     },
 });

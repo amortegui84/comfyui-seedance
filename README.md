@@ -4,6 +4,17 @@ Generate AI videos with [ByteDance Seedance 2.0](https://seedance2.ai) directly 
 
 Works with `AnyFast` and `fal.ai`. Pick your provider in the API Key node.
 
+## Current Real-Human Flow
+
+This repo does **not** use the same built-in ByteDance nodes shown in Comfy's official Real Human workflow templates.
+
+- Official Comfy templates use core nodes like `ByteDance Create Image/Video Asset`
+- This repo uses the custom node `Seedance AM - Create Human Asset`
+- In this repo, the verification UI is shown inside `Seedance AM - Create Human Asset`
+- `Seedance AM - Show Text` is only for previewing plain string outputs after the fact
+
+If you load `api_seedance2_0_r2v_real_human.json` and expect identical behavior, it will not match this custom node pack 1:1.
+
 ## Install
 
 ```bash
@@ -101,6 +112,27 @@ Rules:
 7. Queue the node again to create the final `asset_id`
 
 The verification controls now live directly inside `Seedance AM - Create Human Asset`, so no extra panel node is needed.
+
+Important:
+
+- The official Comfy workflow uses built-in `ByteDance Create Image/Video Asset` nodes
+- This repo replaces that flow with `Seedance AM - Create Human Asset`
+- `Seedance AM - Show Text` is only for displaying final string outputs like `asset_id`, `group_id`, or `video_url`
+- The verification link itself is expected to appear inside `Seedance AM - Create Human Asset`, not in `Show Text`
+- If the verification button or link does not appear, update ComfyUI and make sure you are running from `127.0.0.1` or `localhost` while logged into ComfyUI partner/API nodes
+
+### Troubleshooting when nothing appears
+
+If you run the node and do not see a button or verification link:
+
+1. Restart ComfyUI so the custom JS in `web/js/human_asset.js` reloads
+2. Open ComfyUI from `http://127.0.0.1:8188` or `http://localhost:8188`
+3. Update ComfyUI to the latest nightly or newest desktop build
+4. Make sure partner/API-node login is active in ComfyUI
+5. Do not rely on `Seedance AM - Show Text` for the verification step
+6. If ComfyUI is started with `--listen` and accessed over LAN/IP, the verification proxy may not work
+
+The node now shows a visible status/error panel when the local verification proxy is unavailable.
 
 ### Generate with a verified human
 
