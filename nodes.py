@@ -652,7 +652,8 @@ class SeedanceCreateHumanAsset:
                 f"group_id   {group_id}",
             ]
 
-        return {"ui": {"text": lines}, "result": (asset_uri, group_id, verify_url or "")}
+        return {"ui": {"text": lines, "verify_url": [verify_url or ""]},
+                "result": (asset_uri, group_id, verify_url or "")}
 
 
 # --------------------------------------------------------------------------- #
@@ -689,6 +690,9 @@ class _V2Base:
                 # Asset references — use SeedanceUploadAsset to get Asset:// IDs
                 "reference_video":  ("STRING", {"forceInput": True}),
                 "reference_audio":  ("STRING", {"forceInput": True}),
+                # ID-verified human asset — connect asset_id from SeedanceCreateHumanAsset
+                "human_asset_id":   ("STRING", {"forceInput": True,
+                                                 "tooltip": "asset_id from 'Create Human Asset (ID Verified)' — AnyFast only"}),
             }
         }
 
@@ -699,12 +703,19 @@ class _V2Base:
 
     def generate(self, api, prompt, resolution, ratio, duration, generate_audio,
                  watermark, seed, first_frame=None, last_frame=None,
-                 reference_images=None, reference_video=None, reference_audio=None):
+                 reference_images=None, reference_video=None, reference_audio=None,
+                 human_asset_id=None):
 
         # Seedance requires @image1, @video1, @audio1 tags in the prompt so the
         # model knows how to use each reference. Auto-append any missing tags.
+        # human_asset_id (if present) is always @image1; reference_images follow.
+        img_start = 1
+        if human_asset_id and human_asset_id.strip():
+            if "@image1" not in prompt:
+                prompt = prompt + " @image1"
+            img_start = 2
         if reference_images:
-            for i in range(1, len(reference_images) + 1):
+            for i in range(img_start, img_start + len(reference_images)):
                 tag = f"@image{i}"
                 if tag not in prompt:
                     prompt = prompt + f" {tag}"
@@ -730,6 +741,12 @@ class _V2Base:
                 "type":      "image_url",
                 "image_url": {"url": _tensor_to_b64(last_frame)},
                 "role":      "last_frame",
+            })
+        if human_asset_id and human_asset_id.strip():
+            content.append({
+                "type":      "image_url",
+                "image_url": {"url": human_asset_id.strip()},
+                "role":      "reference_image",
             })
         if reference_images is not None:
             for img_tensor in reference_images:
@@ -779,6 +796,7 @@ class _V2Base:
                 "reference_images": reference_images,
                 "reference_video": reference_video or "",
                 "reference_audio": reference_audio or "",
+                # human_asset_id uses Asset:// URIs — not supported on fal.ai; ignored
             })
         else:
             url, task_id, frame = _submit_and_poll(api, payload)

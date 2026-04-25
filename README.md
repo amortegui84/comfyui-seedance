@@ -50,7 +50,7 @@ That's it for text-to-video. Connect a `first_frame` image to switch to image-to
 | **Seedance 2.0 — Ultra** | Highest quality. Up to 2K |
 | **Seedance — Extend Video** | Continue a generated video using its task_id |
 | **Seedance — Reference Images (9 slots)** | Pass up to 9 reference images to a generation node |
-| **Seedance — Create Human Asset** | Upload a portrait for real human video (with ID verification) |
+| **Seedance — Create Human Asset** | Upload a portrait for real human video. Shows a **clickable verification link** in the node on first use. Outputs `asset_id`, `group_id`, `verify_url` |
 | **Seedance — Upload Asset** | Upload a video or audio file as a reference |
 | **Seedance — Reference Video** | Pick a video from your input folder and upload it |
 | **Seedance — Reference Audio** | Pick an audio from your input folder and upload it |
@@ -82,80 +82,64 @@ Wire the `task_id` output of any generation node into **Seedance — Extend Vide
 
 ## Real Human Video (ID Verification)
 
-ByteDance requires identity verification before generating videos with a real person's likeness. This is done once per person — after that you reuse a Group ID.
+ByteDance requires identity verification before generating videos with a real person's likeness. This is a one-time step per person — afterwards you reuse a Group ID.
 
 > **Rules:** One person per image. Group IDs are tied to the account that created them and cannot be shared across accounts.
 
 ### First time — getting verified
 
-**Step 1.** Build this workflow and run it:
+**Step 1.** Connect a portrait to **Create Human Asset** and run it with `existing_group_id` empty.
 
-```
-[Load Image]  ←  portrait photo (one person, clear face)
-     |
-[Seedance — Create Human Asset]
-  existing_group_id = (leave empty)
-```
+**Step 2.** A red panel appears inside the node with a **clickable "Open Verification Link" button**. Click it (or open the URL on your phone) and complete the liveness check within 30 seconds.
 
-**Step 2.** The node shows a verification link in its preview area:
-
-```
-⚠  VERIFICATION REQUIRED
-1. Copy the link below and open it on your phone:
-   https://verify.seedance.ai/...
-2. Complete the liveness check (under 30 seconds).
-3. Save your Group ID for future uploads:
-   grp_abc123xyz
-4. After verifying, use the asset_id output for generation:
-   Asset://def456
-```
-
-**Step 3.** Open the link, complete the camera check, done.
-
-**Step 4.** Copy and save the **Group ID** shown in the node — you'll need it next time.
+**Step 3.** Copy and save the **`group_id` output** shown in the node — you'll need it for every future run.
 
 ### Generate the video
 
-After verification, connect the `asset_id` output to **Reference Images**:
+Connect `asset_id` directly to the `human_asset_id` input of any generation node — no extra nodes needed:
 
 ```
+[Load Image]  ←  portrait photo
+     |
 [Create Human Asset]
-       | asset_id
-       ▼
-[Reference Images (9 slots)]
-       | reference_images
-       ▼
-[Seedance 2.0 — Standard]
-  prompt = "A person walking in a park @image1"
-       | video_url
-       ▼
-[Save Video]
+     | asset_id ──────────────────────────────┐
+     | group_id ← save this for next time     |
+                                              ▼
+                              [Seedance 2.0 — Standard]
+                                human_asset_id = (asset_id)
+                                prompt = "A young person walking @image1"
+                                     | video_url
+                                     ▼
+                              [Save Video]
 ```
+
+The `@image1` tag is added to your prompt automatically if you forget it.
+
+> **Show Text nodes** — connect `asset_id` or `group_id` to a **Seedance — Show Text** node to read and copy the values easily inside the graph.
 
 ### Next time — same person, no re-verification
 
-Paste the saved Group ID into `existing_group_id`. The node skips verification and gives you a ready-to-use `asset_id` immediately.
+Paste the saved Group ID into `existing_group_id`. The node skips verification and returns a ready-to-use `asset_id` immediately.
 
 ```
-[Load Image]  ←  new photo of the same person
+[Load Image]  ←  any photo of the same person
      |
-[Seedance — Create Human Asset]
+[Create Human Asset]
   existing_group_id = "grp_abc123xyz"   ← paste here
      | asset_id
-     ▼
-[Reference Images] → [Seedance 2.0 — Standard]
+     ▼ (connect to human_asset_id on the generation node)
 ```
 
 ### Two people in one video
 
-Run **Create Human Asset** separately for each person (each with their own Group ID), then connect both `asset_id` outputs to different image slots in **Reference Images**:
+Run **Create Human Asset** for each person, then connect both `asset_id` outputs to the generation node:
 
 ```
-[Person A asset_id] → image_1 ┐
-[Person B asset_id] → image_2 ┤ [Reference Images]
-                               ↓
-                    [Seedance 2.0 — Standard]
-                     prompt = "@image1 and @image2 together"
+[Person A — Create Human Asset]  asset_id → human_asset_id ┐
+[Person B — Create Human Asset]  asset_id → Reference Images (image_1)
+                                                            ↓
+                                             [Seedance 2.0 — Standard]
+                                              prompt = "@image1 and @image2 together"
 ```
 
 ---
@@ -172,6 +156,7 @@ Run **Create Human Asset** separately for each person (each with their own Group
 | `seed` | -1 = random, any other value = reproducible |
 | `first_frame` | Starting image → activates Image-to-Video |
 | `last_frame` | Ending image → guides how the clip resolves |
+| `human_asset_id` | Connect `asset_id` from **Create Human Asset** to generate ID-verified real human video (AnyFast only) |
 
 ---
 
