@@ -409,6 +409,22 @@ class _V2Base:
                  watermark, seed, first_frame=None, last_frame=None,
                  reference_images=None, reference_video=None, reference_audio=None):
 
+        # Seedance requires @image1, @video1, @audio1 tags in the prompt so the
+        # model knows how to use each reference. Auto-append any missing tags.
+        if reference_images:
+            for i in range(1, len(reference_images) + 1):
+                tag = f"@image{i}"
+                if tag not in prompt:
+                    prompt = prompt + f" {tag}"
+        if reference_video and reference_video.strip():
+            if "@video1" not in prompt:
+                prompt = prompt + " @video1"
+        if reference_audio and reference_audio.strip():
+            if "@audio1" not in prompt:
+                prompt = prompt + " @audio1"
+
+        print(f"[Seedance] Final prompt: {prompt}")
+
         content = [{"type": "text", "text": prompt}]
 
         if first_frame is not None:
