@@ -2,9 +2,15 @@ import os
 import time
 import base64
 import io
+import tempfile
 import requests
 import numpy as np
 from PIL import Image
+
+try:
+    import torch
+except ImportError:
+    torch = None
 
 import folder_paths
 
@@ -48,6 +54,56 @@ def _poll_v2(base_url, api_key, task_id, timeout=600, interval=5):
     raise TimeoutError(f"Seedance timed out after {timeout}s (task_id={task_id})")
 
 
+def _first_frame(video_url):
+    """Download video and extract its first frame as a ComfyUI IMAGE tensor (B,H,W,C float32).
+    Requires opencv-python. Falls back to a 64×64 black image on any failure."""
+    try:
+        import cv2
+    except ImportError:
+        print("[Seedance] opencv-python not installed — first_frame output will be blank. "
+              "Run: pip install opencv-python")
+        return _blank_frame()
+
+    tmp_path = None
+    try:
+        r = requests.get(video_url, timeout=120, stream=True)
+        r.raise_for_status()
+        with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tmp:
+            for chunk in r.iter_content(chunk_size=65536):
+                tmp.write(chunk)
+            tmp_path = tmp.name
+
+        cap = cv2.VideoCapture(tmp_path)
+        ok, frame = cap.read()
+        cap.release()
+
+        if not ok:
+            raise ValueError("cv2 could not read a frame from the video")
+
+        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        arr = rgb.astype(np.float32) / 255.0          # H, W, C
+        if torch is not None:
+            return torch.from_numpy(arr).unsqueeze(0)  # 1, H, W, C
+        return np.expand_dims(arr, 0)                  # fallback: numpy
+    except Exception as e:
+        print(f"[Seedance] first_frame extraction failed: {e}")
+        return _blank_frame()
+    finally:
+        if tmp_path:
+            try:
+                os.unlink(tmp_path)
+            except Exception:
+                pass
+
+
+def _blank_frame():
+    """Return a 1×64×64×3 black tensor as a placeholder first frame."""
+    arr = np.zeros((1, 64, 64, 3), dtype=np.float32)
+    if torch is not None:
+        return torch.from_numpy(arr)
+    return arr
+
+
 def _submit_and_poll(api, payload):
     base_url = api["base_url"].rstrip("/")
     api_key  = api["api_key"].strip()
@@ -67,7 +123,130 @@ def _submit_and_poll(api, payload):
     task_id = r.json()["id"]
     print(f"[Seedance] Job submitted — task_id={task_id}")
 
-    return _poll_v2(base_url, api_key, task_id), task_id
+    video_url = _poll_v2(base_url, api_key, task_id)
+    frame     = _first_frame(video_url)
+    return video_url, task_id, frame
+
+
+# --------------------------------------------------------------------------- #
+# fal.ai provider
+# --------------------------------------------------------------------------- #
+
+_FAL_BASE     = "https://fal.run"
+_FAL_QUEUE    = "https://queue.fal.run"
+_FAL_APP_BASE = "bytedance/seedance-2.0"
+
+# Maps our MODEL_ID → fal.ai endpoint path segment
+_FAL_VARIANT  = {
+    "seedance":        "",          # standard
+    "seedance-fast":   "fast/",     # fast
+    "seedance-2.0-ultra": "",       # no ultra on fal — falls back to standard
+}
+
+# Maps our ratio values → fal.ai aspect_ratio values
+_FAL_RATIO_MAP = {"adaptive": "auto"}
+
+
+def _fal_generate(api, params):
+    """Submit a generation job to fal.ai and return (video_url, task_id, first_frame).
+
+    Dispatches to the right fal.ai endpoint (T2V / I2V / R2V) based on params.
+    Images are sent as base64 data URIs; fal.ai accepts them for all image fields."""
+    api_key  = api["api_key"].strip()
+    if not api_key:
+        raise ValueError("API key is empty — paste your fal.ai key in the Seedance API Key node.")
+
+    headers = {
+        "Authorization": f"Key {api_key}",
+        "Content-Type":  "application/json",
+    }
+
+    model_id = params.get("model_id", "seedance")
+    variant  = _FAL_VARIANT.get(model_id, "")
+
+    # --- determine endpoint ---
+    first_frame     = params.get("first_frame")
+    last_frame      = params.get("last_frame")
+    ref_images      = params.get("reference_images") or []
+    ref_video       = (params.get("reference_video") or "").strip()
+    ref_audio       = (params.get("reference_audio") or "").strip()
+
+    has_references  = bool(ref_images or ref_video or ref_audio)
+    has_first_frame = first_frame is not None
+
+    if has_references:
+        endpoint = f"{variant}reference-to-video"
+    elif has_first_frame:
+        endpoint = f"{variant}image-to-video"
+    else:
+        endpoint = f"{variant}text-to-video"
+
+    app_id = f"{_FAL_APP_BASE}/{endpoint}"
+
+    # --- build payload ---
+    ratio      = _FAL_RATIO_MAP.get(params["ratio"], params["ratio"])
+    resolution = params["resolution"]   # fal.ai uses same strings: 480p / 720p
+    duration   = str(params["duration"])
+
+    payload = {
+        "prompt":         params["prompt"],
+        "resolution":     resolution,
+        "aspect_ratio":   ratio,
+        "duration":       duration,
+        "generate_audio": params["generate_audio"],
+    }
+    if params.get("seed", -1) != -1:
+        payload["seed"] = params["seed"]
+
+    # I2V: start / end frames
+    if has_first_frame:
+        payload["image_url"] = _tensor_to_b64(first_frame)
+    if last_frame is not None:
+        payload["end_image_url"] = _tensor_to_b64(last_frame)
+
+    # R2V: reference arrays
+    if ref_images:
+        payload["image_urls"] = [_tensor_to_b64(img) for img in ref_images]
+    if ref_video:
+        payload["video_urls"] = [ref_video]
+    if ref_audio:
+        payload["audio_urls"] = [ref_audio]
+
+    print(f"[Seedance/fal.ai] Submitting to {app_id}")
+
+    # Submit to async queue
+    r = requests.post(f"{_FAL_QUEUE}/{app_id}", json=payload, headers=headers, timeout=60)
+    if not r.ok:
+        raise RuntimeError(f"fal.ai submission error {r.status_code}: {r.text}")
+
+    task_id = r.json()["request_id"]
+    print(f"[Seedance/fal.ai] Job submitted — request_id={task_id}")
+
+    # Poll for completion
+    status_url = f"{_FAL_QUEUE}/fal-ai/queue/requests/{task_id}/status"
+    result_url = f"{_FAL_QUEUE}/fal-ai/queue/requests/{task_id}"
+    deadline   = time.time() + 600
+    time.sleep(3)
+
+    while time.time() < deadline:
+        r = requests.get(status_url, headers=headers, timeout=30)
+        r.raise_for_status()
+        status = r.json().get("status", "")
+        print(f"[Seedance/fal.ai] request_id={task_id}  status={status}")
+
+        if status == "COMPLETED":
+            r = requests.get(result_url, headers=headers, timeout=30)
+            r.raise_for_status()
+            video_url = r.json()["video"]["url"]
+            frame     = _first_frame(video_url)
+            return video_url, task_id, frame
+
+        if status in ("FAILED", "ERROR"):
+            raise RuntimeError(f"fal.ai generation failed: {r.json()}")
+
+        time.sleep(5)
+
+    raise TimeoutError(f"fal.ai timed out after 600s (request_id={task_id})")
 
 
 # --------------------------------------------------------------------------- #
@@ -86,8 +265,13 @@ def _extract_id(resp_json, *keys):
     raise RuntimeError(f"Cannot find ID in response (tried {keys}): {resp_json}")
 
 
-def _ensure_group(api, group_name):
-    """Create an asset group and return its ID."""
+def _ensure_group(api, group_name, existing_group_id=None):
+    """Return existing_group_id if provided, otherwise create a new asset group."""
+    if existing_group_id and existing_group_id.strip():
+        gid = existing_group_id.strip()
+        print(f"[Seedance Assets] Reusing group: {gid}")
+        return gid
+
     base_url = api["base_url"].rstrip("/")
     api_key  = api["api_key"].strip()
     headers  = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
@@ -104,7 +288,10 @@ def _ensure_group(api, group_name):
 
 
 def _upload_asset(api, asset_type, name, group_id, image_tensor=None, file_path=None):
-    """Upload an image tensor or a local file to Seedance Asset Management."""
+    """Upload an image tensor or a local file to Seedance Asset Management.
+
+    Returns (asset_uri, verify_url) where verify_url may be None if the API
+    does not require a liveness check for this upload."""
     base_url = api["base_url"].rstrip("/")
     api_key  = api["api_key"].strip()
     headers  = {"Authorization": f"Bearer {api_key}"}
@@ -140,8 +327,17 @@ def _upload_asset(api, asset_type, name, group_id, image_tensor=None, file_path=
     if not r.ok:
         raise RuntimeError(f"Asset upload failed {r.status_code}: {r.text}")
 
-    raw_id = _extract_id(r.json(), "AssetId", "asset_id", "id", "ID")
-    return f"Asset://{raw_id}"
+    resp = r.json()
+    raw_id     = _extract_id(resp, "AssetId", "asset_id", "id", "ID")
+    verify_url = (resp.get("VerifyUrl") or resp.get("verify_url") or
+                  resp.get("data", {}).get("VerifyUrl") or resp.get("data", {}).get("verify_url"))
+
+    if verify_url:
+        print(f"[Seedance Assets] *** IDENTITY VERIFICATION REQUIRED ***")
+        print(f"[Seedance Assets] Open this link on your phone or browser (< 30 s): {verify_url}")
+        print(f"[Seedance Assets] After completing the liveness check, save your Group ID: {group_id}")
+
+    return f"Asset://{raw_id}", verify_url
 
 
 # --------------------------------------------------------------------------- #
@@ -166,7 +362,9 @@ class SeedanceApiKey:
         return {
             "required": {
                 "api_key":  ("STRING", {"default": "", "multiline": False}),
-                "base_url": ("STRING", {"default": "https://www.anyfast.ai", "multiline": False}),
+                "provider": (["anyfast", "fal.ai"],),
+                "base_url": ("STRING", {"default": "https://www.anyfast.ai", "multiline": False,
+                                        "tooltip": "Only used for the 'anyfast' provider. Ignored for fal.ai."}),
             }
         }
 
@@ -174,8 +372,8 @@ class SeedanceApiKey:
     RETURN_NAMES = ("api",)
     FUNCTION = "configure"
 
-    def configure(self, api_key, base_url):
-        return ({"api_key": api_key, "base_url": base_url},)
+    def configure(self, api_key, provider, base_url):
+        return ({"api_key": api_key, "provider": provider, "base_url": base_url},)
 
 
 # --------------------------------------------------------------------------- #
@@ -259,7 +457,10 @@ def _list_files(extensions):
 
 class SeedanceReferenceVideo:
     """Pick a video from your local disk, upload it, and get an Asset:// ID
-    ready to wire into reference_video on any Seedance 2.0 generation node."""
+    ready to wire into reference_video on any Seedance 2.0 generation node.
+
+    Pass an existing_group_id to reuse a previously verified identity group
+    and avoid creating a new one each time."""
 
     CATEGORY = "Seedance"
 
@@ -272,30 +473,36 @@ class SeedanceReferenceVideo:
                 "video_file": (files,),
                 "name":       ("STRING", {"default": "ref_video"}),
                 "group_name": ("STRING", {"default": "comfyui-assets"}),
+            },
+            "optional": {
+                "existing_group_id": ("STRING", {"forceInput": True}),
             }
         }
 
-    RETURN_TYPES = ("STRING",)
-    RETURN_NAMES = ("reference_video",)
+    RETURN_TYPES = ("STRING", "STRING")
+    RETURN_NAMES = ("reference_video", "group_id")
     FUNCTION     = "upload"
 
     @classmethod
     def IS_CHANGED(cls, **kwargs):
         return kwargs.get("video_file", "")
 
-    def upload(self, api, video_file, name, group_name):
+    def upload(self, api, video_file, name, group_name, existing_group_id=None):
         if video_file == "none":
             raise ValueError("No video found — use the 'Choose Video' button to upload one.")
         file_path = os.path.join(folder_paths.get_input_directory(), video_file)
-        group_id  = _ensure_group(api, group_name)
-        asset_id  = _upload_asset(api, "Video", name, group_id, file_path=file_path)
-        print(f"[Seedance] Reference video uploaded: {asset_id}")
-        return (asset_id,)
+        group_id  = _ensure_group(api, group_name, existing_group_id)
+        asset_uri, _ = _upload_asset(api, "Video", name, group_id, file_path=file_path)
+        print(f"[Seedance] Reference video uploaded: {asset_uri}  group_id={group_id}")
+        return (asset_uri, group_id)
 
 
 class SeedanceReferenceAudio:
     """Pick an audio file from your local disk, upload it, and get an Asset:// ID
-    ready to wire into reference_audio on any Seedance 2.0 generation node."""
+    ready to wire into reference_audio on any Seedance 2.0 generation node.
+
+    Pass an existing_group_id to reuse a previously verified identity group
+    and avoid creating a new one each time."""
 
     CATEGORY = "Seedance"
 
@@ -308,25 +515,28 @@ class SeedanceReferenceAudio:
                 "audio_file": (files,),
                 "name":       ("STRING", {"default": "ref_audio"}),
                 "group_name": ("STRING", {"default": "comfyui-assets"}),
+            },
+            "optional": {
+                "existing_group_id": ("STRING", {"forceInput": True}),
             }
         }
 
-    RETURN_TYPES = ("STRING",)
-    RETURN_NAMES = ("reference_audio",)
+    RETURN_TYPES = ("STRING", "STRING")
+    RETURN_NAMES = ("reference_audio", "group_id")
     FUNCTION     = "upload"
 
     @classmethod
     def IS_CHANGED(cls, **kwargs):
         return kwargs.get("audio_file", "")
 
-    def upload(self, api, audio_file, name, group_name):
+    def upload(self, api, audio_file, name, group_name, existing_group_id=None):
         if audio_file == "none":
             raise ValueError("No audio found — use the 'Choose Audio' button to upload one.")
         file_path = os.path.join(folder_paths.get_input_directory(), audio_file)
-        group_id  = _ensure_group(api, group_name)
-        asset_id  = _upload_asset(api, "Audio", name, group_id, file_path=file_path)
-        print(f"[Seedance] Reference audio uploaded: {asset_id}")
-        return (asset_id,)
+        group_id  = _ensure_group(api, group_name, existing_group_id)
+        asset_uri, _ = _upload_asset(api, "Audio", name, group_id, file_path=file_path)
+        print(f"[Seedance] Reference audio uploaded: {asset_uri}  group_id={group_id}")
+        return (asset_uri, group_id)
 
 
 # --------------------------------------------------------------------------- #
@@ -336,9 +546,8 @@ class SeedanceReferenceAudio:
 class SeedanceUploadAsset:
     """Upload an image, video, or audio to Seedance Asset Management.
 
-    Returns an Asset:// ID to wire into reference_video or reference_audio
-    on any Seedance 2.0 generation node. An asset group is created
-    automatically — you don't need a separate Create Group node."""
+    Returns an Asset:// ID and the Group ID. Pass an existing_group_id to
+    reuse a previously verified identity group without creating a new one."""
 
     CATEGORY = "Seedance/Assets"
 
@@ -352,24 +561,83 @@ class SeedanceUploadAsset:
                 "group_name": ("STRING", {"default": "comfyui-assets"}),
             },
             "optional": {
-                "image":     ("IMAGE",),
-                "file_path": ("STRING", {"forceInput": True}),
+                "image":             ("IMAGE",),
+                "file_path":         ("STRING", {"forceInput": True}),
+                "existing_group_id": ("STRING", {"forceInput": True}),
             }
         }
 
-    RETURN_TYPES = ("STRING",)
-    RETURN_NAMES = ("asset_id",)
+    RETURN_TYPES = ("STRING", "STRING")
+    RETURN_NAMES = ("asset_id", "group_id")
     FUNCTION     = "upload"
 
-    def upload(self, api, asset_type, name, group_name, image=None, file_path=None):
+    def upload(self, api, asset_type, name, group_name, image=None, file_path=None, existing_group_id=None):
         if image is None and not (file_path and file_path.strip()):
             raise ValueError("Connect either an image or a file_path (for video/audio).")
 
-        group_id = _ensure_group(api, group_name)
-        asset_id = _upload_asset(api, asset_type, name, group_id,
-                                 image_tensor=image, file_path=file_path)
-        print(f"[Seedance Assets] Uploaded {asset_type}: {asset_id}")
-        return (asset_id,)
+        group_id  = _ensure_group(api, group_name, existing_group_id)
+        asset_uri, _ = _upload_asset(api, asset_type, name, group_id,
+                                     image_tensor=image, file_path=file_path)
+        print(f"[Seedance Assets] Uploaded {asset_type}: {asset_uri}  group_id={group_id}")
+        return (asset_uri, group_id)
+
+
+# --------------------------------------------------------------------------- #
+# Human Identity Asset node
+# — Streamlines the ID-verification workflow for real-human video generation
+# — First use: upload portrait → API may return a verification link (liveness
+#   check on phone/browser < 30 s) → save the output group_id for future runs
+# — Subsequent uses: pass the saved group_id via existing_group_id to skip
+#   re-verification; the API compares facial features automatically
+# --------------------------------------------------------------------------- #
+
+class SeedanceCreateHumanAsset:
+    """Upload a portrait image for identity-verified real human video generation.
+
+    First run: leave existing_group_id empty. If the API requires a liveness
+    check, the verification URL will appear in the ComfyUI console — open it
+    on your phone and complete it in under 30 seconds. Then **save the output
+    group_id** (wire it to a Primitive / Note node, or copy it).
+
+    Subsequent runs: paste the saved group_id into existing_group_id to reuse
+    your verified identity without going through the liveness check again.
+
+    Connect the output asset_id to reference_images on any generation node."""
+
+    CATEGORY = "Seedance"
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "api":        ("SEEDANCE_API",),
+                "image":      ("IMAGE",),
+                "name":       ("STRING", {"default": "portrait"}),
+                "group_name": ("STRING", {"default": "comfyui-human-assets"}),
+            },
+            "optional": {
+                "existing_group_id": ("STRING", {"default": "", "multiline": False,
+                                                  "tooltip": "Paste your saved Group ID here to skip re-verification"}),
+            }
+        }
+
+    RETURN_TYPES = ("STRING", "STRING")
+    RETURN_NAMES = ("asset_id", "group_id")
+    FUNCTION     = "upload"
+
+    def upload(self, api, image, name, group_name, existing_group_id=None):
+        eid = existing_group_id.strip() if existing_group_id else None
+        group_id  = _ensure_group(api, group_name, eid or None)
+        asset_uri, verify_url = _upload_asset(api, "Image", name, group_id, image_tensor=image)
+
+        if verify_url:
+            print(f"[Seedance Human] *** ACTION REQUIRED: complete identity verification ***")
+            print(f"[Seedance Human] URL: {verify_url}")
+        else:
+            print(f"[Seedance Human] Portrait uploaded (no verification needed): {asset_uri}")
+
+        print(f"[Seedance Human] Save this Group ID for future uploads: {group_id}")
+        return (asset_uri, group_id)
 
 
 # --------------------------------------------------------------------------- #
@@ -409,8 +677,8 @@ class _V2Base:
             }
         }
 
-    RETURN_TYPES = ("STRING", "STRING")
-    RETURN_NAMES = ("video_url", "task_id")
+    RETURN_TYPES = ("STRING", "STRING", "IMAGE")
+    RETURN_NAMES = ("video_url", "task_id", "first_frame")
     FUNCTION     = "generate"
     OUTPUT_NODE  = True
 
@@ -480,8 +748,27 @@ class _V2Base:
         if seed != -1:
             payload["seed"] = seed
 
-        url, task_id = _submit_and_poll(api, payload)
-        return (url, task_id)
+        provider = api.get("provider", "anyfast")
+
+        if provider == "fal.ai":
+            url, task_id, frame = _fal_generate(api, {
+                "model_id":        self.MODEL_ID,
+                "prompt":          prompt,   # already has @ tags
+                "resolution":      resolution,
+                "ratio":           ratio,
+                "duration":        duration,
+                "generate_audio":  generate_audio,
+                "seed":            seed,
+                "first_frame":     first_frame,
+                "last_frame":      last_frame,
+                "reference_images": reference_images,
+                "reference_video": reference_video or "",
+                "reference_audio": reference_audio or "",
+            })
+        else:
+            url, task_id, frame = _submit_and_poll(api, payload)
+
+        return (url, task_id, frame)
 
 
 class Seedance2(_V2Base):
@@ -500,6 +787,73 @@ class Seedance2Ultra(_V2Base):
     """Seedance 2.0 Ultra — Highest quality (720p / 1080p / 2K, up to 15s, with audio)."""
     RESOLUTIONS = RES_V2_ULTRA
     MODEL_ID    = "seedance-2.0-ultra"
+
+
+# --------------------------------------------------------------------------- #
+# Extend node — continue a previously generated video
+# Requires AnyFast to expose POST /v1/video/extend.  If the endpoint returns
+# a 404 / 405 error, the feature is not yet available on your AnyFast plan.
+# --------------------------------------------------------------------------- #
+
+class SeedanceExtend:
+    """Extend a previously generated Seedance video by submitting its task_id.
+
+    Wire the task_id output of any generation node here to seamlessly continue
+    the clip. Returns the extended video_url, the new task_id, and the first
+    frame of the extended video for further chaining."""
+
+    CATEGORY = "Seedance"
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "api":        ("SEEDANCE_API",),
+                "task_id":    ("STRING", {"forceInput": True}),
+                "prompt":     ("STRING", {"multiline": True, "default": ""}),
+                "duration":   ("INT",    {"default": 5, "min": 4, "max": MAX_DURATION, "step": 1}),
+                "resolution": (RES_V2,),
+            }
+        }
+
+    RETURN_TYPES = ("STRING", "STRING", "IMAGE")
+    RETURN_NAMES = ("video_url", "task_id", "first_frame")
+    FUNCTION     = "extend"
+    OUTPUT_NODE  = True
+
+    def extend(self, api, task_id, prompt, duration, resolution):
+        base_url = api["base_url"].rstrip("/")
+        api_key  = api["api_key"].strip()
+
+        if not api_key:
+            raise ValueError("API key is empty — paste your AnyFast key in the Seedance API Key node.")
+
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        }
+        payload = {
+            "model":      "seedance",
+            "request_id": task_id,
+            "prompt":     prompt,
+            "duration":   duration,
+            "resolution": resolution,
+        }
+        r = requests.post(f"{base_url}/v1/video/extend", json=payload,
+                          headers=headers, timeout=300)
+        if not r.ok:
+            raise RuntimeError(
+                f"Seedance Extend error {r.status_code}: {r.text}\n"
+                "If you see 404/405, the /v1/video/extend endpoint may not be "
+                "available on your AnyFast plan yet."
+            )
+
+        new_task_id = r.json()["id"]
+        print(f"[Seedance Extend] Job submitted — task_id={new_task_id}")
+
+        video_url = _poll_v2(base_url, api_key, new_task_id)
+        frame     = _first_frame(video_url)
+        return (video_url, new_task_id, frame)
 
 
 # --------------------------------------------------------------------------- #
@@ -555,12 +909,15 @@ NODE_CLASS_MAPPINGS = {
     "Seedance2Fast":       Seedance2Fast,
     "Seedance2Ultra":      Seedance2Ultra,
     # Assets
-    "SeedanceUploadAsset":    SeedanceUploadAsset,
-    "SeedanceReferenceVideo": SeedanceReferenceVideo,
-    "SeedanceReferenceAudio": SeedanceReferenceAudio,
+    "SeedanceCreateHumanAsset": SeedanceCreateHumanAsset,
+    "SeedanceUploadAsset":      SeedanceUploadAsset,
+    "SeedanceReferenceVideo":   SeedanceReferenceVideo,
+    "SeedanceReferenceAudio":   SeedanceReferenceAudio,
     # Utilities
     "SeedanceImageBatch":  SeedanceImageBatch,
     "SeedanceRefImages":   SeedanceRefImages,
+    # Extend
+    "SeedanceExtend":      SeedanceExtend,
     # Output
     "SeedanceSaveVideo":   SeedanceSaveVideo,
 }
@@ -573,12 +930,15 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "Seedance2Fast":       "Seedance 2.0 — Fast",
     "Seedance2Ultra":      "Seedance 2.0 — Ultra",
     # Assets
-    "SeedanceUploadAsset":    "Seedance — Upload Asset",
-    "SeedanceReferenceVideo": "Seedance — Reference Video",
-    "SeedanceReferenceAudio": "Seedance — Reference Audio",
+    "SeedanceCreateHumanAsset": "Seedance — Create Human Asset (ID Verified)",
+    "SeedanceUploadAsset":      "Seedance — Upload Asset",
+    "SeedanceReferenceVideo":   "Seedance — Reference Video",
+    "SeedanceReferenceAudio":   "Seedance — Reference Audio",
     # Utilities
     "SeedanceImageBatch":  "Seedance — Image Batch (References)",
     "SeedanceRefImages":   "Seedance — Reference Images (9 slots)",
+    # Extend
+    "SeedanceExtend":      "Seedance — Extend Video",
     # Output
     "SeedanceSaveVideo":   "Seedance — Save Video",
 }
