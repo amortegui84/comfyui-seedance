@@ -279,14 +279,6 @@ def _extract_verify_url(resp_json):
             resp_json.get("data", {}).get("verify_url"))
 
 
-def _looks_like_missing_group_error(message):
-    """Detect providers that require GroupId on CreateAsset."""
-    text = (message or "").lower()
-    group_terms = ("groupid", "group_id", "group id", "assetgroup", "asset group")
-    missing_terms = ("required", "missing", "invalid", "empty", "must")
-    return any(term in text for term in group_terms) and any(term in text for term in missing_terms)
-
-
 def _ensure_group(api, group_name, existing_group_id=None):
     """Return existing_group_id if provided, otherwise create a new asset group."""
     if existing_group_id and existing_group_id.strip():
@@ -664,12 +656,18 @@ class SeedanceCreateHumanAsset:
                     api, "Image", name, image_tensor=image
                 )
             except RuntimeError as e:
-                if not _looks_like_missing_group_error(str(e)):
-                    raise
+                original_error = str(e)
                 group_id = _ensure_group(api, group_name, None)
-                asset_uri, verify_url, resolved_group_id = _upload_asset(
-                    api, "Image", name, group_id, image_tensor=image
-                )
+                try:
+                    asset_uri, verify_url, resolved_group_id = _upload_asset(
+                        api, "Image", name, group_id, image_tensor=image
+                    )
+                except RuntimeError as retry_error:
+                    raise RuntimeError(
+                        "Human asset upload failed on both provider flows. "
+                        f"Direct CreateAsset error: {original_error} | "
+                        f"CreateAssetGroup+CreateAsset error: {retry_error}"
+                    ) from retry_error
                 group_id = resolved_group_id or group_id
 
         if not group_id:
