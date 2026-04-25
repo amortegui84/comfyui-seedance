@@ -155,38 +155,42 @@ Use **Reference Video** and **Reference Audio** loader nodes to upload files fro
 
 ### 6 — Identity-Verified Human Video
 
-> **What is this?**
-> ByteDance requires identity verification before generating videos with a real person's likeness. This is a one-time process per person. After verification, you reuse a saved **Group ID** — no further liveness checks needed.
+> **Legal requirement:** ByteDance requires a one-time identity verification before generating videos with a real person's likeness. After the first verification, you save a **Group ID** and reuse it — no further liveness checks are needed for that person.
+>
+> - One Group ID per person.
+> - A Group ID verified on one account **cannot** be used on another account.
+> - Each image/video used to create an asset must contain **only one person**.
 
 #### Step 1 — First-time verification
 
+Run this workflow once with `existing_group_id` left **empty**:
+
 ```
-[Seedance — API Key]  (provider = anyfast)
-      │ api
-      ▼
-[Load Image]  ← portrait photo of the person
+[Load Image]  ← portrait photo (one person only)
       │ image
       ▼
-[Seedance — Create Human Asset (ID Verified)]
-  name       = "my_portrait"
-  group_name = "comfyui-human-assets"
-  existing_group_id = (leave empty on first run)
-      │ asset_id         │ group_id
-      ▼                  ▼
-[use below]         ★ SAVE THIS ★  ← copy or wire to a Primitive/Note node
+[Seedance — Create Human Asset]
+  name              = "my_portrait"
+  group_name        = "comfyui-human-assets"
+  existing_group_id = (leave empty)
+      │                    │                    │
+   asset_id             group_id           verify_url
+      ▼                    ▼                    ▼
+[Show Text]          [Show Text]          [Show Text]
+ (copy later)       ★ SAVE THIS ★       open this link!
 ```
 
-After running, **check the ComfyUI console**. If the API requires verification:
+The `verify_url` output contains a Seedance verification link. **Connect it to a "Show Text" node**, then:
 
-```
-[Seedance Assets] *** IDENTITY VERIFICATION REQUIRED ***
-[Seedance Assets] Open this link on your phone or browser (< 30 s): https://...
-[Seedance Assets] After completing the liveness check, save your Group ID: grp_abc123
-```
+1. Click the URL shown in the "Show Text" node
+2. Complete the **camera liveness check** on your phone or browser (under 30 seconds)
+3. Copy the **Group ID** from its "Show Text" node and save it somewhere safe
 
-Open the link, follow the on-screen liveness check (takes under 30 seconds), then **save your Group ID** — you will need it for all future uploads of this person.
+> "Show Text" is available in many custom node packs (e.g. rgthree, ComfyUI-Custom-Scripts). Any node that displays a STRING value works.
 
 #### Step 2 — Generate the video
+
+After completing the liveness check, wire the `asset_id` to the generation node:
 
 ```
 [Create Human Asset]
@@ -197,34 +201,44 @@ Open the link, follow the on-screen liveness check (takes under 30 seconds), the
       ▼
 [Seedance 2.0 — Standard]
   prompt = "A person giving a speech @image1"
+      │ video_url
+      ▼
+[Save Video]
 ```
 
-#### Step 3 — Subsequent runs (no re-verification)
+#### Step 3 — Subsequent runs (same person, no re-verification)
+
+Paste the saved Group ID into `existing_group_id`. The `verify_url` output will be empty — the API uses facial comparison against the original verified identity automatically.
 
 ```
-[Create Human Asset]
+[Load Image]  ← new photo of the same person
+      │ image
+      ▼
+[Seedance — Create Human Asset]
   existing_group_id = "grp_abc123"   ← paste your saved Group ID
-      │ asset_id
+      │ asset_id          │ group_id     │ verify_url (empty — no action needed)
       ▼
 [Reference Images] → [Seedance 2.0 — Standard]
 ```
 
-The API automatically compares the new portrait against the original verified identity — no new liveness check required.
-
 #### Multiple people in one video
 
-Each person has their own `group_id`. Upload each portrait separately, then wire both `asset_id` outputs to different slots on **Reference Images (9 slots)**:
+Each person needs their own verified Group ID. Upload portraits separately, then connect both `asset_id` outputs to different image slots:
 
 ```
-[Create Human Asset — Person A]  existing_group_id = "grp_aaa"
-      │ asset_id ──────────────────────────────────────────────► image_1
-                                                                     │
-[Create Human Asset — Person B]  existing_group_id = "grp_bbb"      │
-      │ asset_id ──────────────────────────────────────────────► image_2
-                                                               [Reference Images]
-                                                                     │
-                                                         [Seedance 2.0 — Standard]
-                                                    prompt = "@image1 and @image2 in a park"
+[Load Image A]                             [Load Image B]
+      │                                          │
+[Create Human Asset]                     [Create Human Asset]
+  existing_group_id = "grp_aaa"            existing_group_id = "grp_bbb"
+      │ asset_id                                 │ asset_id
+      ▼                                          ▼
+                   [Reference Images (9 slots)]
+                    image_1 = Person A asset_id
+                    image_2 = Person B asset_id
+                         │ reference_images
+                         ▼
+              [Seedance 2.0 — Standard]
+               prompt = "@image1 and @image2 meeting in a café"
 ```
 
 ---
@@ -314,10 +328,13 @@ Upload a portrait for identity-verified real human video generation.
 | `group_name` | string | `comfyui-human-assets` | Asset group name |
 | `existing_group_id` | STRING | `""` | Paste a previously saved Group ID to skip re-verification |
 
-**Outputs:** `asset_id` (STRING), `group_id` (STRING)
+**Outputs:** `asset_id` (STRING), `group_id` (STRING), `verify_url` (STRING)
 
-- `asset_id` → wire to **Reference Images** node
-- `group_id` → **save this value**. On future runs, paste it into `existing_group_id` to skip the liveness check
+| Output | What to do with it |
+|---|---|
+| `asset_id` | Wire to **Reference Images (9 slots)** → then to a generation node |
+| `group_id` | Connect to a **Show Text** node and **save the value** for future runs |
+| `verify_url` | Connect to a **Show Text** node — click the link and complete the liveness check (first run only; empty on reuse) |
 
 ---
 

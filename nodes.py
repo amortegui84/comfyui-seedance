@@ -594,15 +594,19 @@ class SeedanceUploadAsset:
 class SeedanceCreateHumanAsset:
     """Upload a portrait image for identity-verified real human video generation.
 
-    First run: leave existing_group_id empty. If the API requires a liveness
-    check, the verification URL will appear in the ComfyUI console — open it
-    on your phone and complete it in under 30 seconds. Then **save the output
-    group_id** (wire it to a Primitive / Note node, or copy it).
+    WORKFLOW — FIRST RUN:
+      1. Connect portrait → run this node.
+      2. Wire verify_url to a "Show Text" node and open the link on your phone.
+      3. Complete the liveness check (< 30 s).
+      4. Wire group_id to a "Show Text" / Primitive node and SAVE that value.
+      5. Now wire asset_id → Reference Images → generation node and generate.
 
-    Subsequent runs: paste the saved group_id into existing_group_id to reuse
-    your verified identity without going through the liveness check again.
+    SUBSEQUENT RUNS (same person):
+      Paste the saved group_id into existing_group_id → verify_url will be
+      empty (no re-verification needed) and asset_id is ready to use directly.
 
-    Connect the output asset_id to reference_images on any generation node."""
+    IMPORTANT: One group_id per person. Each account's group IDs cannot be
+    used by other accounts."""
 
     CATEGORY = "Seedance"
 
@@ -617,12 +621,12 @@ class SeedanceCreateHumanAsset:
             },
             "optional": {
                 "existing_group_id": ("STRING", {"default": "", "multiline": False,
-                                                  "tooltip": "Paste your saved Group ID here to skip re-verification"}),
+                                                  "tooltip": "Paste your saved Group ID to skip re-verification"}),
             }
         }
 
-    RETURN_TYPES = ("STRING", "STRING")
-    RETURN_NAMES = ("asset_id", "group_id")
+    RETURN_TYPES = ("STRING", "STRING", "STRING")
+    RETURN_NAMES = ("asset_id", "group_id", "verify_url")
     FUNCTION     = "upload"
 
     def upload(self, api, image, name, group_name, existing_group_id=None):
@@ -631,13 +635,14 @@ class SeedanceCreateHumanAsset:
         asset_uri, verify_url = _upload_asset(api, "Image", name, group_id, image_tensor=image)
 
         if verify_url:
-            print(f"[Seedance Human] *** ACTION REQUIRED: complete identity verification ***")
-            print(f"[Seedance Human] URL: {verify_url}")
+            print(f"[Seedance Human] *** VERIFICATION REQUIRED — open this link on your phone: {verify_url}")
+            print(f"[Seedance Human] Group ID (save this): {group_id}")
+            print(f"[Seedance Human] Asset ID (use after verification): {asset_uri}")
         else:
-            print(f"[Seedance Human] Portrait uploaded (no verification needed): {asset_uri}")
+            print(f"[Seedance Human] Portrait uploaded — no verification needed.")
+            print(f"[Seedance Human] asset_id={asset_uri}  group_id={group_id}")
 
-        print(f"[Seedance Human] Save this Group ID for future uploads: {group_id}")
-        return (asset_uri, group_id)
+        return (asset_uri, group_id, verify_url or "")
 
 
 # --------------------------------------------------------------------------- #
