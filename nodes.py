@@ -109,8 +109,14 @@ def _upload_asset(api, asset_type, name, group_id, image_tensor=None, file_path=
     api_key  = api["api_key"].strip()
     headers  = {"Authorization": f"Bearer {api_key}"}
 
-    model_map = {"Image": "volc-asset",       "Video": "volc-asset-video", "Audio": "volc-asset-audio"}
-    mime_map  = {"Image": "image/png",         "Video": "video/mp4",        "Audio": "audio/mpeg"}
+    model_map = {"Image": "volc-asset", "Video": "volc-asset-video", "Audio": "volc-asset-audio"}
+    mime_map  = {"Image": "image/png",  "Video": "video/mp4",       "Audio": "audio/mpeg"}
+
+    audio_mime = {".mp3": "audio/mpeg", ".wav": "audio/wav", ".ogg": "audio/ogg",
+                  ".flac": "audio/flac", ".m4a": "audio/mp4"}
+    if asset_type == "Audio" and file_path:
+        ext = os.path.splitext(file_path)[1].lower()
+        mime_map["Audio"] = audio_mime.get(ext, "audio/mpeg")
 
     if image_tensor is not None:
         img_np     = (image_tensor[0].numpy() * 255).clip(0, 255).astype(np.uint8)
@@ -240,12 +246,15 @@ class SeedanceRefImages:
 
 def _list_files(extensions):
     """Return files found in ComfyUI input directory with given extensions."""
-    input_dir = folder_paths.get_input_directory()
-    files = []
-    for f in sorted(os.listdir(input_dir)):
-        if os.path.splitext(f)[1].lower() in extensions:
-            files.append(f)
-    return files if files else ["none"]
+    try:
+        input_dir = folder_paths.get_input_directory()
+        files = [
+            f for f in sorted(os.listdir(input_dir))
+            if os.path.splitext(f)[1].lower() in extensions
+        ]
+        return files if files else ["none"]
+    except Exception:
+        return ["none"]
 
 
 class SeedanceReferenceVideo:
@@ -271,8 +280,8 @@ class SeedanceReferenceVideo:
     FUNCTION     = "upload"
 
     @classmethod
-    def IS_CHANGED(cls, api, video_file, name, group_name):
-        return video_file
+    def IS_CHANGED(cls, **kwargs):
+        return kwargs.get("video_file", "")
 
     def upload(self, api, video_file, name, group_name):
         if video_file == "none":
@@ -307,8 +316,8 @@ class SeedanceReferenceAudio:
     FUNCTION     = "upload"
 
     @classmethod
-    def IS_CHANGED(cls, api, audio_file, name, group_name):
-        return audio_file
+    def IS_CHANGED(cls, **kwargs):
+        return kwargs.get("audio_file", "")
 
     def upload(self, api, audio_file, name, group_name):
         if audio_file == "none":
