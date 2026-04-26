@@ -137,9 +137,37 @@ For portrait upload without the official node, use **Seedance AM - Create Human 
 | `04_anyfast_reference_images.json` | AnyFast | Reference images using the dedicated AnyFast upload node |
 | `05_fal_image_to_video.json` | fal.ai | Image-to-video with direct first_frame connector |
 | `06_fal_reference_images.json` | fal.ai | Reference images using SeedanceRefImages |
-| `02_generate_with_existing_real_human_id.json` | AnyFast | Generate with a saved verified `asset_id` |
+| `07_anyfast_human_id_with_ref_images.json` | AnyFast | **Human ID + reference images in the same generation** |
+| `02_generate_with_existing_real_human_id.json` | AnyFast | Generate with a saved verified `asset_id` (ID only, no extra refs) |
 | `seedance_manual_asset_generation_workflow.json` | AnyFast | Paste an `asset_id` manually and generate |
 | `seedance_hybrid_official_id_our_generation.json` | AnyFast | Official ByteDance ID creation + Seedance AM generation |
+
+## Human ID + Reference Images (AnyFast)
+
+You can combine a verified human identity asset with additional style/context reference images in the same generation.
+
+**Workflow:** `07_anyfast_human_id_with_ref_images.json`
+
+```
+SeedanceApiKey ─┬─→ SeedanceAnyfastImageUpload (ref_image_1..9)
+                │         ↓ anyfast_refs
+                └─→ Seedance2 ─→ SeedanceSaveVideo
+SeedanceIdentityInput → asset_id → human_asset_id → Seedance2
+```
+
+**How it works:**
+- `human_asset_id` is always placed first in the payload (`@image1`)
+- Reference images from `anyfast_refs` follow (`@image2`, `@image3`, …)
+- Tags are auto-appended if missing from the prompt
+
+**Prompt example:**
+```
+A cinematic video of the person from @image1 with the visual style of @image2, natural motion.
+```
+
+**Notes:**
+- `first_frame` / `last_frame` / `reference_images` inputs on Seedance2 should stay **disconnected** when using `anyfast_refs`
+- The `asset_id` from `ByteDanceCreateImageAsset` (official node) or **Seedance AM - Create Human Asset** can be pasted directly into `SeedanceIdentityInput` — the `Asset://` prefix is added automatically if missing
 
 ## Video Output
 

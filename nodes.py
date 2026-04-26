@@ -1058,6 +1058,22 @@ class _V2Base:
 
             content = [{"type": "text", "text": prompt}]
 
+            # Human asset ID is always added first, regardless of image path.
+            # Normalize to Asset:// — the official ByteDance node returns a raw ID
+            # without the protocol prefix; other paths may return asset:// (lowercase).
+            if human_asset_id and human_asset_id.strip():
+                hid = human_asset_id.strip()
+                if not hid.lower().startswith("asset://"):
+                    hid = f"Asset://{hid}"
+                elif hid.startswith("asset://"):
+                    hid = "Asset://" + hid[len("asset://"):]
+                content.append({
+                    "type":      "image_url",
+                    "image_url": {"url": hid},
+                    "role":      "reference_image",
+                })
+                print(f"[Seedance/AnyFast] Human asset: {hid}")
+
             if anyfast_refs:
                 # Pre-uploaded path — use Asset:// URIs from SeedanceAnyfastImageUpload directly.
                 # first_frame / last_frame / reference_images inputs are ignored when this is wired.
@@ -1095,12 +1111,6 @@ class _V2Base:
                         "type":      "image_url",
                         "image_url": {"url": _resolve_anyfast_image_ref(last_frame, "last_frame", 1)},
                         "role":      "last_frame",
-                    })
-                if human_asset_id and human_asset_id.strip():
-                    content.append({
-                        "type":      "image_url",
-                        "image_url": {"url": human_asset_id.strip()},
-                        "role":      "reference_image",
                     })
                 if reference_images is not None:
                     for idx, img_tensor in enumerate(reference_images, start=1):
