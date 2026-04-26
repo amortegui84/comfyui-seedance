@@ -256,9 +256,7 @@
         {
           "name": "video_url",
           "type": "STRING",
-          "links": [
-            7
-          ]
+          "links": null
         },
         {
           "name": "task_id",
@@ -285,35 +283,6 @@
       ]
     },
     {
-      "id": 7,
-      "type": "SeedanceSaveVideo",
-      "pos": [
-        1060,
-        760
-      ],
-      "size": [
-        320,
-        120
-      ],
-      "flags": {},
-      "order": 4,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "video_url",
-          "type": "STRING",
-          "link": 7
-        }
-      ],
-      "outputs": [],
-      "properties": {
-        "Node name for S&R": "SeedanceSaveVideo"
-      },
-      "widgets_values": [
-        "seedance_real_human"
-      ]
-    },
-    {
       "id": 8,
       "type": "MarkdownNote",
       "pos": [
@@ -325,13 +294,13 @@
         290
       ],
       "flags": {},
-      "order": 7,
+      "order": 4,
       "mode": 0,
       "inputs": [],
       "outputs": [],
       "properties": {},
       "widgets_values": [
-        "### Workflow order\n1. Leave `existing_group_id` empty in `SeedanceCreateHumanAsset`\n2. Queue only that node first\n3. Complete **Start Verification** inside the node\n4. Queue the same node again to get the final `asset_id`\n5. Save the `group_id`\n6. Then queue `Seedance2` to generate the video\n\n### Important\n- The verification button/link appears in `SeedanceCreateHumanAsset`\n- `SeedanceShowText` is only for reading `asset_id` and `group_id`\n- Real-human verification works with `AnyFast`, not `fal.ai`"
+        "### Workflow order\n1. Leave `existing_group_id` empty in `SeedanceCreateHumanAsset`\n2. Queue only that node first\n3. Complete **Start Verification** inside the node\n4. Queue the same node again to get the final `asset_id`\n5. Save the `group_id`\n6. Then queue `Seedance2` to generate the video\n\n### Important\n- The verification button/link appears in `SeedanceCreateHumanAsset`\n- `SeedanceShowText` is only for reading `asset_id` and `group_id`\n- Real-human verification works with `AnyFast`, not `fal.ai`\n- For preview, use your preferred common video loader/preview node after generation"
       ]
     }
   ],
@@ -381,14 +350,6 @@
       3,
       1,
       5,
-      0,
-      "STRING"
-    ],
-    [
-      7,
-      6,
-      0,
-      7,
       0,
       "STRING"
     ]

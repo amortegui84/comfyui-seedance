@@ -2,7 +2,7 @@
   "id": "4c7ed650-bfdb-4e70-b776-2d7c612db0d3",
   "revision": 0,
   "last_node_id": 4,
-  "last_link_id": 3,
+  "last_link_id": 2,
   "nodes": [
     {
       "id": 1,
@@ -141,9 +141,7 @@
         {
           "name": "video_url",
           "type": "STRING",
-          "links": [
-            3
-          ]
+          "links": null
         },
         {
           "name": "task_id",
@@ -171,31 +169,23 @@
     },
     {
       "id": 4,
-      "type": "SeedanceSaveVideo",
+      "type": "MarkdownNote",
       "pos": [
         1130,
-        300
+        260
       ],
       "size": [
-        320,
-        120
+        360,
+        140
       ],
       "flags": {},
       "order": 3,
       "mode": 0,
-      "inputs": [
-        {
-          "name": "video_url",
-          "type": "STRING",
-          "link": 3
-        }
-      ],
+      "inputs": [],
       "outputs": [],
-      "properties": {
-        "Node name for S&R": "SeedanceSaveVideo"
-      },
+      "properties": {},
       "widgets_values": [
-        "seedance_manual_asset"
+        "### Manual asset generation\nPaste a verified `asset_id`, run `Seedance2`, then preview the result with your preferred common video loader/preview node. This workflow avoids the legacy downloader node."
       ]
     }
   ],
@@ -214,14 +204,6 @@
       0,
       3,
       6,
-      "STRING"
-    ],
-    [
-      3,
-      3,
-      0,
-      4,
-      0,
       "STRING"
     ]
   ],

@@ -225,9 +225,7 @@
         {
           "name": "video_url",
           "type": "STRING",
-          "links": [
-            3
-          ]
+          "links": null
         },
         {
           "name": "task_id",
@@ -254,35 +252,6 @@
       ]
     },
     {
-      "id": 6,
-      "type": "SeedanceSaveVideo",
-      "pos": [
-        1590,
-        420
-      ],
-      "size": [
-        320,
-        120
-      ],
-      "flags": {},
-      "order": 5,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "video_url",
-          "type": "STRING",
-          "link": 3
-        }
-      ],
-      "outputs": [],
-      "properties": {
-        "Node name for S&R": "SeedanceSaveVideo"
-      },
-      "widgets_values": [
-        "seedance_hybrid_real_human"
-      ]
-    },
-    {
       "id": 7,
       "type": "MarkdownNote",
       "pos": [
@@ -294,13 +263,13 @@
         240
       ],
       "flags": {},
-      "order": 6,
+      "order": 5,
       "mode": 0,
       "inputs": [],
       "outputs": [],
       "properties": {},
       "widgets_values": [
-        "### Hybrid workflow\n- `ByteDanceCreateImageAsset` handles the official ComfyUI real-human verification flow\n- `Seedance AM - Identity Input` keeps `asset_id` and `group_id` together in one place\n- `Seedance2` handles video generation through your custom node pack\n- If you are verifying for the first time, run the asset node first and complete the official link flow before expecting generation to work"
+        "### Hybrid workflow\n- `ByteDanceCreateImageAsset` handles the official ComfyUI real-human verification flow\n- `Seedance AM - Identity Input` keeps `asset_id` and `group_id` together in one place\n- `Seedance2` handles video generation through your custom node pack\n- If you are verifying for the first time, run the asset node first and complete the official link flow before expecting generation to work\n- For preview, use your preferred common video loader/preview node after generation"
       ]
     }
   ],
@@ -321,14 +290,7 @@
       6,
       "STRING"
     ],
-    [
-      3,
-      5,
-      0,
-      6,
-      0,
-      "STRING"
-    ],
+    
     [
       4,
       1,

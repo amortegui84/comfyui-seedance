@@ -1,8 +1,8 @@
 {
   "id": "560c8540-32ee-4b84-9239-1b7f70dd00b4",
   "revision": 0,
-  "last_node_id": 5,
-  "last_link_id": 3,
+  "last_node_id": 4,
+  "last_link_id": 2,
   "nodes": [
     {
       "id": 1,
@@ -140,9 +140,7 @@
         {
           "name": "video_url",
           "type": "STRING",
-          "links": [
-            3
-          ]
+          "links": null
         },
         {
           "name": "task_id",
@@ -170,35 +168,6 @@
     },
     {
       "id": 4,
-      "type": "SeedanceSaveVideo",
-      "pos": [
-        1160,
-        340
-      ],
-      "size": [
-        320,
-        120
-      ],
-      "flags": {},
-      "order": 3,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "video_url",
-          "type": "STRING",
-          "link": 3
-        }
-      ],
-      "outputs": [],
-      "properties": {
-        "Node name for S&R": "SeedanceSaveVideo"
-      },
-      "widgets_values": [
-        "seedance_real_human"
-      ]
-    },
-    {
-      "id": 5,
       "type": "MarkdownNote",
       "pos": [
         60,
@@ -206,16 +175,16 @@
       ],
       "size": [
         1420,
-        90
+        120
       ],
       "flags": {},
-      "order": 4,
+      "order": 3,
       "mode": 0,
       "inputs": [],
       "outputs": [],
       "properties": {},
       "widgets_values": [
-        "### 02 Generate With Existing Real Human ID\nPaste a verified `asset_id` into `Seedance AM - Identity Input`, then run the workflow. `group_id` is optional here and is mainly for organization."
+        "### 02 Generate With Existing Real Human ID\nPaste a verified `asset_id` into `Seedance AM - Identity Input`, then run the workflow. `group_id` is optional here and is mainly for organization.\n\nFor preview, use your preferred common video loader/preview node after generation. This workflow intentionally avoids the legacy downloader node."
       ]
     }
   ],
@@ -234,14 +203,6 @@
       0,
       3,
       6,
-      "STRING"
-    ],
-    [
-      3,
-      3,
-      0,
-      4,
-      0,
       "STRING"
     ]
   ],
