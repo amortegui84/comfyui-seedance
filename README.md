@@ -65,6 +65,7 @@ For text-to-video, leave image inputs disconnected. For image-to-video, connect 
 ## Provider Behavior
 
 - `anyfast` uses the `base_url` field, normally `https://www.anyfast.ai`
+- for `anyfast`, image inputs are uploaded as temporary assets internally before generation
 - `fal.ai` always uses `https://fal.run` internally
 - `fal.ai` API keys come from `https://fal.ai/dashboard`
 - if the `base_url` widget does not visibly refresh in the UI, runtime still normalizes it correctly for `fal.ai`

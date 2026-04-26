@@ -378,6 +378,18 @@ def _upload_asset(api, asset_type, name, group_id=None, image_tensor=None, file_
     return f"Asset://{raw_id}", verify_url, resolved_group_id
 
 
+def _anyfast_runtime_image_asset(api, image_tensor, name, group_id=None):
+    """Upload an in-memory IMAGE tensor as an AnyFast image asset and return its Asset:// URI."""
+    asset_uri, _, resolved_group_id = _upload_asset(
+        api,
+        "Image",
+        name,
+        group_id=group_id,
+        image_tensor=image_tensor,
+    )
+    return asset_uri, resolved_group_id
+
+
 # --------------------------------------------------------------------------- #
 # Constants
 # --------------------------------------------------------------------------- #
@@ -855,60 +867,6 @@ class _V2Base:
             if "@audio1" not in prompt:
                 prompt = prompt + " @audio1"
 
-        print(f"[Seedance] Final prompt: {prompt}")
-
-        content = [{"type": "text", "text": prompt}]
-
-        if first_frame is not None:
-            content.append({
-                "type":      "image_url",
-                "image_url": {"url": _tensor_to_b64(first_frame)},
-                "role":      "first_frame",
-            })
-        if last_frame is not None:
-            content.append({
-                "type":      "image_url",
-                "image_url": {"url": _tensor_to_b64(last_frame)},
-                "role":      "last_frame",
-            })
-        if human_asset_id and human_asset_id.strip():
-            content.append({
-                "type":      "image_url",
-                "image_url": {"url": human_asset_id.strip()},
-                "role":      "reference_image",
-            })
-        if reference_images is not None:
-            for img_tensor in reference_images:
-                content.append({
-                    "type":      "image_url",
-                    "image_url": {"url": _tensor_to_b64(img_tensor)},
-                    "role":      "reference_image",
-                })
-        if reference_video and reference_video.strip():
-            content.append({
-                "type":      "video_url",
-                "video_url": {"url": reference_video.strip()},
-                "role":      "reference_video",
-            })
-        if reference_audio and reference_audio.strip():
-            content.append({
-                "type":      "audio_url",
-                "audio_url": {"url": reference_audio.strip()},
-                "role":      "reference_audio",
-            })
-
-        payload = {
-            "model":          self.MODEL_ID,
-            "content":        content,
-            "resolution":     resolution,
-            "ratio":          ratio,
-            "duration":       duration,
-            "generate_audio": generate_audio,
-            "watermark":      watermark,
-        }
-        if seed != -1:
-            payload["seed"] = seed
-
         provider = api.get("provider", "anyfast")
 
         if provider == "fal.ai":
@@ -928,6 +886,77 @@ class _V2Base:
                 # human_asset_id uses Asset:// URIs — not supported on fal.ai; ignored
             })
         else:
+            print(f"[Seedance] Final prompt: {prompt}")
+
+            runtime_group_id = None
+
+            def _resolve_anyfast_image_ref(img_tensor, role_name, index):
+                nonlocal runtime_group_id
+                runtime_group_id = runtime_group_id or _ensure_group(
+                    api,
+                    f"seedance-runtime-{int(time.time())}",
+                    None,
+                )
+                asset_uri, runtime_group_id = _anyfast_runtime_image_asset(
+                    api,
+                    img_tensor,
+                    f"{role_name}_{index}",
+                    runtime_group_id,
+                )
+                return asset_uri
+
+            content = [{"type": "text", "text": prompt}]
+
+            if first_frame is not None:
+                content.append({
+                    "type":      "image_url",
+                    "image_url": {"url": _resolve_anyfast_image_ref(first_frame, "first_frame", 1)},
+                    "role":      "first_frame",
+                })
+            if last_frame is not None:
+                content.append({
+                    "type":      "image_url",
+                    "image_url": {"url": _resolve_anyfast_image_ref(last_frame, "last_frame", 1)},
+                    "role":      "last_frame",
+                })
+            if human_asset_id and human_asset_id.strip():
+                content.append({
+                    "type":      "image_url",
+                    "image_url": {"url": human_asset_id.strip()},
+                    "role":      "reference_image",
+                })
+            if reference_images is not None:
+                for idx, img_tensor in enumerate(reference_images, start=1):
+                    content.append({
+                        "type":      "image_url",
+                        "image_url": {"url": _resolve_anyfast_image_ref(img_tensor, "reference_image", idx)},
+                        "role":      "reference_image",
+                    })
+            if reference_video and reference_video.strip():
+                content.append({
+                    "type":      "video_url",
+                    "video_url": {"url": reference_video.strip()},
+                    "role":      "reference_video",
+                })
+            if reference_audio and reference_audio.strip():
+                content.append({
+                    "type":      "audio_url",
+                    "audio_url": {"url": reference_audio.strip()},
+                    "role":      "reference_audio",
+                })
+
+            payload = {
+                "model":          self.MODEL_ID,
+                "content":        content,
+                "resolution":     resolution,
+                "ratio":          ratio,
+                "duration":       duration,
+                "generate_audio": generate_audio,
+                "watermark":      watermark,
+            }
+            if seed != -1:
+                payload["seed"] = seed
+
             url, task_id, frame = _submit_and_poll(api, payload)
 
         return (url, task_id, frame)
