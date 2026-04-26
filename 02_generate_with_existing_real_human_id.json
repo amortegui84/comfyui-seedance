@@ -6,7 +6,7 @@
   "nodes": [
     {
       "id": 1,
-      "type": "SeedanceApiKeyV2",
+      "type": "SeedanceApiKey",
       "pos": [
         70,
         140
@@ -29,7 +29,7 @@
         }
       ],
       "properties": {
-        "Node name for S&R": "SeedanceApiKeyV2"
+        "Node name for S&R": "SeedanceApiKey"
       },
       "widgets_values": [
         "",

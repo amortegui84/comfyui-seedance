@@ -393,7 +393,7 @@ MAX_DURATION = 15
 # --------------------------------------------------------------------------- #
 
 class SeedanceApiKey:
-    CATEGORY = "Seedance AM/Legacy"
+    CATEGORY = "Seedance AM/Core"
 
     @classmethod
     def INPUT_TYPES(cls):
@@ -411,11 +411,12 @@ class SeedanceApiKey:
     FUNCTION = "configure"
 
     def configure(self, api_key, provider, base_url):
-        return ({"api_key": api_key, "provider": provider, "base_url": base_url},)
+        normalized_base = "https://fal.run" if provider == "fal.ai" else (base_url or "https://www.anyfast.ai")
+        return ({"api_key": api_key, "provider": provider, "base_url": normalized_base},)
 
 
 class SeedanceApiKeyV2:
-    CATEGORY = "Seedance AM/Core"
+    CATEGORY = "Seedance AM/_Compatibility"
 
     @classmethod
     def INPUT_TYPES(cls):
@@ -1183,8 +1184,8 @@ NODE_CLASS_MAPPINGS = {
 
 NODE_DISPLAY_NAME_MAPPINGS = {
     # Config
-    "SeedanceApiKey":      "Seedance AM - API Key (Legacy)",
-    "SeedanceApiKeyV2":    "Seedance AM - API Key V2",
+    "SeedanceApiKey":      "Seedance AM - API Key",
+    "SeedanceApiKeyV2":    "Seedance AM - API Key V2 (Compatibility)",
     # 2.0 generation
     "Seedance2":           "Seedance AM 2.0 - Standard",
     "Seedance2Fast":       "Seedance AM 2.0 - Fast",

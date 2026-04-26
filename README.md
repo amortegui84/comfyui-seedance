@@ -2,12 +2,13 @@
 
 Generate AI videos with [ByteDance Seedance 2.0](https://seedance2.ai) directly inside ComfyUI. This `Seedance AM` pack supports text-to-video, image-to-video, reference images, reference audio/video uploads, real-human asset verification, and video saving.
 
-Works with `AnyFast` and `fal.ai`. Use `Seedance AM - API Key V2` for new workflows.
+Works with `AnyFast` and `fal.ai`. Use `Seedance AM - API Key` for normal workflows.
 
-The `Seedance AM - API Key V2` node auto-switches `base_url` to match the selected provider:
+Provider behavior:
 
-- `anyfast` -> `https://www.anyfast.ai`
-- `fal.ai` -> `https://fal.run`
+- `anyfast` uses the `base_url` field, normally `https://www.anyfast.ai`
+- `fal.ai` always uses `https://fal.run` internally
+- If the `base_url` widget does not visibly refresh in the UI, runtime still normalizes it correctly for fal.ai
 
 ## Current Real-Human Flow
 
@@ -24,7 +25,7 @@ If you load `api_seedance2_0_r2v_real_human.json` and expect identical behavior,
 
 Most users only need these nodes:
 
-- `Seedance AM - API Key V2`
+- `Seedance AM - API Key`
 - `Seedance AM 2.0 - Standard`
 - `Seedance AM - Save Video`
 - `Seedance AM - Reference Images (9 slots)` when using style/reference images
@@ -46,7 +47,7 @@ Restart ComfyUI.
 
 ## Quick Start
 
-1. Add `Seedance AM - API Key V2`
+1. Add `Seedance AM - API Key`
 2. Paste your API key and choose `anyfast` or `fal.ai`
 3. Add `Seedance AM 2.0 - Standard`
 4. Connect `api` and run
@@ -68,8 +69,8 @@ For text-to-video, leave image inputs disconnected. To switch to image-to-video,
 
 | Node | What it does |
 |---|---|
-| `Seedance AM - API Key V2` | Recommended API key node for new workflows |
-| `Seedance AM - API Key (Legacy)` | Older API key node kept for compatibility |
+| `Seedance AM - API Key` | Main API key node for AnyFast and fal.ai |
+| `Seedance AM - API Key V2 (Compatibility)` | Compatibility alias kept only for older saved workflows |
 | `Seedance AM 2.0 - Standard` | Main Seedance 2.0 generation node |
 | `Seedance AM 2.0 - Fast` | Faster generation variant |
 | `Seedance AM 2.0 - Ultra` | Highest quality variant, up to 2K |
@@ -94,13 +95,14 @@ The nodes are grouped in ComfyUI like this:
 - `Seedance AM/Advanced` — lower-level asset utilities
 - `Seedance AM/Debug` — optional debug helpers
 - `Seedance AM/Legacy` — old compatibility nodes not recommended for new workflows
+- `Seedance AM/_Compatibility` — hidden-style migration helpers kept only so older workflows still load
 
 ## Which Node Should I Use?
 
 Use this as the short decision guide:
 
 - Generate a normal video:
-  `API Key V2` -> `Seedance 2.0 - Standard` -> `Save Video`
+  `API Key` -> `Seedance 2.0 - Standard` -> `Save Video`
 - Add image references:
   use `Reference Images (9 slots)`
 - Add reference video/audio:
