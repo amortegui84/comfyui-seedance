@@ -318,7 +318,8 @@ def _ensure_group(api, group_name, existing_group_id=None):
         raise RuntimeError(f"CreateAssetGroup failed {r.status_code}: {r.text}")
 
     group_id = _extract_id(r.json(), "GroupId", "group_id", "id", "ID")
-    print(f"[Seedance Assets] Group ready: {group_id}")
+    print(f"[Seedance Assets] Group created: {group_id} — waiting 3s for propagation")
+    time.sleep(3)
     return group_id
 
 
@@ -397,14 +398,26 @@ def _upload_image_multipart(api, image_tensor, name, group_id):
     data  = {"Name": name, "model": "volc-asset", "GroupId": group_id}
 
     print(f"[Seedance/AnyFast] Uploading '{name}' ({len(file_bytes)} bytes) to group {group_id}")
-    r = requests.post(
-        f"{base_url}/volc/asset/CreateAsset",
-        files=files, data=data, headers=headers, timeout=120,
-    )
-    print(f"[Seedance/AnyFast] CreateAsset → {r.status_code}: {r.text}")
+    r = None
+    for attempt in range(1, 4):
+        r = requests.post(
+            f"{base_url}/volc/asset/CreateAsset",
+            files=files, data=data, headers=headers, timeout=120,
+        )
+        print(f"[Seedance/AnyFast] CreateAsset attempt {attempt} → {r.status_code}: {r.text}")
+        if r.ok:
+            break
+        # Group may not have propagated to the asset backend yet — retry with wait
+        txt = r.text.lower()
+        if r.status_code in (400, 502) and "group" in txt and ("notfound" in txt or "not found" in txt):
+            if attempt < 3:
+                print(f"[Seedance/AnyFast] Group not visible yet, waiting 4s before retry ...")
+                time.sleep(4)
+                continue
+        raise RuntimeError(f"Image upload failed {r.status_code}: {r.text}")
 
     if not r.ok:
-        raise RuntimeError(f"Image upload failed {r.status_code}: {r.text}")
+        raise RuntimeError(f"Image upload failed after retries: {r.status_code}: {r.text}")
 
     resp   = r.json()
     raw_id = _extract_id(resp, "AssetId", "asset_id", "Id", "id", "ID")
