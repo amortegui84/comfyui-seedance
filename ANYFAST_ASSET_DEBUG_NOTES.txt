@@ -29,6 +29,11 @@ Implemented changes
    - After CreateAsset returns an asset id, the code now polls ListAssets
    - Goal: wait until the uploaded asset becomes visible before using Asset://... in generation
 
+4. Documentation detail found later:
+   - AnyFast Seedance docs show `asset://<ID>` in lowercase
+   - The pack originally used `Asset://<ID>` in uppercase
+   - Latest change switches generated asset references to lowercase `asset://...`
+
 Important operational notes
 - Use one fixed API key during the entire test
 - Keep token grouping fixed to Seedance, not Auto Select

@@ -375,7 +375,7 @@ def _upload_asset(api, asset_type, name, group_id=None, image_tensor=None, file_
         if resolved_group_id:
             print(f"[Seedance Assets] After completing the liveness check, save your Group ID: {resolved_group_id}")
 
-    return f"Asset://{raw_id}", verify_url, resolved_group_id
+    return f"asset://{raw_id}", verify_url, resolved_group_id
 
 
 def _anyfast_runtime_image_asset(api, image_tensor, name, group_id=None):
@@ -412,14 +412,14 @@ def _anyfast_runtime_image_asset(api, image_tensor, name, group_id=None):
     resp = r.json()
     raw_id = _extract_id(resp, "AssetId", "asset_id", "id", "ID")
     resolved_group_id = group_id or _extract_optional_id(resp, "GroupId", "group_id", "GroupID")
-    runtime_url = _wait_for_anyfast_asset(api, raw_id, name, resolved_group_id)
-    return runtime_url, resolved_group_id
+    _wait_for_anyfast_asset(api, raw_id, name, resolved_group_id)
+    return f"asset://{raw_id}", resolved_group_id
 
 
 def _wait_for_anyfast_asset(api, raw_asset_id, asset_name, group_id=None, timeout=60, interval=3):
     """Poll AnyFast ListAssets until a freshly uploaded asset becomes visible and active.
 
-    Returns the resolved storage URL from ListAssets when available.
+    Returns when the asset is visible and active in ListAssets.
     """
     base_url = api["base_url"].rstrip("/")
     api_key  = api["api_key"].strip()
@@ -465,7 +465,7 @@ def _wait_for_anyfast_asset(api, raw_asset_id, asset_name, group_id=None, timeou
                 status = str(item.get("Status", item.get("status", ""))).strip().lower()
                 if asset_id == raw_asset_id and (not status or status == "active"):
                     print(f"[Seedance Assets] Asset visible: {raw_asset_id}")
-                    return item.get("URL") or item.get("url") or f"Asset://{raw_asset_id}"
+                    return
 
         time.sleep(interval)
 
