@@ -75,11 +75,6 @@
           "name": "group_id",
           "type": "STRING",
           "links": null
-        },
-        {
-          "name": "summary",
-          "type": "STRING",
-          "links": null
         }
       ],
       "properties": {

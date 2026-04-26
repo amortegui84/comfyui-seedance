@@ -2,7 +2,7 @@
   "id": "6fe3c8a8-7f12-40a9-b159-7f3194d8f6af",
   "revision": 0,
   "last_node_id": 4,
-  "last_link_id": 2,
+  "last_link_id": 0,
   "nodes": [
     {
       "id": 1,
@@ -40,13 +40,6 @@
           "name": "group_id",
           "type": "STRING",
           "links": null
-        },
-        {
-          "name": "summary",
-          "type": "STRING",
-          "links": [
-            1
-          ]
         }
       ],
       "properties": {
@@ -56,39 +49,6 @@
         "asset-20260426080106-wv99k",
         "group-20260426080057-q2dv2"
       ]
-    },
-    {
-      "id": 2,
-      "type": "SeedanceShowText",
-      "pos": [
-        610,
-        210
-      ],
-      "size": [
-        320,
-        140
-      ],
-      "flags": {},
-      "order": 1,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "text",
-          "type": "STRING",
-          "link": 1
-        }
-      ],
-      "outputs": [
-        {
-          "name": "text",
-          "type": "STRING",
-          "links": null
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "SeedanceShowText"
-      },
-      "widgets_values": []
     },
     {
       "id": 3,
@@ -108,7 +68,7 @@
       "outputs": [],
       "properties": {},
       "widgets_values": [
-        "### Identity Input usage\n- Keep `asset_id` and `group_id` together in one node\n- Type them manually, or connect `asset_id_in` / `group_id_in` from upstream\n- Connected inputs override the text fields\n\n### Recommended routing\n- `asset_id` -> `Seedance AM 2.0 - Standard.human_asset_id`\n- `group_id` -> `Seedance AM - Create Human Asset.existing_group_id`\n- `summary` -> `Seedance AM - Show Text` if you want a combined preview"
+        "### Identity Input usage\n- Keep `asset_id` and `group_id` together in one node\n- Type them manually, or connect `asset_id_in` / `group_id_in` from upstream\n- Connected inputs override the text fields\n- The node already shows both values inside its own UI\n\n### Recommended routing\n- `asset_id` -> `Seedance AM 2.0 - Standard.human_asset_id`\n- `group_id` -> `Seedance AM - Create Human Asset.existing_group_id`"
       ]
     },
     {
@@ -143,16 +103,7 @@
       ]
     }
   ],
-  "links": [
-    [
-      1,
-      1,
-      2,
-      2,
-      0,
-      "STRING"
-    ]
-  ],
+  "links": [],
   "groups": [],
   "config": {},
   "extra": {},

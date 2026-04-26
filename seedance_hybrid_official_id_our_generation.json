@@ -1,7 +1,7 @@
 {
   "id": "0f83a0bf-54b5-4fa0-8d26-1d2b0d17f4f2",
   "revision": 0,
-  "last_node_id": 8,
+  "last_node_id": 7,
   "last_link_id": 6,
   "nodes": [
     {
@@ -124,17 +124,65 @@
     },
     {
       "id": 4,
+      "type": "SeedanceIdentityInput",
+      "pos": [
+        1030,
+        60
+      ],
+      "size": [
+        420,
+        220
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "asset_id_in",
+          "type": "STRING",
+          "link": 5
+        },
+        {
+          "name": "group_id_in",
+          "type": "STRING",
+          "link": 6
+        }
+      ],
+      "outputs": [
+        {
+          "name": "asset_id",
+          "type": "STRING",
+          "links": [
+            2
+          ]
+        },
+        {
+          "name": "group_id",
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SeedanceIdentityInput"
+      },
+      "widgets_values": [
+        "",
+        ""
+      ]
+    },
+    {
+      "id": 5,
       "type": "Seedance2",
       "pos": [
         1030,
-        300
+        360
       ],
       "size": [
         470,
         360
       ],
       "flags": {},
-      "order": 3,
+      "order": 4,
       "mode": 0,
       "inputs": [
         {
@@ -206,18 +254,18 @@
       ]
     },
     {
-      "id": 5,
+      "id": 6,
       "type": "SeedanceSaveVideo",
       "pos": [
         1590,
-        360
+        420
       ],
       "size": [
         320,
         120
       ],
       "flags": {},
-      "order": 4,
+      "order": 5,
       "mode": 0,
       "inputs": [
         {
@@ -235,92 +283,24 @@
       ]
     },
     {
-      "id": 6,
-      "type": "SeedanceShowText",
-      "pos": [
-        1030,
-        90
-      ],
-      "size": [
-        320,
-        140
-      ],
-      "flags": {},
-      "order": 5,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "text",
-          "type": "STRING",
-          "link": 5
-        }
-      ],
-      "outputs": [
-        {
-          "name": "text",
-          "type": "STRING",
-          "links": null
-        }
-      ],
-      "title": "Show Text (asset_id)",
-      "properties": {
-        "Node name for S&R": "SeedanceShowText"
-      },
-      "widgets_values": []
-    },
-    {
       "id": 7,
-      "type": "SeedanceShowText",
-      "pos": [
-        1030,
-        700
-      ],
-      "size": [
-        320,
-        140
-      ],
-      "flags": {},
-      "order": 6,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "text",
-          "type": "STRING",
-          "link": 6
-        }
-      ],
-      "outputs": [
-        {
-          "name": "text",
-          "type": "STRING",
-          "links": null
-        }
-      ],
-      "title": "Show Text (group_id)",
-      "properties": {
-        "Node name for S&R": "SeedanceShowText"
-      },
-      "widgets_values": []
-    },
-    {
-      "id": 8,
       "type": "MarkdownNote",
       "pos": [
         520,
-        620
+        700
       ],
       "size": [
         390,
         240
       ],
       "flags": {},
-      "order": 7,
+      "order": 6,
       "mode": 0,
       "inputs": [],
       "outputs": [],
       "properties": {},
       "widgets_values": [
-        "### Hybrid workflow\n- `ByteDanceCreateImageAsset` handles the official ComfyUI real-human verification flow\n- `Seedance2` handles video generation through your custom node pack\n- Save both `asset_id` and `group_id`\n- If you are verifying for the first time, run the asset node first and complete the official link flow before expecting generation to work\n\n### Requirements\n- Updated ComfyUI with the built-in ByteDance nodes available\n- Logged into ComfyUI API nodes / partner access\n- `SeedanceApiKey` configured for `anyfast` if you want generation through this repo"
+        "### Hybrid workflow\n- `ByteDanceCreateImageAsset` handles the official ComfyUI real-human verification flow\n- `Seedance AM - Identity Input` keeps `asset_id` and `group_id` together in one place\n- `Seedance2` handles video generation through your custom node pack\n- If you are verifying for the first time, run the asset node first and complete the official link flow before expecting generation to work"
       ]
     }
   ],
@@ -337,15 +317,15 @@
       2,
       3,
       0,
-      4,
+      5,
       6,
       "STRING"
     ],
     [
       3,
-      4,
-      0,
       5,
+      0,
+      6,
       0,
       "STRING"
     ],
@@ -353,7 +333,7 @@
       4,
       1,
       0,
-      4,
+      5,
       0,
       "SEEDANCE_API"
     ],
@@ -361,16 +341,16 @@
       5,
       3,
       0,
-      6,
-      0,
+      4,
+      2,
       "STRING"
     ],
     [
       6,
       3,
       1,
-      7,
-      0,
+      4,
+      3,
       "STRING"
     ]
   ],

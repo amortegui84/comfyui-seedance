@@ -1,7 +1,7 @@
 {
   "id": "7d18db6f-9165-4d72-aae9-d3fa495f0f01",
   "revision": 0,
-  "last_node_id": 5,
+  "last_node_id": 4,
   "last_link_id": 3,
   "nodes": [
     {
@@ -124,11 +124,6 @@
           "name": "group_id",
           "type": "STRING",
           "links": null
-        },
-        {
-          "name": "summary",
-          "type": "STRING",
-          "links": null
         }
       ],
       "properties": {
@@ -141,40 +136,6 @@
     },
     {
       "id": 4,
-      "type": "SeedanceShowText",
-      "pos": [
-        1030,
-        530
-      ],
-      "size": [
-        320,
-        140
-      ],
-      "flags": {},
-      "order": 3,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "text",
-          "type": "STRING",
-          "link": null
-        }
-      ],
-      "outputs": [
-        {
-          "name": "text",
-          "type": "STRING",
-          "links": null
-        }
-      ],
-      "title": "Optional preview",
-      "properties": {
-        "Node name for S&R": "SeedanceShowText"
-      },
-      "widgets_values": []
-    },
-    {
-      "id": 5,
       "type": "MarkdownNote",
       "pos": [
         60,
@@ -185,7 +146,7 @@
         150
       ],
       "flags": {},
-      "order": 4,
+      "order": 3,
       "mode": 0,
       "inputs": [],
       "outputs": [],

@@ -420,7 +420,7 @@ class SeedanceApiKey:
 
 class SeedanceImageBatch:
     """Legacy — kept so existing workflows don't break. Use SeedanceRefImages instead."""
-    CATEGORY = "Seedance AM"
+    CATEGORY = "Seedance AM/Legacy"
 
     @classmethod
     def INPUT_TYPES(cls):
@@ -1068,7 +1068,7 @@ class SeedanceTextInput:
     Useful for saving and reusing asset_id, group_id, verify_url, or any other
     string value without relying on a previous node's preview panel."""
 
-    CATEGORY = "Seedance AM"
+    CATEGORY = "Seedance AM/Legacy"
 
     @classmethod
     def INPUT_TYPES(cls):
@@ -1111,8 +1111,8 @@ class SeedanceIdentityInput:
             }
         }
 
-    RETURN_TYPES = ("STRING", "STRING", "STRING")
-    RETURN_NAMES = ("asset_id", "group_id", "summary")
+    RETURN_TYPES = ("STRING", "STRING")
+    RETURN_NAMES = ("asset_id", "group_id")
     FUNCTION = "value"
 
     def value(self, asset_id, group_id, asset_id_in=None, group_id_in=None):
@@ -1123,10 +1123,9 @@ class SeedanceIdentityInput:
             f"asset_id: {resolved_asset_id or '-'}",
             f"group_id: {resolved_group_id or '-'}",
         ]
-        summary = "\n".join(lines)
         return {
             "ui": {"text": lines},
-            "result": (resolved_asset_id, resolved_group_id, summary),
+            "result": (resolved_asset_id, resolved_group_id),
         }
 
 
@@ -1171,13 +1170,13 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "SeedanceReferenceVideo":   "Seedance AM - Reference Video",
     "SeedanceReferenceAudio":   "Seedance AM - Reference Audio",
     # Utilities
-    "SeedanceImageBatch":  "Seedance AM - Image Batch",
+    "SeedanceImageBatch":  "Seedance AM - Image Batch (Legacy)",
     "SeedanceRefImages":   "Seedance AM - Reference Images (9 slots)",
     # Extend
     "SeedanceExtend":      "Seedance AM - Extend Video",
     # Output
     "SeedanceSaveVideo":   "Seedance AM - Save Video",
     "SeedanceShowText":    "Seedance AM - Show Text",
-    "SeedanceTextInput":   "Seedance AM - Text Input",
+    "SeedanceTextInput":   "Seedance AM - Text Input (Legacy)",
     "SeedanceIdentityInput": "Seedance AM - Identity Input",
 }
