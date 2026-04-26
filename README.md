@@ -65,7 +65,8 @@ For text-to-video, leave image inputs disconnected. For image-to-video, connect 
 ## Provider Behavior
 
 - `anyfast` uses the `base_url` field, normally `https://www.anyfast.ai`
-- for `anyfast`, image inputs are uploaded as temporary assets internally before generation
+- local `reference_images` from ComfyUI are stable on `fal.ai`
+- local `reference_images` on `anyfast` are still under investigation and should be treated as experimental
 - `fal.ai` always uses `https://fal.run` internally
 - `fal.ai` API keys come from `https://fal.ai/dashboard`
 - if the `base_url` widget does not visibly refresh in the UI, runtime still normalizes it correctly for `fal.ai`
@@ -75,7 +76,7 @@ For text-to-video, leave image inputs disconnected. For image-to-video, connect 
 | Feature | AnyFast | fal.ai |
 |---|---|---|
 | Text to video / image to video | Yes | Yes |
-| Reference images | Yes | Yes |
+| Reference images from local ComfyUI IMAGE tensors | Experimental | Yes |
 | Reference audio / video assets | Yes | Yes |
 | 1080p / 2K | Yes | 720p max |
 | Real human ID generation | Via official ByteDance node | No |
@@ -112,7 +113,8 @@ For text-to-video, leave image inputs disconnected. For image-to-video, connect 
 
 - Generate a normal video: `API Key` -> `Seedance 2.0 - Standard`
 - Save and preview the final mp4: use `Save Video`
-- Add image references: use `Reference Images (9 slots)`
+- Add image references on `fal.ai`: use `Reference Images (9 slots)`
+- Add image references on `anyfast`: currently experimental; use with caution
 - Add reference video/audio: use `Reference Video` or `Reference Audio`
 - Store or reuse `asset_id` and `group_id`: use `Identity Input`
 - Debug a raw string: use `Show Text`
@@ -152,6 +154,13 @@ ByteDanceCreateImageAsset
 - `fal.ai` uses normal references such as `reference_images`, `reference_video`, and `reference_audio`
 - `fal.ai` does not use `human_asset_id`, `asset_id`, or `group_id` as a real-human flow
 - `end_user_id` in fal is not the same as `asset_id` or `group_id`
+
+## AnyFast Notes
+
+- `anyfast` works for Seedance generation and the official hybrid real-human flow
+- `reference_video` and `reference_audio` asset flows are supported
+- automatic local `reference_images` coming directly from ComfyUI `IMAGE` tensors are still experimental on `anyfast`
+- current tests show `fal.ai` is the stable provider for local image-reference workflows
 
 ## Video Output
 

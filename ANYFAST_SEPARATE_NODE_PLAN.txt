@@ -1,0 +1,62 @@
+AnyFast separate node plan
+Purpose: keep fal.ai stable while designing a dedicated AnyFast-only image reference path
+
+Why separate it
+- fal.ai already works with local ComfyUI IMAGE tensors for reference images
+- AnyFast is failing on the same flow even after multiple implementation attempts
+- keeping one shared implementation keeps risking regressions for fal.ai
+
+Recommended direction
+- keep the current shared Seedance node stable for fal.ai
+- create a separate AnyFast-specific path for image references
+
+Suggested node idea
+Node name:
+- Seedance AM - AnyFast Reference Images
+
+Responsibility:
+- accept local ComfyUI IMAGE tensors
+- prepare them specifically for AnyFast
+- output a provider-specific reference payload or list of validated AnyFast image refs
+
+Suggested implementation steps
+1. Add a new AnyFast-only node
+   - inputs: api, image_1..image_9 or image list
+   - outputs: ANYFAST_REFERENCE_IMAGE_LIST or STRING list
+
+2. Do not change fal.ai reference_images behavior
+   - fal.ai should keep using the current local tensor flow
+
+3. In the new node, isolate all AnyFast experiments
+   Possible strategies:
+   - upload image assets through CreateAsset
+   - inspect ListAssets responses carefully
+   - test whether generation accepts:
+     - asset://<id>
+     - returned storage URL
+     - public URL only
+
+4. Add detailed logging only in the AnyFast path
+   - raw CreateAsset response
+   - raw ListAssets response
+   - final value sent into content[].image_url.url
+
+5. Update Seedance2 for AnyFast only
+   - if provider == anyfast and AnyFast reference node is connected:
+     use those references
+   - if provider == fal.ai:
+     keep current reference_images behavior unchanged
+
+6. Mark current AnyFast local reference_images support as experimental until confirmed
+
+Current understanding
+- AnyFast docs show image_url.url may accept:
+  - image URL
+  - Base64 data URI
+  - asset://<ID>
+- In practice, our current runtime-created image assets are still rejected by generation
+- This suggests the dedicated AnyFast node should be used as the experimental surface instead of the shared fal.ai path
+
+Practical goal
+- protect the working fal.ai workflow
+- move all AnyFast image-reference debugging into an isolated node

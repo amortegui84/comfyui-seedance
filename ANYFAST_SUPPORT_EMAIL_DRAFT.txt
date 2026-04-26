@@ -1,0 +1,77 @@
+Subject: Need clarification on Seedance 2.0 image reference handling via AnyFast API
+
+Hello AnyFast team,
+
+We are integrating ByteDance Seedance 2.0 into a custom ComfyUI node and need clarification about the correct way to send image references through the AnyFast API.
+
+What we are trying to do
+- We are building a node that calls the Seedance 2.0 API through AnyFast.
+- The same node supports both fal.ai and AnyFast.
+- On fal.ai, local image references from ComfyUI work correctly.
+- On AnyFast, we are trying to support:
+  - first frame image
+  - last frame image
+  - reference images
+  - official real-human asset_id flow separately
+
+Current goal
+- We want to send local images from ComfyUI as valid Seedance reference inputs through AnyFast.
+- We are trying to determine the correct supported format for `content[].image_url.url` in `/v1/video/generations`.
+
+What we tested
+1. Sending `data:image/png;base64,...` directly in `content[].image_url.url`
+- Result: request rejected with InvalidParameter on `content[x].image_url`
+
+2. Uploading images first through `CreateAsset`, then sending `Asset://...`
+- Result: request rejected with asset not found
+
+3. Uploading images through `CreateAsset` using JSON + data URI
+- Result: asset creation returns an asset id successfully
+- We also waited for the asset to become visible through `ListAssets`
+- Then we sent the asset in generation
+- Result: still rejected
+
+4. Using lowercase `asset://<id>` as shown in the docs
+- We updated our implementation to match the documented lowercase format
+- We are still testing this path
+
+Errors we observed
+
+Case 1:
+`InvalidParameter`
+`The parameter content[1].image_url specified in the request is not valid`
+
+Case 2:
+`InvalidParameter`
+`The parameter content[2].image_url.url specified in the request is not valid: The specified asset asset-... is not found`
+
+What we need clarification on
+1. For Seedance 2.0 on AnyFast, what is the recommended format for image references when the source image is local and not publicly hosted?
+2. Does `/v1/video/generations` fully support `asset://<ID>` for image references created through `CreateAsset`?
+3. If yes, are there extra requirements before such assets become usable in generation?
+   - group type
+   - asset status
+   - token isolation
+   - propagation delay
+   - different upload method
+4. If `asset://<ID>` is not the recommended path for these runtime images, should we instead provide a public HTTPS URL?
+5. Is there an official example that shows:
+   - upload image asset
+   - wait until ready
+   - use that asset in `content[].image_url.url`
+   - successfully generate with Seedance 2.0
+
+Why we are asking
+- The documentation indicates that `content[].image_url.url` can accept image URL, Base64 data URI, or `asset://<ID>`.
+- In our real implementation, direct base64 is rejected by generation, and uploaded assets are not accepted reliably either.
+- We want to implement this correctly instead of guessing.
+
+Environment details
+- Integration type: custom ComfyUI node
+- Provider: AnyFast
+- Model: Seedance 2.0
+- Use case: local user images as first frame and/or reference images
+
+If helpful, we can also share the exact request structure we are sending.
+
+Thank you.
