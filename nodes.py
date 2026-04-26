@@ -378,6 +378,40 @@ def _upload_asset(api, asset_type, name, group_id=None, image_tensor=None, file_
     return f"asset://{raw_id}", verify_url, resolved_group_id
 
 
+def _upload_image_multipart(api, image_tensor, name, group_id):
+    """Upload a ComfyUI IMAGE tensor to AnyFast via multipart form.
+
+    Multipart is the documented upload path for binary files.
+    Returns the raw asset ID string (e.g. 'asset-2026...-xxxxx')."""
+    base_url = api["base_url"].rstrip("/")
+    api_key  = api["api_key"].strip()
+    headers  = {"Authorization": f"Bearer {api_key}"}
+
+    img_np     = (image_tensor[0].numpy() * 255).clip(0, 255).astype(np.uint8)
+    pil        = Image.fromarray(img_np).convert("RGB")
+    buf        = io.BytesIO()
+    pil.save(buf, format="PNG")
+    file_bytes = buf.getvalue()
+
+    files = {"file": (f"{name}.png", file_bytes, "image/png")}
+    data  = {"Name": name, "model": "volc-asset", "GroupId": group_id}
+
+    print(f"[Seedance/AnyFast] Uploading '{name}' ({len(file_bytes)} bytes) to group {group_id}")
+    r = requests.post(
+        f"{base_url}/volc/asset/CreateAsset",
+        files=files, data=data, headers=headers, timeout=120,
+    )
+    print(f"[Seedance/AnyFast] CreateAsset → {r.status_code}: {r.text}")
+
+    if not r.ok:
+        raise RuntimeError(f"Image upload failed {r.status_code}: {r.text}")
+
+    resp   = r.json()
+    raw_id = _extract_id(resp, "AssetId", "asset_id", "Id", "id", "ID")
+    print(f"[Seedance/AnyFast] Asset created: {raw_id}")
+    return raw_id
+
+
 def _anyfast_runtime_image_asset(api, image_tensor, name, group_id=None):
     """Upload an in-memory IMAGE tensor as an AnyFast image asset using JSON + data URI.
 
@@ -882,10 +916,111 @@ class SeedanceCreateHumanAsset:
 
 
 # --------------------------------------------------------------------------- #
+# AnyFast dedicated image upload node
+# — Uploads local ComfyUI images via multipart (the documented upload path)
+# — Outputs ANYFAST_IMAGE_REFS: pre-built content entries with Asset:// URIs
+# — Wire into anyfast_refs on any Seedance 2.0 generation node
+# — fal.ai is unaffected; this node is AnyFast-only
+# --------------------------------------------------------------------------- #
+
+class SeedanceAnyfastImageUpload:
+    """Upload local ComfyUI images to AnyFast asset storage before generation.
+
+    Uses multipart file upload (the documented method) and returns
+    ANYFAST_IMAGE_REFS — a pre-built content list ready to wire into
+    anyfast_refs on any Seedance 2.0 generation node.
+
+    Assign roles: first_frame / last_frame get their roles automatically.
+    ref_image_1..9 are all tagged as reference_image.
+
+    AnyFast only — raises if a non-AnyFast API key node is connected."""
+
+    CATEGORY = "Seedance AM/AnyFast"
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "api":              ("SEEDANCE_API",),
+                "group_name":       ("STRING",  {"default": "comfyui-runtime"}),
+                "propagation_wait": ("INT",     {"default": 5, "min": 0, "max": 60, "step": 1,
+                                                  "tooltip": "Seconds to wait after all uploads before generation (asset propagation buffer)"}),
+            },
+            "optional": {
+                "first_frame":       ("IMAGE",),
+                "last_frame":        ("IMAGE",),
+                "ref_image_1":       ("IMAGE",),
+                "ref_image_2":       ("IMAGE",),
+                "ref_image_3":       ("IMAGE",),
+                "ref_image_4":       ("IMAGE",),
+                "ref_image_5":       ("IMAGE",),
+                "ref_image_6":       ("IMAGE",),
+                "ref_image_7":       ("IMAGE",),
+                "ref_image_8":       ("IMAGE",),
+                "ref_image_9":       ("IMAGE",),
+                "existing_group_id": ("STRING",  {"forceInput": True}),
+            }
+        }
+
+    RETURN_TYPES = ("ANYFAST_IMAGE_REFS",)
+    RETURN_NAMES = ("anyfast_refs",)
+    FUNCTION     = "upload"
+
+    def upload(self, api, group_name, propagation_wait,
+               first_frame=None, last_frame=None,
+               ref_image_1=None, ref_image_2=None, ref_image_3=None,
+               ref_image_4=None, ref_image_5=None, ref_image_6=None,
+               ref_image_7=None, ref_image_8=None, ref_image_9=None,
+               existing_group_id=None):
+
+        provider = api.get("provider", "anyfast")
+        if provider != "anyfast":
+            raise ValueError(
+                "SeedanceAnyfastImageUpload requires the 'anyfast' provider. "
+                "Switch your API Key node to AnyFast."
+            )
+
+        group_id = _ensure_group(api, group_name, existing_group_id)
+        ts       = int(time.time())
+        refs     = []
+
+        if first_frame is not None:
+            raw_id = _upload_image_multipart(api, first_frame, f"ff_{ts}", group_id)
+            refs.append({"type": "image_url", "image_url": {"url": f"Asset://{raw_id}"}, "role": "first_frame"})
+
+        if last_frame is not None:
+            raw_id = _upload_image_multipart(api, last_frame, f"lf_{ts}", group_id)
+            refs.append({"type": "image_url", "image_url": {"url": f"Asset://{raw_id}"}, "role": "last_frame"})
+
+        ref_slots = [ref_image_1, ref_image_2, ref_image_3, ref_image_4, ref_image_5,
+                     ref_image_6, ref_image_7, ref_image_8, ref_image_9]
+        for idx, img in enumerate((img for img in ref_slots if img is not None), start=1):
+            raw_id = _upload_image_multipart(api, img, f"ref_{idx}_{ts}", group_id)
+            refs.append({"type": "image_url", "image_url": {"url": f"Asset://{raw_id}"}, "role": "reference_image"})
+
+        if not refs:
+            raise ValueError(
+                "Connect at least one image (first_frame, last_frame, or ref_image_1) "
+                "to SeedanceAnyfastImageUpload."
+            )
+
+        if propagation_wait > 0:
+            print(f"[Seedance/AnyFast] Waiting {propagation_wait}s for asset propagation ...")
+            time.sleep(propagation_wait)
+
+        print(f"[Seedance/AnyFast] {len(refs)} image ref(s) ready:")
+        for entry in refs:
+            print(f"  role={entry['role']}  url={entry['image_url']['url']}")
+
+        return (refs,)
+
+
+# --------------------------------------------------------------------------- #
 # Seedance 2.0 generation nodes
 # — T2V when no first_frame connected; I2V when first_frame connected
 # — reference_images: connect SeedanceImageBatch output (1–9 style refs)
 # — reference_video / reference_audio: connect SeedanceUploadAsset output
+# — anyfast_refs: connect SeedanceAnyfastImageUpload output (AnyFast only)
 # --------------------------------------------------------------------------- #
 
 class _V2Base:
@@ -918,6 +1053,10 @@ class _V2Base:
                 # ID-verified human asset — connect a verified ByteDance asset_id
                 "human_asset_id":   ("STRING", {"forceInput": True,
                                                  "tooltip": "Verified ByteDance asset_id for real-human generation — AnyFast only"}),
+                # AnyFast pre-uploaded image refs — connect SeedanceAnyfastImageUpload
+                # When connected, skips inline upload for first_frame/last_frame/reference_images on AnyFast
+                "anyfast_refs":     ("ANYFAST_IMAGE_REFS", {"forceInput": True,
+                                                             "tooltip": "AnyFast only — pre-uploaded image refs from SeedanceAnyfastImageUpload"}),
             }
         }
 
@@ -929,7 +1068,7 @@ class _V2Base:
     def generate(self, api, prompt, resolution, ratio, duration, generate_audio,
                  watermark, seed, first_frame=None, last_frame=None,
                  reference_images=None, reference_video=None, reference_audio=None,
-                 human_asset_id=None):
+                 human_asset_id=None, anyfast_refs=None):
 
         # Seedance requires @image1, @video1, @audio1 tags in the prompt so the
         # model knows how to use each reference. Auto-append any missing tags.
@@ -939,7 +1078,14 @@ class _V2Base:
             if "@image1" not in prompt:
                 prompt = prompt + " @image1"
             img_start = 2
-        if reference_images:
+        if anyfast_refs:
+            # Count only reference_image role entries; first/last frame don't use @image tags
+            ref_img_count = sum(1 for e in anyfast_refs if e.get("role") == "reference_image")
+            for i in range(img_start, img_start + ref_img_count):
+                tag = f"@image{i}"
+                if tag not in prompt:
+                    prompt = prompt + f" {tag}"
+        elif reference_images:
             for i in range(img_start, img_start + len(reference_images)):
                 tag = f"@image{i}"
                 if tag not in prompt:
@@ -972,50 +1118,60 @@ class _V2Base:
         else:
             print(f"[Seedance] Final prompt: {prompt}")
 
-            runtime_group_id = None
-
-            def _resolve_anyfast_image_ref(img_tensor, role_name, index):
-                nonlocal runtime_group_id
-                runtime_group_id = runtime_group_id or _ensure_group(
-                    api,
-                    f"seedance-runtime-{int(time.time())}",
-                    None,
-                )
-                asset_uri, runtime_group_id = _anyfast_runtime_image_asset(
-                    api,
-                    img_tensor,
-                    f"{role_name}_{index}",
-                    runtime_group_id,
-                )
-                return asset_uri
-
             content = [{"type": "text", "text": prompt}]
 
-            if first_frame is not None:
-                content.append({
-                    "type":      "image_url",
-                    "image_url": {"url": _resolve_anyfast_image_ref(first_frame, "first_frame", 1)},
-                    "role":      "first_frame",
-                })
-            if last_frame is not None:
-                content.append({
-                    "type":      "image_url",
-                    "image_url": {"url": _resolve_anyfast_image_ref(last_frame, "last_frame", 1)},
-                    "role":      "last_frame",
-                })
-            if human_asset_id and human_asset_id.strip():
-                content.append({
-                    "type":      "image_url",
-                    "image_url": {"url": human_asset_id.strip()},
-                    "role":      "reference_image",
-                })
-            if reference_images is not None:
-                for idx, img_tensor in enumerate(reference_images, start=1):
+            if anyfast_refs:
+                # Pre-uploaded path — use Asset:// URIs from SeedanceAnyfastImageUpload directly.
+                # first_frame / last_frame / reference_images inputs are ignored when this is wired.
+                print(f"[Seedance/AnyFast] Using {len(anyfast_refs)} pre-uploaded image ref(s)")
+                for entry in anyfast_refs:
+                    content.append(entry)
+            else:
+                # Inline upload path (experimental — may fail due to AnyFast propagation delay).
+                # Use SeedanceAnyfastImageUpload + anyfast_refs for a reliable alternative.
+                runtime_group_id = None
+
+                def _resolve_anyfast_image_ref(img_tensor, role_name, index):
+                    nonlocal runtime_group_id
+                    runtime_group_id = runtime_group_id or _ensure_group(
+                        api,
+                        f"seedance-runtime-{int(time.time())}",
+                        None,
+                    )
+                    asset_uri, runtime_group_id = _anyfast_runtime_image_asset(
+                        api,
+                        img_tensor,
+                        f"{role_name}_{index}",
+                        runtime_group_id,
+                    )
+                    return asset_uri
+
+                if first_frame is not None:
                     content.append({
                         "type":      "image_url",
-                        "image_url": {"url": _resolve_anyfast_image_ref(img_tensor, "reference_image", idx)},
+                        "image_url": {"url": _resolve_anyfast_image_ref(first_frame, "first_frame", 1)},
+                        "role":      "first_frame",
+                    })
+                if last_frame is not None:
+                    content.append({
+                        "type":      "image_url",
+                        "image_url": {"url": _resolve_anyfast_image_ref(last_frame, "last_frame", 1)},
+                        "role":      "last_frame",
+                    })
+                if human_asset_id and human_asset_id.strip():
+                    content.append({
+                        "type":      "image_url",
+                        "image_url": {"url": human_asset_id.strip()},
                         "role":      "reference_image",
                     })
+                if reference_images is not None:
+                    for idx, img_tensor in enumerate(reference_images, start=1):
+                        content.append({
+                            "type":      "image_url",
+                            "image_url": {"url": _resolve_anyfast_image_ref(img_tensor, "reference_image", idx)},
+                            "role":      "reference_image",
+                        })
+
             if reference_video and reference_video.strip():
                 content.append({
                     "type":      "video_url",
@@ -1297,16 +1453,20 @@ NODE_CLASS_MAPPINGS = {
     "SeedanceUploadAsset":      SeedanceUploadAsset,
     "SeedanceReferenceVideo":   SeedanceReferenceVideo,
     "SeedanceReferenceAudio":   SeedanceReferenceAudio,
+    # AnyFast dedicated image upload
+    "SeedanceAnyfastImageUpload": SeedanceAnyfastImageUpload,
     # Utilities
     "SeedanceImageBatch":  SeedanceImageBatch,
     "SeedanceRefImages":   SeedanceRefImages,
+    # Identity
+    "SeedanceCreateHumanAsset": SeedanceCreateHumanAsset,
+    "SeedanceIdentityInput":    SeedanceIdentityInput,
     # Extend
     "SeedanceExtend":      SeedanceExtend,
     # Output
     "SeedanceSaveVideo":   SeedanceSaveVideo,
     "SeedanceShowText":    SeedanceShowText,
     "SeedanceTextInput":   SeedanceTextInput,
-    "SeedanceIdentityInput": SeedanceIdentityInput,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
@@ -1321,14 +1481,18 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "SeedanceUploadAsset":      "Seedance AM - Upload Asset",
     "SeedanceReferenceVideo":   "Seedance AM - Reference Video",
     "SeedanceReferenceAudio":   "Seedance AM - Reference Audio",
+    # AnyFast dedicated image upload
+    "SeedanceAnyfastImageUpload": "Seedance AM - AnyFast Image Upload",
     # Utilities
     "SeedanceImageBatch":  "Seedance AM - Image Batch (Legacy)",
     "SeedanceRefImages":   "Seedance AM - Reference Images (9 slots)",
+    # Identity
+    "SeedanceCreateHumanAsset": "Seedance AM - Create Human Asset",
+    "SeedanceIdentityInput":    "Seedance AM - Identity Input",
     # Extend
     "SeedanceExtend":      "Seedance AM - Extend Video",
     # Output
     "SeedanceSaveVideo":   "Seedance AM - Save Video",
     "SeedanceShowText":    "Seedance AM - Show Text",
     "SeedanceTextInput":   "Seedance AM - Text Input (Legacy)",
-    "SeedanceIdentityInput": "Seedance AM - Identity Input",
 }
