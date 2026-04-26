@@ -480,6 +480,58 @@ def _upload_asset(api, asset_type, name, group_id=None, image_tensor=None, file_
     return f"asset://{raw_id}", verify_url, resolved_group_id
 
 
+def _wait_for_asset_active(api, asset_id, group_id, timeout=120, interval=5):
+    """Wait until an AnyFast asset becomes visible and Active in its group."""
+    raw_asset_id = str(asset_id or "").strip()
+    if raw_asset_id.lower().startswith("asset://"):
+        raw_asset_id = raw_asset_id[len("asset://"):]
+    group_id = str(group_id or "").strip()
+
+    if not raw_asset_id or not group_id:
+        raise ValueError("asset_id and group_id are required to verify asset visibility.")
+
+    base_url = api["base_url"].rstrip("/")
+    api_key = api["api_key"].strip()
+    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+    deadline = time.time() + timeout
+
+    while time.time() < deadline:
+        r = requests.post(
+            f"{base_url}/volc/asset/ListAssets",
+            json={
+                "model": "volc-asset",
+                "Filter": {
+                    "GroupIds": [group_id],
+                    "GroupType": "AIGC",
+                },
+                "PageNumber": 1,
+                "PageSize": 100,
+            },
+            headers=headers,
+            timeout=30,
+        )
+        if not r.ok:
+            raise RuntimeError(f"ListAssets failed {r.status_code}: {r.text}")
+
+        body = r.json()
+        items = body.get("Items") or body.get("items") or []
+        for item in items:
+            item_id = _extract_optional_id(item, "AssetId", "asset_id", "id", "ID")
+            if item_id != raw_asset_id:
+                continue
+            status = str(_find_ci(item, "Status", "status") or "").strip().lower()
+            print(f"[Seedance Assets] asset_id={raw_asset_id} group_id={group_id} status={status or '?'}")
+            if status == "active":
+                return
+        time.sleep(interval)
+
+    raise RuntimeError(
+        "AnyFast asset is not visible/Active yet. "
+        f"asset_id={raw_asset_id} group_id={group_id}. "
+        "Finish verification if required, wait a bit, then retry."
+    )
+
+
 class SeedanceAnyfastImageUpload:
     """Prepare images for AnyFast generation as base64 data URIs."""
 
@@ -923,6 +975,9 @@ class SeedanceCreateHumanAsset:
         if not group_id:
             raise RuntimeError("Asset upload succeeded but no group_id was returned by the provider.")
 
+        if not verify_url:
+            _wait_for_asset_active(api, asset_uri, group_id)
+
         if verify_url:
             lines = [
                 "⚠  VERIFICATION REQUIRED",
@@ -1073,6 +1128,7 @@ class _V2Base:
             # ByteDance API requires lowercase asset:// prefix.
             # Strip any existing prefix variant and re-apply lowercase.
             if human_asset_id and human_asset_id.strip():
+                _wait_for_asset_active(api, human_asset_id, group_id)
                 hid = human_asset_id.strip()
                 if hid.lower().startswith("asset://"):
                     hid = hid[len("asset://"):]
