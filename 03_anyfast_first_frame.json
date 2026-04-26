@@ -2,7 +2,7 @@
   "id": "a1b2c3d4-0003-4000-8000-anyfastff000",
   "revision": 0,
   "last_node_id": 6,
-  "last_link_id": 5,
+  "last_link_id": 6,
   "nodes": [
     {
       "id": 6,
@@ -16,7 +16,7 @@
       "outputs": [],
       "properties": {},
       "widgets_values": [
-        "### 03 AnyFast — Image to Video (First Frame via dedicated upload node)\nLoad an image → AnyFast Image Upload (uploads via multipart, returns Asset:// URI) → Seedance2 via anyfast_refs. The first_frame slot on Seedance2 stays disconnected."
+        "### 03 AnyFast — Image to Video (First Frame via dedicated upload node)\nLoad an image → AnyFast Image Upload (uploads via multipart, returns asset:// URI) → Seedance2 via anyfast_refs + group_id. The first_frame slot on Seedance2 stays disconnected."
       ]
     },
     {
@@ -64,22 +64,23 @@
       "order": 3,
       "mode": 0,
       "inputs": [
-        { "name": "api",              "type": "SEEDANCE_API", "link": 1 },
-        { "name": "first_frame",      "type": "IMAGE",        "link": 2 },
-        { "name": "last_frame",       "type": "IMAGE",        "link": null },
-        { "name": "ref_image_1",      "type": "IMAGE",        "link": null },
-        { "name": "ref_image_2",      "type": "IMAGE",        "link": null },
-        { "name": "ref_image_3",      "type": "IMAGE",        "link": null },
-        { "name": "ref_image_4",      "type": "IMAGE",        "link": null },
-        { "name": "ref_image_5",      "type": "IMAGE",        "link": null },
-        { "name": "ref_image_6",      "type": "IMAGE",        "link": null },
-        { "name": "ref_image_7",      "type": "IMAGE",        "link": null },
-        { "name": "ref_image_8",      "type": "IMAGE",        "link": null },
-        { "name": "ref_image_9",      "type": "IMAGE",        "link": null },
-        { "name": "existing_group_id","type": "STRING",       "link": null }
+        { "name": "api",               "type": "SEEDANCE_API", "link": 1 },
+        { "name": "first_frame",       "type": "IMAGE",        "link": 2 },
+        { "name": "last_frame",        "type": "IMAGE",        "link": null },
+        { "name": "ref_image_1",       "type": "IMAGE",        "link": null },
+        { "name": "ref_image_2",       "type": "IMAGE",        "link": null },
+        { "name": "ref_image_3",       "type": "IMAGE",        "link": null },
+        { "name": "ref_image_4",       "type": "IMAGE",        "link": null },
+        { "name": "ref_image_5",       "type": "IMAGE",        "link": null },
+        { "name": "ref_image_6",       "type": "IMAGE",        "link": null },
+        { "name": "ref_image_7",       "type": "IMAGE",        "link": null },
+        { "name": "ref_image_8",       "type": "IMAGE",        "link": null },
+        { "name": "ref_image_9",       "type": "IMAGE",        "link": null },
+        { "name": "existing_group_id", "type": "STRING",       "link": null }
       ],
       "outputs": [
-        { "name": "anyfast_refs", "type": "ANYFAST_IMAGE_REFS", "links": [4] }
+        { "name": "anyfast_refs", "type": "ANYFAST_IMAGE_REFS", "links": [4] },
+        { "name": "group_id",     "type": "STRING",             "links": [6] }
       ],
       "properties": { "Node name for S&R": "SeedanceAnyfastImageUpload" },
       "widgets_values": ["comfyui-runtime", 5]
@@ -88,7 +89,7 @@
       "id": 4,
       "type": "Seedance2",
       "pos": [1040, 80],
-      "size": [480, 360],
+      "size": [480, 380],
       "flags": {},
       "order": 4,
       "mode": 0,
@@ -100,7 +101,8 @@
         { "name": "reference_video",  "type": "STRING",              "link": null },
         { "name": "reference_audio",  "type": "STRING",              "link": null },
         { "name": "human_asset_id",   "type": "STRING",              "link": null },
-        { "name": "anyfast_refs",     "type": "ANYFAST_IMAGE_REFS",  "link": 4 }
+        { "name": "anyfast_refs",     "type": "ANYFAST_IMAGE_REFS",  "link": 4 },
+        { "name": "group_id",         "type": "STRING",              "link": 6 }
       ],
       "outputs": [
         { "name": "video_url",   "type": "STRING", "links": [5] },
@@ -136,7 +138,8 @@
     [2, 2, 0, 3, 1, "IMAGE"],
     [3, 1, 0, 4, 0, "SEEDANCE_API"],
     [4, 3, 0, 4, 7, "ANYFAST_IMAGE_REFS"],
-    [5, 4, 0, 5, 0, "STRING"]
+    [5, 4, 0, 5, 0, "STRING"],
+    [6, 3, 1, 4, 8, "STRING"]
   ],
   "groups": [],
   "config": {},

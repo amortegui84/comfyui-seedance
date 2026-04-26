@@ -2,19 +2,28 @@
   "id": "560c8540-32ee-4b84-9239-1b7f70dd00b4",
   "revision": 0,
   "last_node_id": 5,
-  "last_link_id": 3,
+  "last_link_id": 4,
   "nodes": [
+    {
+      "id": 4,
+      "type": "MarkdownNote",
+      "pos": [60, 20],
+      "size": [1420, 120],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "properties": {},
+      "widgets_values": [
+        "### 02 Generate With Existing Real Human ID\nPaste a verified `asset_id` AND `group_id` into `Seedance AM - Identity Input`. Both flow into Seedance2: `asset_id` → `human_asset_id`, `group_id` → `group_id` (required to scope asset lookup on AnyFast).\n\n`Seedance AM - Save Video` downloads the mp4. Change `save_to` to `input` to use ComfyUI's native LoadVideo."
+      ]
+    },
     {
       "id": 1,
       "type": "SeedanceApiKey",
-      "pos": [
-        70,
-        140
-      ],
-      "size": [
-        360,
-        170
-      ],
+      "pos": [70, 140],
+      "size": [360, 170],
       "flags": {},
       "order": 0,
       "mode": 0,
@@ -23,234 +32,84 @@
         {
           "name": "api",
           "type": "SEEDANCE_API",
-          "links": [
-            1
-          ]
+          "links": [1]
         }
       ],
-      "properties": {
-        "Node name for S&R": "SeedanceApiKey"
-      },
-      "widgets_values": [
-        "",
-        "anyfast",
-        "https://www.anyfast.ai"
-      ]
+      "properties": { "Node name for S&R": "SeedanceApiKey" },
+      "widgets_values": ["", "anyfast", "https://www.anyfast.ai"]
     },
     {
       "id": 2,
       "type": "SeedanceIdentityInput",
-      "pos": [
-        70,
-        390
-      ],
-      "size": [
-        420,
-        220
-      ],
+      "pos": [70, 390],
+      "size": [420, 220],
       "flags": {},
       "order": 1,
       "mode": 0,
       "inputs": [
-        {
-          "name": "asset_id_in",
-          "type": "STRING",
-          "link": null
-        },
-        {
-          "name": "group_id_in",
-          "type": "STRING",
-          "link": null
-        }
+        { "name": "asset_id_in", "type": "STRING", "link": null },
+        { "name": "group_id_in", "type": "STRING", "link": null }
       ],
       "outputs": [
-        {
-          "name": "asset_id",
-          "type": "STRING",
-          "links": [
-            2
-          ]
-        },
-        {
-          "name": "group_id",
-          "type": "STRING",
-          "links": null
-        }
+        { "name": "asset_id", "type": "STRING", "links": [2] },
+        { "name": "group_id", "type": "STRING", "links": [4] }
       ],
-      "properties": {
-        "Node name for S&R": "SeedanceIdentityInput"
-      },
-      "widgets_values": [
-        "asset-xxxx",
-        "group-optional"
-      ]
+      "properties": { "Node name for S&R": "SeedanceIdentityInput" },
+      "widgets_values": ["asset-xxxx", "group-xxxx"]
     },
     {
       "id": 3,
       "type": "Seedance2",
-      "pos": [
-        610,
-        250
-      ],
-      "size": [
-        470,
-        360
-      ],
+      "pos": [610, 250],
+      "size": [480, 400],
       "flags": {},
       "order": 2,
       "mode": 0,
       "inputs": [
-        {
-          "name": "api",
-          "type": "SEEDANCE_API",
-          "link": 1
-        },
-        {
-          "name": "first_frame",
-          "type": "IMAGE",
-          "link": null
-        },
-        {
-          "name": "last_frame",
-          "type": "IMAGE",
-          "link": null
-        },
-        {
-          "name": "reference_images",
-          "type": "SEEDANCE_IMAGE_LIST",
-          "link": null
-        },
-        {
-          "name": "reference_video",
-          "type": "STRING",
-          "link": null
-        },
-        {
-          "name": "reference_audio",
-          "type": "STRING",
-          "link": null
-        },
-        {
-          "name": "human_asset_id",
-          "type": "STRING",
-          "link": 2
-        }
+        { "name": "api",              "type": "SEEDANCE_API",        "link": 1 },
+        { "name": "first_frame",      "type": "IMAGE",               "link": null },
+        { "name": "last_frame",       "type": "IMAGE",               "link": null },
+        { "name": "reference_images", "type": "SEEDANCE_IMAGE_LIST", "link": null },
+        { "name": "reference_video",  "type": "STRING",              "link": null },
+        { "name": "reference_audio",  "type": "STRING",              "link": null },
+        { "name": "human_asset_id",   "type": "STRING",              "link": 2 },
+        { "name": "anyfast_refs",     "type": "ANYFAST_IMAGE_REFS",  "link": null },
+        { "name": "group_id",         "type": "STRING",              "link": 4 }
       ],
       "outputs": [
-        {
-          "name": "video_url",
-          "type": "STRING",
-          "links": [
-            3
-          ]
-        },
-        {
-          "name": "task_id",
-          "type": "STRING",
-          "links": null
-        },
-        {
-          "name": "first_frame",
-          "type": "IMAGE",
-          "links": null
-        }
+        { "name": "video_url",   "type": "STRING", "links": [3] },
+        { "name": "task_id",     "type": "STRING", "links": null },
+        { "name": "first_frame", "type": "IMAGE",  "links": null }
       ],
-      "properties": {
-        "Node name for S&R": "Seedance2"
-      },
+      "properties": { "Node name for S&R": "Seedance2" },
       "widgets_values": [
         "A cinematic portrait video of the verified person with natural motion and stable identity.",
-        "720p",
-        "16:9",
-        5,
-        true,
-        false,
-        -1
+        "720p", "16:9", 5, true, false, -1
       ]
     },
     {
       "id": 5,
       "type": "SeedanceSaveVideo",
-      "pos": [
-        1160,
-        300
-      ],
-      "size": [
-        350,
-        130
-      ],
+      "pos": [1180, 300],
+      "size": [350, 130],
       "flags": {},
       "order": 3,
       "mode": 0,
       "inputs": [
-        {
-          "name": "video_url",
-          "type": "STRING",
-          "link": 3
-        }
+        { "name": "video_url", "type": "STRING", "link": 3 }
       ],
       "outputs": [
-        {
-          "name": "saved_path",
-          "type": "STRING",
-          "links": null
-        }
+        { "name": "saved_path", "type": "STRING", "links": null }
       ],
-      "properties": {
-        "Node name for S&R": "SeedanceSaveVideo"
-      },
-      "widgets_values": [
-        "seedance",
-        "output"
-      ]
-    },
-    {
-      "id": 4,
-      "type": "MarkdownNote",
-      "pos": [
-        60,
-        20
-      ],
-      "size": [
-        1420,
-        120
-      ],
-      "flags": {},
-      "order": 4,
-      "mode": 0,
-      "inputs": [],
-      "outputs": [],
-      "properties": {},
-      "widgets_values": [
-        "### 02 Generate With Existing Real Human ID\nPaste a verified `asset_id` into `Seedance AM - Identity Input`, then run the workflow. `group_id` is optional here and is mainly for organization.\n\n`Seedance AM - Save Video` now downloads the mp4 and should preview it in-node. If you want to use ComfyUI's native `LoadVideo`, change `save_to` to `input`."
-      ]
+      "properties": { "Node name for S&R": "SeedanceSaveVideo" },
+      "widgets_values": ["seedance", "output"]
     }
   ],
   "links": [
-    [
-      1,
-      1,
-      0,
-      3,
-      0,
-      "SEEDANCE_API"
-    ],
-    [
-      2,
-      2,
-      0,
-      3,
-      6,
-      "STRING"
-    ],
-    [
-      3,
-      3,
-      0,
-      5,
-      0,
-      "STRING"
-    ]
+    [1, 1, 0, 3, 0, "SEEDANCE_API"],
+    [2, 2, 0, 3, 6, "STRING"],
+    [3, 3, 0, 5, 0, "STRING"],
+    [4, 2, 1, 3, 8, "STRING"]
   ],
   "groups": [],
   "config": {},

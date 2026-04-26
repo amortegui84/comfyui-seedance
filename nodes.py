@@ -443,7 +443,7 @@ def _anyfast_runtime_image_asset(api, image_tensor, name, group_id):
     with retry logic for group propagation delays.
     Propagation wait is handled by the caller after all images are uploaded."""
     raw_id = _upload_image_multipart(api, image_tensor, name, group_id)
-    return f"Asset://{raw_id}", group_id
+    return f"asset://{raw_id}", group_id
 
 
 # --------------------------------------------------------------------------- #
@@ -900,8 +900,8 @@ class SeedanceAnyfastImageUpload:
             }
         }
 
-    RETURN_TYPES = ("ANYFAST_IMAGE_REFS",)
-    RETURN_NAMES = ("anyfast_refs",)
+    RETURN_TYPES = ("ANYFAST_IMAGE_REFS", "STRING")
+    RETURN_NAMES = ("anyfast_refs",      "group_id")
     FUNCTION     = "upload"
 
     def upload(self, api, group_name, propagation_wait,
@@ -924,17 +924,17 @@ class SeedanceAnyfastImageUpload:
 
         if first_frame is not None:
             raw_id = _upload_image_multipart(api, first_frame, f"ff_{ts}", group_id)
-            refs.append({"type": "image_url", "image_url": {"url": f"Asset://{raw_id}"}, "role": "first_frame"})
+            refs.append({"type": "image_url", "image_url": {"url": f"asset://{raw_id}"}, "role": "first_frame"})
 
         if last_frame is not None:
             raw_id = _upload_image_multipart(api, last_frame, f"lf_{ts}", group_id)
-            refs.append({"type": "image_url", "image_url": {"url": f"Asset://{raw_id}"}, "role": "last_frame"})
+            refs.append({"type": "image_url", "image_url": {"url": f"asset://{raw_id}"}, "role": "last_frame"})
 
         ref_slots = [ref_image_1, ref_image_2, ref_image_3, ref_image_4, ref_image_5,
                      ref_image_6, ref_image_7, ref_image_8, ref_image_9]
         for idx, img in enumerate((img for img in ref_slots if img is not None), start=1):
             raw_id = _upload_image_multipart(api, img, f"ref_{idx}_{ts}", group_id)
-            refs.append({"type": "image_url", "image_url": {"url": f"Asset://{raw_id}"}, "role": "reference_image"})
+            refs.append({"type": "image_url", "image_url": {"url": f"asset://{raw_id}"}, "role": "reference_image"})
 
         if not refs:
             raise ValueError(
@@ -946,11 +946,11 @@ class SeedanceAnyfastImageUpload:
             print(f"[Seedance/AnyFast] Waiting {propagation_wait}s for asset propagation ...")
             time.sleep(propagation_wait)
 
-        print(f"[Seedance/AnyFast] {len(refs)} image ref(s) ready:")
+        print(f"[Seedance/AnyFast] {len(refs)} image ref(s) ready (group={group_id}):")
         for entry in refs:
             print(f"  role={entry['role']}  url={entry['image_url']['url']}")
 
-        return (refs,)
+        return (refs, group_id)
 
 
 # --------------------------------------------------------------------------- #
@@ -995,6 +995,10 @@ class _V2Base:
                 # When connected, skips inline upload for first_frame/last_frame/reference_images on AnyFast
                 "anyfast_refs":     ("ANYFAST_IMAGE_REFS", {"forceInput": True,
                                                              "tooltip": "AnyFast only — pre-uploaded image refs from SeedanceAnyfastImageUpload"}),
+                # AnyFast group_id — required for asset lookup when using human_asset_id or anyfast_refs
+                # Connect from SeedanceAnyfastImageUpload.group_id or SeedanceIdentityInput.group_id
+                "group_id":         ("STRING", {"forceInput": True,
+                                                 "tooltip": "AnyFast group_id — scope asset lookup. Connect from SeedanceAnyfastImageUpload or SeedanceIdentityInput"}),
             }
         }
 
@@ -1006,7 +1010,7 @@ class _V2Base:
     def generate(self, api, prompt, resolution, ratio, duration, generate_audio,
                  watermark, seed, first_frame=None, last_frame=None,
                  reference_images=None, reference_video=None, reference_audio=None,
-                 human_asset_id=None, anyfast_refs=None):
+                 human_asset_id=None, anyfast_refs=None, group_id=None):
 
         # Seedance requires @image1, @video1, @audio1 tags in the prompt so the
         # model knows how to use each reference. Auto-append any missing tags.
@@ -1147,6 +1151,9 @@ class _V2Base:
             }
             if seed != -1:
                 payload["seed"] = seed
+            if group_id and group_id.strip():
+                payload["group_id"] = group_id.strip()
+                print(f"[Seedance/AnyFast] group_id: {group_id.strip()}")
 
             url, task_id, frame = _submit_and_poll(api, payload)
 
