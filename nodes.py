@@ -413,11 +413,11 @@ def _anyfast_runtime_image_asset(api, image_tensor, name, group_id=None):
     raw_id = _extract_id(resp, "AssetId", "asset_id", "id", "ID")
     resolved_group_id = group_id or _extract_optional_id(resp, "GroupId", "group_id", "GroupID")
     asset_uri = f"Asset://{raw_id}"
-    _wait_for_anyfast_asset(api, raw_id, resolved_group_id)
+    _wait_for_anyfast_asset(api, raw_id, name, resolved_group_id)
     return asset_uri, resolved_group_id
 
 
-def _wait_for_anyfast_asset(api, raw_asset_id, group_id=None, timeout=60, interval=3):
+def _wait_for_anyfast_asset(api, raw_asset_id, asset_name, group_id=None, timeout=60, interval=3):
     """Poll AnyFast ListAssets until a freshly uploaded asset becomes visible."""
     base_url = api["base_url"].rstrip("/")
     api_key  = api["api_key"].strip()
@@ -428,7 +428,7 @@ def _wait_for_anyfast_asset(api, raw_asset_id, group_id=None, timeout=60, interv
     deadline = time.time() + timeout
 
     while time.time() < deadline:
-        filter_payload = {"Name": raw_asset_id}
+        filter_payload = {"Name": asset_name}
         if group_id:
             filter_payload["GroupIds"] = [group_id]
             filter_payload["GroupType"] = "AIGC"
@@ -460,7 +460,8 @@ def _wait_for_anyfast_asset(api, raw_asset_id, group_id=None, timeout=60, interv
 
             for item in candidates:
                 asset_id = _extract_optional_id(item, "AssetId", "asset_id", "id", "ID")
-                if asset_id == raw_asset_id:
+                status = str(item.get("Status", item.get("status", ""))).strip().lower()
+                if asset_id == raw_asset_id and (not status or status == "active"):
                     print(f"[Seedance Assets] Asset visible: {raw_asset_id}")
                     return
 
