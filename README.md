@@ -62,6 +62,7 @@ For text-to-video, leave image inputs disconnected. To switch to image-to-video,
 | `Seedance AM - Reference Audio` | Pick a local audio file from the input folder and upload it |
 | `Seedance AM - Save Video` | Download and save the generated video |
 | `Seedance AM - Show Text` | Display any string value directly in the node |
+| `Seedance AM - Text Input` | Store any string manually inside the graph and pass it downstream |
 
 ## Usage
 
@@ -155,6 +156,13 @@ Paste the saved `group_id` into `existing_group_id`. The node skips new verifica
 
 - Use `Seedance AM - Create Human Asset` for the full first-time verification flow and final asset creation
 - Use `Seedance AM - Show Text` for simple one-value previews anywhere else in the graph
+- Use `Seedance AM - Text Input` to save a known `group_id` or `asset_id` directly in the workflow for later reuse
+
+### Where to put each ID
+
+- Put `asset_id` into `Seedance AM 2.0 - Standard.human_asset_id`
+- Put a saved `group_id` into `Seedance AM - Create Human Asset.existing_group_id`
+- Use `Seedance AM - Text Input` if you want to paste and keep either value inside the graph
 
 ## Key Parameters
 

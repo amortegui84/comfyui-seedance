@@ -678,7 +678,17 @@ class SeedanceCreateHumanAsset:
                 )
             except RuntimeError as e:
                 original_error = str(e)
-                group_id = _ensure_group(api, group_name, None)
+                try:
+                    group_id = _ensure_group(api, group_name, None)
+                except RuntimeError as group_error:
+                    provider = api.get("provider", "unknown")
+                    base_url = api.get("base_url", "")
+                    raise RuntimeError(
+                        "Human asset upload failed before verification could start. "
+                        f"Provider={provider} BaseURL={base_url} | "
+                        f"Direct CreateAsset error: {original_error} | "
+                        f"CreateAssetGroup error: {group_error}"
+                    ) from group_error
                 try:
                     asset_uri, verify_url, resolved_group_id = _upload_asset(
                         api, "Image", name, group_id, image_tensor=image
@@ -1049,6 +1059,34 @@ class SeedanceShowText:
 
 
 # --------------------------------------------------------------------------- #
+# Text Input node — store and re-use string IDs inside the graph
+# --------------------------------------------------------------------------- #
+
+class SeedanceTextInput:
+    """Store any text value in the workflow and pass it downstream.
+
+    Useful for saving and reusing asset_id, group_id, verify_url, or any other
+    string value without relying on a previous node's preview panel."""
+
+    CATEGORY = "Seedance AM"
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "text": ("STRING", {"default": "", "multiline": True}),
+            }
+        }
+
+    RETURN_TYPES = ("STRING",)
+    RETURN_NAMES = ("text",)
+    FUNCTION = "value"
+
+    def value(self, text):
+        return {"ui": {"text": [str(text)]}, "result": (str(text),)}
+
+
+# --------------------------------------------------------------------------- #
 # Registration
 # --------------------------------------------------------------------------- #
 
@@ -1072,6 +1110,7 @@ NODE_CLASS_MAPPINGS = {
     # Output
     "SeedanceSaveVideo":   SeedanceSaveVideo,
     "SeedanceShowText":    SeedanceShowText,
+    "SeedanceTextInput":   SeedanceTextInput,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
@@ -1094,4 +1133,5 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     # Output
     "SeedanceSaveVideo":   "Seedance AM - Save Video",
     "SeedanceShowText":    "Seedance AM - Show Text",
+    "SeedanceTextInput":   "Seedance AM - Text Input",
 }

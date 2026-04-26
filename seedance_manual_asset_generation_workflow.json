@@ -1,0 +1,215 @@
+{
+  "id": "4c7ed650-bfdb-4e70-b776-2d7c612db0d3",
+  "revision": 0,
+  "last_node_id": 4,
+  "last_link_id": 3,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "SeedanceApiKey",
+      "pos": [
+        60,
+        100
+      ],
+      "size": [
+        360,
+        170
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "api",
+          "type": "SEEDANCE_API",
+          "links": [
+            1
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SeedanceApiKey"
+      },
+      "widgets_values": [
+        "",
+        "anyfast",
+        "https://www.anyfast.ai"
+      ]
+    },
+    {
+      "id": 2,
+      "type": "SeedanceTextInput",
+      "pos": [
+        60,
+        340
+      ],
+      "size": [
+        420,
+        180
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "text",
+          "type": "STRING",
+          "links": [
+            2
+          ]
+        }
+      ],
+      "title": "Paste asset_id here",
+      "properties": {
+        "Node name for S&R": "SeedanceTextInput"
+      },
+      "widgets_values": [
+        "Asset://paste-your-verified-asset-id-here"
+      ]
+    },
+    {
+      "id": 3,
+      "type": "Seedance2",
+      "pos": [
+        580,
+        220
+      ],
+      "size": [
+        470,
+        360
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "api",
+          "type": "SEEDANCE_API",
+          "link": 1
+        },
+        {
+          "name": "first_frame",
+          "type": "IMAGE",
+          "link": null
+        },
+        {
+          "name": "last_frame",
+          "type": "IMAGE",
+          "link": null
+        },
+        {
+          "name": "reference_images",
+          "type": "SEEDANCE_IMAGE_LIST",
+          "link": null
+        },
+        {
+          "name": "reference_video",
+          "type": "STRING",
+          "link": null
+        },
+        {
+          "name": "reference_audio",
+          "type": "STRING",
+          "link": null
+        },
+        {
+          "name": "human_asset_id",
+          "type": "STRING",
+          "link": 2
+        }
+      ],
+      "outputs": [
+        {
+          "name": "video_url",
+          "type": "STRING",
+          "links": [
+            3
+          ]
+        },
+        {
+          "name": "task_id",
+          "type": "STRING",
+          "links": null
+        },
+        {
+          "name": "first_frame",
+          "type": "IMAGE",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "Seedance2"
+      },
+      "widgets_values": [
+        "A cinematic portrait video of the verified person with natural motion and stable identity.",
+        "720p",
+        "16:9",
+        5,
+        true,
+        false,
+        -1
+      ]
+    },
+    {
+      "id": 4,
+      "type": "SeedanceSaveVideo",
+      "pos": [
+        1130,
+        300
+      ],
+      "size": [
+        320,
+        120
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "video_url",
+          "type": "STRING",
+          "link": 3
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "SeedanceSaveVideo"
+      },
+      "widgets_values": [
+        "seedance_manual_asset"
+      ]
+    }
+  ],
+  "links": [
+    [
+      1,
+      1,
+      0,
+      3,
+      0,
+      "SEEDANCE_API"
+    ],
+    [
+      2,
+      2,
+      0,
+      3,
+      6,
+      "STRING"
+    ],
+    [
+      3,
+      3,
+      0,
+      4,
+      0,
+      "STRING"
+    ]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {},
+  "version": 0.4
+}
