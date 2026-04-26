@@ -1,8 +1,8 @@
 {
   "id": "4c7ed650-bfdb-4e70-b776-2d7c612db0d3",
   "revision": 0,
-  "last_node_id": 4,
-  "last_link_id": 2,
+  "last_node_id": 5,
+  "last_link_id": 3,
   "nodes": [
     {
       "id": 1,
@@ -141,7 +141,9 @@
         {
           "name": "video_url",
           "type": "STRING",
-          "links": null
+          "links": [
+            3
+          ]
         },
         {
           "name": "task_id",
@@ -168,6 +170,42 @@
       ]
     },
     {
+      "id": 5,
+      "type": "SeedanceSaveVideo",
+      "pos": [
+        1120,
+        280
+      ],
+      "size": [
+        350,
+        130
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "video_url",
+          "type": "STRING",
+          "link": 3
+        }
+      ],
+      "outputs": [
+        {
+          "name": "saved_path",
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SeedanceSaveVideo"
+      },
+      "widgets_values": [
+        "seedance",
+        "output"
+      ]
+    },
+    {
       "id": 4,
       "type": "MarkdownNote",
       "pos": [
@@ -179,13 +217,13 @@
         140
       ],
       "flags": {},
-      "order": 3,
+      "order": 4,
       "mode": 0,
       "inputs": [],
       "outputs": [],
       "properties": {},
       "widgets_values": [
-        "### Manual asset generation\nPaste a verified `asset_id`, run `Seedance2`, then preview the result with your preferred common video loader/preview node. This workflow avoids the legacy downloader node."
+        "### Manual asset generation\nPaste a verified `asset_id`, run `Seedance2`, then let `Seedance AM - Save Video` download and preview the result. If you want to use ComfyUI's native `LoadVideo`, switch `save_to` to `input`."
       ]
     }
   ],
@@ -204,6 +242,14 @@
       0,
       3,
       6,
+      "STRING"
+    ],
+    [
+      3,
+      3,
+      0,
+      5,
+      0,
       "STRING"
     ]
   ],

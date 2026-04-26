@@ -1,8 +1,8 @@
 {
   "id": "8fd5d389-8b67-4b7e-a1d9-2d70e6280f5f",
   "revision": 0,
-  "last_node_id": 8,
-  "last_link_id": 6,
+  "last_node_id": 9,
+  "last_link_id": 7,
   "nodes": [
     {
       "id": 1,
@@ -256,7 +256,9 @@
         {
           "name": "video_url",
           "type": "STRING",
-          "links": null
+          "links": [
+            7
+          ]
         },
         {
           "name": "task_id",
@@ -283,6 +285,42 @@
       ]
     },
     {
+      "id": 9,
+      "type": "SeedanceSaveVideo",
+      "pos": [
+        1030,
+        760
+      ],
+      "size": [
+        350,
+        130
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "video_url",
+          "type": "STRING",
+          "link": 7
+        }
+      ],
+      "outputs": [
+        {
+          "name": "saved_path",
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SeedanceSaveVideo"
+      },
+      "widgets_values": [
+        "seedance",
+        "output"
+      ]
+    },
+    {
       "id": 8,
       "type": "MarkdownNote",
       "pos": [
@@ -294,13 +332,13 @@
         290
       ],
       "flags": {},
-      "order": 4,
+      "order": 5,
       "mode": 0,
       "inputs": [],
       "outputs": [],
       "properties": {},
       "widgets_values": [
-        "### Workflow order\n1. Leave `existing_group_id` empty in `SeedanceCreateHumanAsset`\n2. Queue only that node first\n3. Complete **Start Verification** inside the node\n4. Queue the same node again to get the final `asset_id`\n5. Save the `group_id`\n6. Then queue `Seedance2` to generate the video\n\n### Important\n- The verification button/link appears in `SeedanceCreateHumanAsset`\n- `SeedanceShowText` is only for reading `asset_id` and `group_id`\n- Real-human verification works with `AnyFast`, not `fal.ai`\n- For preview, use your preferred common video loader/preview node after generation"
+        "### Workflow order\n1. Leave `existing_group_id` empty in `SeedanceCreateHumanAsset`\n2. Queue only that node first\n3. Complete **Start Verification** inside the node\n4. Queue the same node again to get the final `asset_id`\n5. Save the `group_id`\n6. Then queue `Seedance2` to generate the video\n7. `Seedance AM - Save Video` downloads the final mp4 and should preview it in-node\n\n### Important\n- The verification button/link appears in `SeedanceCreateHumanAsset`\n- `SeedanceShowText` is only for reading `asset_id` and `group_id`\n- Real-human verification works with `AnyFast`, not `fal.ai`\n- If you want to use ComfyUI's native `LoadVideo`, change `save_to` to `input`"
       ]
     }
   ],
@@ -350,6 +388,14 @@
       3,
       1,
       5,
+      0,
+      "STRING"
+    ],
+    [
+      7,
+      6,
+      0,
+      9,
       0,
       "STRING"
     ]

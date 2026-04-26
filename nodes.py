@@ -1028,7 +1028,7 @@ class SeedanceSaveVideo:
     Kept mainly as a download helper. For preview, prefer a common video loader
     node that opens the saved local file."""
 
-    CATEGORY = "Seedance AM/Legacy"
+    CATEGORY = "Seedance AM/Core"
 
     @classmethod
     def INPUT_TYPES(cls):
@@ -1036,6 +1036,7 @@ class SeedanceSaveVideo:
             "required": {
                 "video_url":       ("STRING", {"forceInput": True}),
                 "filename_prefix": ("STRING", {"default": "seedance"}),
+                "save_to":         (["output", "input"], {"default": "output"}),
             }
         }
 
@@ -1044,8 +1045,8 @@ class SeedanceSaveVideo:
     OUTPUT_NODE  = True
     FUNCTION     = "save"
 
-    def save(self, video_url, filename_prefix):
-        output_dir = folder_paths.get_output_directory()
+    def save(self, video_url, filename_prefix, save_to):
+        output_dir = folder_paths.get_output_directory() if save_to == "output" else folder_paths.get_input_directory()
         timestamp  = int(time.time())
         filename   = f"{filename_prefix}_{timestamp}.mp4"
         filepath   = os.path.join(output_dir, filename)
@@ -1061,7 +1062,14 @@ class SeedanceSaveVideo:
 
         print(f"[Seedance] Saved: {filename}")
         return {
-            "ui": {"text": [filepath]},
+            "ui": {
+                "text": [filepath],
+                "videos": [{
+                    "filename": filename,
+                    "subfolder": "",
+                    "type": save_to,
+                }],
+            },
             "result": (filepath,),
         }
 
@@ -1208,7 +1216,7 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     # Extend
     "SeedanceExtend":      "Seedance AM - Extend Video",
     # Output
-    "SeedanceSaveVideo":   "Seedance AM - Download Video (Legacy)",
+    "SeedanceSaveVideo":   "Seedance AM - Save Video",
     "SeedanceShowText":    "Seedance AM - Show Text",
     "SeedanceTextInput":   "Seedance AM - Text Input (Legacy)",
     "SeedanceIdentityInput": "Seedance AM - Identity Input",

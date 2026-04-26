@@ -1,8 +1,8 @@
 {
   "id": "0f83a0bf-54b5-4fa0-8d26-1d2b0d17f4f2",
   "revision": 0,
-  "last_node_id": 7,
-  "last_link_id": 6,
+  "last_node_id": 8,
+  "last_link_id": 7,
   "nodes": [
     {
       "id": 1,
@@ -225,7 +225,9 @@
         {
           "name": "video_url",
           "type": "STRING",
-          "links": null
+          "links": [
+            7
+          ]
         },
         {
           "name": "task_id",
@@ -252,6 +254,42 @@
       ]
     },
     {
+      "id": 8,
+      "type": "SeedanceSaveVideo",
+      "pos": [
+        1590,
+        450
+      ],
+      "size": [
+        350,
+        130
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "video_url",
+          "type": "STRING",
+          "link": 7
+        }
+      ],
+      "outputs": [
+        {
+          "name": "saved_path",
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SeedanceSaveVideo"
+      },
+      "widgets_values": [
+        "seedance",
+        "output"
+      ]
+    },
+    {
       "id": 7,
       "type": "MarkdownNote",
       "pos": [
@@ -263,13 +301,13 @@
         240
       ],
       "flags": {},
-      "order": 5,
+      "order": 6,
       "mode": 0,
       "inputs": [],
       "outputs": [],
       "properties": {},
       "widgets_values": [
-        "### Hybrid workflow\n- `ByteDanceCreateImageAsset` handles the official ComfyUI real-human verification flow\n- `Seedance AM - Identity Input` keeps `asset_id` and `group_id` together in one place\n- `Seedance2` handles video generation through your custom node pack\n- If you are verifying for the first time, run the asset node first and complete the official link flow before expecting generation to work\n- For preview, use your preferred common video loader/preview node after generation"
+        "### Hybrid workflow\n- `ByteDanceCreateImageAsset` handles the official ComfyUI real-human verification flow\n- `Seedance AM - Identity Input` keeps `asset_id` and `group_id` together in one place\n- `Seedance2` handles video generation through your custom node pack\n- `Seedance AM - Save Video` downloads the final mp4 and should preview it in-node\n- If you are verifying for the first time, run the asset node first and complete the official link flow before expecting generation to work"
       ]
     }
   ],
@@ -313,6 +351,14 @@
       1,
       4,
       3,
+      "STRING"
+    ],
+    [
+      7,
+      5,
+      0,
+      8,
+      0,
       "STRING"
     ]
   ],

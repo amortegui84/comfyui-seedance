@@ -17,6 +17,7 @@ Most users only need these nodes:
 
 - `Seedance AM - API Key`
 - `Seedance AM 2.0 - Standard`
+- `Seedance AM - Save Video`
 - `Seedance AM - Reference Images (9 slots)` when using style/reference images
 - `Seedance AM - Create Human Asset` when using real-human identity verification
 - `Seedance AM - Identity Input` to keep `asset_id` and `group_id` organized
@@ -93,7 +94,7 @@ For text-to-video, leave image inputs disconnected. For image-to-video, connect 
 | `Seedance AM - Reference Video` | Pick a local video from the input folder and upload it |
 | `Seedance AM - Reference Audio` | Pick a local audio file from the input folder and upload it |
 | `Seedance AM - Upload Asset` | Advanced generic uploader for image, audio, or video assets |
-| `Seedance AM - Download Video (Legacy)` | Downloads the generated video and returns the saved local file path |
+| `Seedance AM - Save Video` | Downloads the generated video, saves it locally, and should preview the mp4 in-node |
 | `Seedance AM - Show Text` | Generic string preview node for debugging |
 | `Seedance AM - Text Input (Legacy)` | Older generic text holder kept for compatibility |
 
@@ -111,13 +112,14 @@ The nodes are grouped in ComfyUI like this:
 ## Which Node Should I Use?
 
 - Generate a normal video: `API Key` -> `Seedance 2.0 - Standard`
+- Save and preview the final mp4: use `Save Video`
 - Add image references: use `Reference Images (9 slots)`
 - Add reference video/audio: use `Reference Video` or `Reference Audio`
 - Create a new real-human ID: use `Create Human Asset`
 - Store or reuse `asset_id` and `group_id`: use `Identity Input`
 - Debug a raw string: use `Show Text`
 - Upload arbitrary asset files manually: use `Upload Asset`
-- Build a new workflow from scratch: avoid `Text Input (Legacy)` and `Download Video (Legacy)` unless you specifically need compatibility or a simple downloader
+- Build a new workflow from scratch: avoid `Text Input (Legacy)` unless you specifically need compatibility
 
 ## Compatibility
 
@@ -129,7 +131,7 @@ The nodes are grouped in ComfyUI like this:
 ### Text to Video
 
 ```text
-Seedance AM - API Key -> Seedance AM 2.0 - Standard
+Seedance AM - API Key -> Seedance AM 2.0 - Standard -> Seedance AM - Save Video
 ```
 
 Write a prompt and queue it.
@@ -235,13 +237,13 @@ Seedance AM - Identity Input
 
 ## Video Output Recommendation
 
-`Seedance2` returns a `video_url` string. The most reliable preview flow is:
+`Seedance2` returns a `video_url` string. The recommended final step is `Seedance AM - Save Video`.
 
 1. Generate the video
-2. Download it to a local file
-3. Preview that local file with a common video loader node
+2. Let `Seedance AM - Save Video` download the mp4
+3. Preview it directly in the node UI
 
-`Seedance AM - Download Video (Legacy)` still works with both `AnyFast` and `fal.ai` because it only downloads the returned `video_url`. It is kept as a simple downloader, not as the recommended preview node for new workflows.
+If you want to use ComfyUI's native `LoadVideo` node afterwards, set `save_to = input` in `Seedance AM - Save Video` so the downloaded mp4 is written to the input folder.
 
 ## Key Parameters
 
