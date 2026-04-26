@@ -819,9 +819,9 @@ class _V2Base:
                 # Asset references — use SeedanceUploadAsset to get Asset:// IDs
                 "reference_video":  ("STRING", {"forceInput": True}),
                 "reference_audio":  ("STRING", {"forceInput": True}),
-                # ID-verified human asset — connect asset_id from SeedanceCreateHumanAsset
+                # ID-verified human asset — connect a verified ByteDance asset_id
                 "human_asset_id":   ("STRING", {"forceInput": True,
-                                                 "tooltip": "asset_id from 'Create Human Asset (ID Verified)' — AnyFast only"}),
+                                                 "tooltip": "Verified ByteDance asset_id for real-human generation — AnyFast only"}),
             }
         }
 
@@ -1181,7 +1181,6 @@ NODE_CLASS_MAPPINGS = {
     "Seedance2Fast":       Seedance2Fast,
     "Seedance2Ultra":      Seedance2Ultra,
     # Assets
-    "SeedanceCreateHumanAsset": SeedanceCreateHumanAsset,
     "SeedanceUploadAsset":      SeedanceUploadAsset,
     "SeedanceReferenceVideo":   SeedanceReferenceVideo,
     "SeedanceReferenceAudio":   SeedanceReferenceAudio,
@@ -1206,7 +1205,6 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "Seedance2Fast":       "Seedance AM 2.0 - Fast",
     "Seedance2Ultra":      "Seedance AM 2.0 - Ultra",
     # Assets
-    "SeedanceCreateHumanAsset": "Seedance AM - Create Human Asset",
     "SeedanceUploadAsset":      "Seedance AM - Upload Asset",
     "SeedanceReferenceVideo":   "Seedance AM - Reference Video",
     "SeedanceReferenceAudio":   "Seedance AM - Reference Audio",
