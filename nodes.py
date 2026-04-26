@@ -30,10 +30,11 @@ def _tensor_to_b64(tensor):
 
 
 def _poll_v2(base_url, api_key, task_id, timeout=600, interval=5):
-    """Poll Seedance 2.0 — status and video_url are at root level."""
+    """Poll Seedance 2.0 task until completion."""
     headers  = {"Authorization": f"Bearer {api_key}"}
     url      = f"{base_url}/v1/video/generations/{task_id}"
     deadline = time.time() + timeout
+    _first   = True
 
     time.sleep(3)
 
@@ -41,14 +42,25 @@ def _poll_v2(base_url, api_key, task_id, timeout=600, interval=5):
         r    = requests.get(url, headers=headers, timeout=30)
         r.raise_for_status()
         body = r.json()
-        status = body.get("status", "")
 
-        print(f"[Seedance] task_id={task_id}  status={status}")
+        if _first:
+            print(f"[Seedance] Poll response keys: {list(body.keys())}")
+            _first = False
 
-        if status == "completed":
-            return body["video_url"]
-        if status == "failed":
-            raise RuntimeError(f"Seedance generation failed: {body.get('error', 'unknown')}")
+        # status may be at root or nested under "data"
+        data   = body.get("data") if isinstance(body.get("data"), dict) else body
+        status = (data.get("status") or data.get("state") or "").lower()
+
+        video_url = data.get("video_url") or data.get("url") or data.get("result_url")
+
+        print(f"[Seedance] task_id={task_id}  status={status}  video_url={'yes' if video_url else 'no'}")
+
+        if status in ("completed", "succeeded", "success") or (not status and video_url):
+            if not video_url:
+                raise RuntimeError(f"Status=completed but no video_url in response: {body}")
+            return video_url
+        if status in ("failed", "error"):
+            raise RuntimeError(f"Seedance generation failed: {data.get('error') or data.get('message') or body}")
 
         time.sleep(interval)
 
