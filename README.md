@@ -32,7 +32,7 @@ Most users only need these nodes:
 - `Seedance AM - Create Human Asset` when using real-human identity verification
 - `Seedance AM - Identity Input` to keep `asset_id` and `group_id` organized
 
-Everything else is either advanced, specialized, or kept for backward compatibility.
+Everything else is either advanced or for backward compatibility.
 
 ## Install
 
@@ -70,7 +70,6 @@ For text-to-video, leave image inputs disconnected. To switch to image-to-video,
 | Node | What it does |
 |---|---|
 | `Seedance AM - API Key` | Main API key node for AnyFast and fal.ai |
-| `Seedance AM - API Key V2 (Compatibility)` | Compatibility alias kept only for older saved workflows |
 | `Seedance AM 2.0 - Standard` | Main Seedance 2.0 generation node |
 | `Seedance AM 2.0 - Fast` | Faster generation variant |
 | `Seedance AM 2.0 - Ultra` | Highest quality variant, up to 2K |
@@ -95,7 +94,6 @@ The nodes are grouped in ComfyUI like this:
 - `Seedance AM/Advanced` — lower-level asset utilities
 - `Seedance AM/Debug` — optional debug helpers
 - `Seedance AM/Legacy` — old compatibility nodes not recommended for new workflows
-- `Seedance AM/_Compatibility` — hidden-style migration helpers kept only so older workflows still load
 
 ## Which Node Should I Use?
 
@@ -117,6 +115,11 @@ Use this as the short decision guide:
   use `Upload Asset`
 - Build a new workflow from scratch:
   avoid `Text Input (Legacy)` and `Image Batch (Legacy)`
+
+## Compatibility
+
+- `Seedance AM - API Key V2 (Compatibility)` exists only so older saved workflows can still load
+- For new workflows, ignore it and use `Seedance AM - API Key`
 
 ## Usage
 
