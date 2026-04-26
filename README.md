@@ -27,7 +27,6 @@ Most users only need these nodes:
 
 - `Seedance AM - API Key`
 - `Seedance AM 2.0 - Standard`
-- `Seedance AM - Save Video`
 - `Seedance AM - Reference Images (9 slots)` when using style/reference images
 - `Seedance AM - Create Human Asset` when using real-human identity verification
 - `Seedance AM - Identity Input` to keep `asset_id` and `group_id` organized
@@ -80,7 +79,7 @@ For text-to-video, leave image inputs disconnected. To switch to image-to-video,
 | `Seedance AM - Reference Video` | Pick a local video from the input folder and upload it |
 | `Seedance AM - Reference Audio` | Pick a local audio file from the input folder and upload it |
 | `Seedance AM - Upload Asset` | Advanced generic uploader for image, audio, or video assets |
-| `Seedance AM - Save Video` | Download and save the generated video |
+| `Seedance AM - Download Video (Legacy)` | Download the generated video and output the saved local file path |
 | `Seedance AM - Show Text` | Generic string preview node, useful for debugging |
 | `Seedance AM - Text Input (Legacy)` | Older generic text holder kept for compatibility |
 
@@ -100,7 +99,7 @@ The nodes are grouped in ComfyUI like this:
 Use this as the short decision guide:
 
 - Generate a normal video:
-  `API Key` -> `Seedance 2.0 - Standard` -> `Save Video`
+  `API Key` -> `Seedance 2.0 - Standard`
 - Add image references:
   use `Reference Images (9 slots)`
 - Add reference video/audio:
@@ -114,7 +113,7 @@ Use this as the short decision guide:
 - Upload arbitrary asset files manually:
   use `Upload Asset`
 - Build a new workflow from scratch:
-  avoid `Text Input (Legacy)` and `Image Batch (Legacy)`
+  avoid `Text Input (Legacy)`, `Image Batch (Legacy)`, and `Download Video (Legacy)` unless you specifically want a local file downloader
 
 ## Compatibility
 
@@ -128,10 +127,15 @@ Use this as the short decision guide:
 Connect:
 
 ```text
-Seedance AM - API Key -> Seedance AM 2.0 - Standard -> Seedance AM - Save Video
+Seedance AM - API Key -> Seedance AM 2.0 - Standard
 ```
 
 Write a prompt and queue it.
+
+For preview:
+
+- use a common video loader/preview node on the saved local file when available
+- `Seedance AM - Download Video (Legacy)` can still download the file and return its saved path
 
 ### Image to Video
 
@@ -237,6 +241,16 @@ Seedance AM - Identity Input
 ```
 
 `Seedance AM - Identity Input` already shows both values inside the node, so its old `summary` output is no longer needed.
+
+## Video Output Recommendation
+
+`Seedance2` returns a `video_url` string. The most reliable preview flow is:
+
+1. Generate the video
+2. Download it to a local file
+3. Preview that local file with a common video loader node
+
+`Seedance AM - Download Video (Legacy)` still works with both `AnyFast` and `fal.ai` because it only downloads the returned `video_url`. It is no longer the recommended preview node, only the downloader.
 
 ## Key Parameters
 

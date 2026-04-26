@@ -1023,9 +1023,12 @@ class SeedanceExtend:
 # --------------------------------------------------------------------------- #
 
 class SeedanceSaveVideo:
-    """Download and save the generated video to the ComfyUI output folder."""
+    """Download and save the generated video to the ComfyUI output folder.
 
-    CATEGORY = "Seedance AM/Core"
+    Kept mainly as a download helper. For preview, prefer a common video loader
+    node that opens the saved local file."""
+
+    CATEGORY = "Seedance AM/Legacy"
 
     @classmethod
     def INPUT_TYPES(cls):
@@ -1036,7 +1039,8 @@ class SeedanceSaveVideo:
             }
         }
 
-    RETURN_TYPES = ()
+    RETURN_TYPES = ("STRING",)
+    RETURN_NAMES = ("saved_path",)
     OUTPUT_NODE  = True
     FUNCTION     = "save"
 
@@ -1056,7 +1060,10 @@ class SeedanceSaveVideo:
                 f.write(chunk)
 
         print(f"[Seedance] Saved: {filename}")
-        return {"ui": {"videos": [{"filename": filename, "subfolder": "", "type": "output"}]}}
+        return {
+            "ui": {"text": [filepath]},
+            "result": (filepath,),
+        }
 
 
 # --------------------------------------------------------------------------- #
@@ -1201,7 +1208,7 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     # Extend
     "SeedanceExtend":      "Seedance AM - Extend Video",
     # Output
-    "SeedanceSaveVideo":   "Seedance AM - Save Video",
+    "SeedanceSaveVideo":   "Seedance AM - Download Video (Legacy)",
     "SeedanceShowText":    "Seedance AM - Show Text",
     "SeedanceTextInput":   "Seedance AM - Text Input (Legacy)",
     "SeedanceIdentityInput": "Seedance AM - Identity Input",
