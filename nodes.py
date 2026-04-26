@@ -412,7 +412,63 @@ def _anyfast_runtime_image_asset(api, image_tensor, name, group_id=None):
     resp = r.json()
     raw_id = _extract_id(resp, "AssetId", "asset_id", "id", "ID")
     resolved_group_id = group_id or _extract_optional_id(resp, "GroupId", "group_id", "GroupID")
-    return f"Asset://{raw_id}", resolved_group_id
+    asset_uri = f"Asset://{raw_id}"
+    _wait_for_anyfast_asset(api, raw_id, resolved_group_id)
+    return asset_uri, resolved_group_id
+
+
+def _wait_for_anyfast_asset(api, raw_asset_id, group_id=None, timeout=60, interval=3):
+    """Poll AnyFast ListAssets until a freshly uploaded asset becomes visible."""
+    base_url = api["base_url"].rstrip("/")
+    api_key  = api["api_key"].strip()
+    headers  = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
+    deadline = time.time() + timeout
+
+    while time.time() < deadline:
+        filter_payload = {"Name": raw_asset_id}
+        if group_id:
+            filter_payload["GroupIds"] = [group_id]
+            filter_payload["GroupType"] = "AIGC"
+
+        r = requests.post(
+            f"{base_url}/volc/asset/ListAssets",
+            json={
+                "model": "volc-asset",
+                "Filter": filter_payload,
+                "PageNumber": 1,
+                "PageSize": 20,
+            },
+            headers=headers,
+            timeout=30,
+        )
+
+        if r.ok:
+            body = r.json()
+            candidates = []
+            for key in ("Items", "items", "List", "list", "Data", "data"):
+                value = body.get(key)
+                if isinstance(value, list):
+                    candidates.extend(value)
+                elif isinstance(value, dict):
+                    for nested_key in ("Items", "items", "List", "list"):
+                        nested_value = value.get(nested_key)
+                        if isinstance(nested_value, list):
+                            candidates.extend(nested_value)
+
+            for item in candidates:
+                asset_id = _extract_optional_id(item, "AssetId", "asset_id", "id", "ID")
+                if asset_id == raw_asset_id:
+                    print(f"[Seedance Assets] Asset visible: {raw_asset_id}")
+                    return
+
+        time.sleep(interval)
+
+    raise RuntimeError(
+        f"Uploaded asset {raw_asset_id} did not become visible via ListAssets within {timeout}s."
+    )
 
 
 # --------------------------------------------------------------------------- #
