@@ -28,7 +28,7 @@ app.registerExtension({
     name: "Seedance.ApiKey",
 
     async beforeRegisterNodeDef(nodeType, nodeData) {
-        if (nodeData.name !== "SeedanceApiKey") return;
+        if (!["SeedanceApiKey", "SeedanceApiKeyV2"].includes(nodeData.name)) return;
 
         const onNodeCreated = nodeType.prototype.onNodeCreated;
         nodeType.prototype.onNodeCreated = function () {

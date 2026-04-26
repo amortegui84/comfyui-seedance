@@ -73,7 +73,7 @@
     },
     {
       "id": 4,
-      "type": "SeedanceApiKey",
+      "type": "SeedanceApiKeyV2",
       "pos": [
         980,
         160
@@ -94,7 +94,7 @@
         }
       ],
       "properties": {
-        "Node name for S&R": "SeedanceApiKey"
+        "Node name for S&R": "SeedanceApiKeyV2"
       },
       "widgets_values": [
         "",

@@ -393,7 +393,7 @@ MAX_DURATION = 15
 # --------------------------------------------------------------------------- #
 
 class SeedanceApiKey:
-    CATEGORY = "Seedance AM/Core"
+    CATEGORY = "Seedance AM/Legacy"
 
     @classmethod
     def INPUT_TYPES(cls):
@@ -412,6 +412,29 @@ class SeedanceApiKey:
 
     def configure(self, api_key, provider, base_url):
         return ({"api_key": api_key, "provider": provider, "base_url": base_url},)
+
+
+class SeedanceApiKeyV2:
+    CATEGORY = "Seedance AM/Core"
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "api_key":  ("STRING", {"default": "", "multiline": False}),
+                "provider": (["anyfast", "fal.ai"],),
+                "base_url": ("STRING", {"default": "https://www.anyfast.ai", "multiline": False,
+                                        "tooltip": "Auto-switches with provider. Used for anyfast. Kept visible for clarity with fal.ai."}),
+            }
+        }
+
+    RETURN_TYPES = ("SEEDANCE_API",)
+    RETURN_NAMES = ("api",)
+    FUNCTION = "configure"
+
+    def configure(self, api_key, provider, base_url):
+        normalized_base = "https://fal.run" if provider == "fal.ai" else (base_url or "https://www.anyfast.ai")
+        return ({"api_key": api_key, "provider": provider, "base_url": normalized_base},)
 
 
 # --------------------------------------------------------------------------- #
@@ -1136,6 +1159,7 @@ class SeedanceIdentityInput:
 NODE_CLASS_MAPPINGS = {
     # Config
     "SeedanceApiKey":      SeedanceApiKey,
+    "SeedanceApiKeyV2":    SeedanceApiKeyV2,
     # 2.0 generation
     "Seedance2":           Seedance2,
     "Seedance2Fast":       Seedance2Fast,
@@ -1159,7 +1183,8 @@ NODE_CLASS_MAPPINGS = {
 
 NODE_DISPLAY_NAME_MAPPINGS = {
     # Config
-    "SeedanceApiKey":      "Seedance AM - API Key",
+    "SeedanceApiKey":      "Seedance AM - API Key (Legacy)",
+    "SeedanceApiKeyV2":    "Seedance AM - API Key V2",
     # 2.0 generation
     "Seedance2":           "Seedance AM 2.0 - Standard",
     "Seedance2Fast":       "Seedance AM 2.0 - Fast",

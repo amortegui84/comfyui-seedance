@@ -2,9 +2,9 @@
 
 Generate AI videos with [ByteDance Seedance 2.0](https://seedance2.ai) directly inside ComfyUI. This `Seedance AM` pack supports text-to-video, image-to-video, reference images, reference audio/video uploads, real-human asset verification, and video saving.
 
-Works with `AnyFast` and `fal.ai`. Pick your provider in the API Key node.
+Works with `AnyFast` and `fal.ai`. Use `Seedance AM - API Key V2` for new workflows.
 
-The `Seedance AM - API Key` node now auto-switches `base_url` to match the selected provider:
+The `Seedance AM - API Key V2` node auto-switches `base_url` to match the selected provider:
 
 - `anyfast` -> `https://www.anyfast.ai`
 - `fal.ai` -> `https://fal.run`
@@ -24,7 +24,7 @@ If you load `api_seedance2_0_r2v_real_human.json` and expect identical behavior,
 
 Most users only need these nodes:
 
-- `Seedance AM - API Key`
+- `Seedance AM - API Key V2`
 - `Seedance AM 2.0 - Standard`
 - `Seedance AM - Save Video`
 - `Seedance AM - Reference Images (9 slots)` when using style/reference images
@@ -46,7 +46,7 @@ Restart ComfyUI.
 
 ## Quick Start
 
-1. Add `Seedance AM - API Key`
+1. Add `Seedance AM - API Key V2`
 2. Paste your API key and choose `anyfast` or `fal.ai`
 3. Add `Seedance AM 2.0 - Standard`
 4. Connect `api` and run
@@ -68,7 +68,8 @@ For text-to-video, leave image inputs disconnected. To switch to image-to-video,
 
 | Node | What it does |
 |---|---|
-| `Seedance AM - API Key` | Configure provider, API key, and base URL |
+| `Seedance AM - API Key V2` | Recommended API key node for new workflows |
+| `Seedance AM - API Key (Legacy)` | Older API key node kept for compatibility |
 | `Seedance AM 2.0 - Standard` | Main Seedance 2.0 generation node |
 | `Seedance AM 2.0 - Fast` | Faster generation variant |
 | `Seedance AM 2.0 - Ultra` | Highest quality variant, up to 2K |
@@ -99,7 +100,7 @@ The nodes are grouped in ComfyUI like this:
 Use this as the short decision guide:
 
 - Generate a normal video:
-  `API Key` -> `Seedance 2.0 - Standard` -> `Save Video`
+  `API Key V2` -> `Seedance 2.0 - Standard` -> `Save Video`
 - Add image references:
   use `Reference Images (9 slots)`
 - Add reference video/audio:
