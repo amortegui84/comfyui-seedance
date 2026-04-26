@@ -105,7 +105,7 @@ Add `@image1`, `@image2` etc. to the prompt so the model knows how to use each r
 The recommended path uses the official ByteDance ComfyUI node for identity verification:
 
 1. Use `ByteDanceCreateImageAsset` (official ComfyUI node) to create and verify the person ID
-2. Feed the returned `asset_id` into **Seedance AM - Identity Input**
+2. Feed the returned `asset_id` and `group_id` into **Seedance AM - Identity Input**
 3. Connect `asset_id → Seedance AM 2.0 - Standard.human_asset_id`
 
 For portrait upload without the official node, use **Seedance AM - Create Human Asset** which handles the verification link flow.
@@ -138,7 +138,7 @@ For portrait upload without the official node, use **Seedance AM - Create Human 
 | `05_fal_image_to_video.json` | fal.ai | Image-to-video with direct first_frame connector |
 | `06_fal_reference_images.json` | fal.ai | Reference images using SeedanceRefImages |
 | `07_anyfast_human_id_with_ref_images.json` | AnyFast | **Human ID + reference images in the same generation** |
-| `02_generate_with_existing_real_human_id.json` | AnyFast | Generate with a saved verified `asset_id` (ID only, no extra refs) |
+| `02_generate_with_existing_real_human_id.json` | AnyFast | Generate with a saved verified `asset_id` and matching `group_id` |
 | `09_anyfast_save_to_input_for_vhs.json` | AnyFast | Save the generated mp4 into ComfyUI `input` so `VHS_LoadVideoPath` can load it by path |
 | `seedance_manual_asset_generation_workflow.json` | AnyFast | Paste an `asset_id` manually and generate |
 | `seedance_hybrid_official_id_our_generation.json` | AnyFast | Official ByteDance ID creation + Seedance AM generation |
@@ -216,3 +216,4 @@ Tags are auto-appended if missing, but writing them explicitly in the prompt giv
 ## License
 
 Apache 2.0
+

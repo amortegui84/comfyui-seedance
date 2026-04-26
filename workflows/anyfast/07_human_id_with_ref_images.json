@@ -52,11 +52,11 @@
       ],
       "outputs": [
         { "name": "asset_id", "type": "STRING", "links": [3] },
-        { "name": "group_id", "type": "STRING", "links": null }
+        { "name": "group_id", "type": "STRING", "links": [7] }
       ],
-      "title": "Paste your verified asset_id here (group_id not needed)",
+      "title": "Paste verified asset_id + matching group_id here",
       "properties": { "Node name for S&R": "SeedanceIdentityInput" },
-      "widgets_values": ["asset-YOUR-ID-HERE", ""]
+      "widgets_values": ["asset-YOUR-ID-HERE", "group-YOUR-ID-HERE"]
     },
     {
       "id": 4,
@@ -120,7 +120,7 @@
         { "name": "reference_audio",  "type": "STRING",              "link": null },
         { "name": "human_asset_id",   "type": "STRING",              "link": 3 },
         { "name": "anyfast_refs",     "type": "ANYFAST_IMAGE_REFS",  "link": 5 },
-        { "name": "group_id",         "type": "STRING",              "link": null }
+        { "name": "group_id",         "type": "STRING",              "link": 7 }
       ],
       "outputs": [
         { "name": "video_url",   "type": "STRING", "links": [6] },
@@ -157,10 +157,13 @@
     [3, 3, 0, 6, 6, "STRING"],
     [4, 4, 0, 5, 3, "IMAGE"],
     [5, 5, 0, 6, 7, "ANYFAST_IMAGE_REFS"],
-    [6, 6, 0, 7, 0, "STRING"]
+    [6, 6, 0, 7, 0, "STRING"],
+    [7, 3, 1, 6, 8, "STRING"]
   ],
   "groups": [],
   "config": {},
   "extra": {},
   "version": 0.4
 }
+
+

@@ -1056,6 +1056,12 @@ class _V2Base:
         else:
             print(f"[Seedance] Final prompt: {prompt}")
 
+            if human_asset_id and human_asset_id.strip() and not (group_id and group_id.strip()):
+                raise ValueError(
+                    "AnyFast real-human generation requires both human_asset_id and group_id. "
+                    "Connect both outputs from Seedance AM - Identity Input or the official ByteDance asset node."
+                )
+
             content = [{"type": "text", "text": prompt}]
 
             # Human asset ID is always added first, regardless of image path.
