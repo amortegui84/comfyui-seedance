@@ -1059,14 +1059,13 @@ class _V2Base:
             content = [{"type": "text", "text": prompt}]
 
             # Human asset ID is always added first, regardless of image path.
-            # Normalize to Asset:// — the official ByteDance node returns a raw ID
-            # without the protocol prefix; other paths may return asset:// (lowercase).
+            # ByteDance API requires lowercase asset:// prefix.
+            # Strip any existing prefix variant and re-apply lowercase.
             if human_asset_id and human_asset_id.strip():
                 hid = human_asset_id.strip()
-                if not hid.lower().startswith("asset://"):
-                    hid = f"Asset://{hid}"
-                elif hid.startswith("asset://"):
-                    hid = "Asset://" + hid[len("asset://"):]
+                if hid.lower().startswith("asset://"):
+                    hid = hid[len("asset://"):]
+                hid = f"asset://{hid}"
                 content.append({
                     "type":      "image_url",
                     "image_url": {"url": hid},
