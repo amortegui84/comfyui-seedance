@@ -862,16 +862,15 @@ class SeedanceCreateHumanAsset:
 # --------------------------------------------------------------------------- #
 
 class SeedanceAnyfastImageUpload:
-    """Upload local ComfyUI images to AnyFast asset storage before generation.
+    """Prepare images for AnyFast generation as base64 data URIs.
 
-    Uses multipart file upload (the documented method) and returns
-    ANYFAST_IMAGE_REFS — a pre-built content list ready to wire into
-    anyfast_refs on any Seedance 2.0 generation node.
+    Converts ComfyUI IMAGE tensors to base64 PNG data URIs and packages them
+    as ANYFAST_IMAGE_REFS content entries ready to wire into anyfast_refs on
+    any Seedance 2.0 generation node. No upload to AnyFast asset storage —
+    images are embedded directly in the generation request.
 
     Assign roles: first_frame / last_frame get their roles automatically.
-    ref_image_1..9 are all tagged as reference_image.
-
-    AnyFast only — raises if a non-AnyFast API key node is connected."""
+    ref_image_1..9 are all tagged as reference_image."""
 
     CATEGORY = "Seedance AM/AnyFast"
 
@@ -879,62 +878,45 @@ class SeedanceAnyfastImageUpload:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "api":              ("SEEDANCE_API",),
-                "group_name":       ("STRING",  {"default": "comfyui-runtime"}),
-                "propagation_wait": ("INT",     {"default": 5, "min": 0, "max": 60, "step": 1,
-                                                  "tooltip": "Seconds to wait after all uploads before generation (asset propagation buffer)"}),
+                "api": ("SEEDANCE_API",),
             },
             "optional": {
-                "first_frame":       ("IMAGE",),
-                "last_frame":        ("IMAGE",),
-                "ref_image_1":       ("IMAGE",),
-                "ref_image_2":       ("IMAGE",),
-                "ref_image_3":       ("IMAGE",),
-                "ref_image_4":       ("IMAGE",),
-                "ref_image_5":       ("IMAGE",),
-                "ref_image_6":       ("IMAGE",),
-                "ref_image_7":       ("IMAGE",),
-                "ref_image_8":       ("IMAGE",),
-                "ref_image_9":       ("IMAGE",),
-                "existing_group_id": ("STRING",  {"forceInput": True}),
+                "first_frame":  ("IMAGE",),
+                "last_frame":   ("IMAGE",),
+                "ref_image_1":  ("IMAGE",),
+                "ref_image_2":  ("IMAGE",),
+                "ref_image_3":  ("IMAGE",),
+                "ref_image_4":  ("IMAGE",),
+                "ref_image_5":  ("IMAGE",),
+                "ref_image_6":  ("IMAGE",),
+                "ref_image_7":  ("IMAGE",),
+                "ref_image_8":  ("IMAGE",),
+                "ref_image_9":  ("IMAGE",),
             }
         }
 
-    RETURN_TYPES = ("ANYFAST_IMAGE_REFS", "STRING")
-    RETURN_NAMES = ("anyfast_refs",      "group_id")
+    RETURN_TYPES = ("ANYFAST_IMAGE_REFS",)
+    RETURN_NAMES = ("anyfast_refs",)
     FUNCTION     = "upload"
 
-    def upload(self, api, group_name, propagation_wait,
+    def upload(self, api,
                first_frame=None, last_frame=None,
                ref_image_1=None, ref_image_2=None, ref_image_3=None,
                ref_image_4=None, ref_image_5=None, ref_image_6=None,
-               ref_image_7=None, ref_image_8=None, ref_image_9=None,
-               existing_group_id=None):
+               ref_image_7=None, ref_image_8=None, ref_image_9=None):
 
-        provider = api.get("provider", "anyfast")
-        if provider != "anyfast":
-            raise ValueError(
-                "SeedanceAnyfastImageUpload requires the 'anyfast' provider. "
-                "Switch your API Key node to AnyFast."
-            )
-
-        group_id = _ensure_group(api, group_name, existing_group_id)
-        ts       = int(time.time())
-        refs     = []
+        refs = []
 
         if first_frame is not None:
-            raw_id = _upload_image_multipart(api, first_frame, f"ff_{ts}", group_id)
-            refs.append({"type": "image_url", "image_url": {"url": f"asset://{raw_id}"}, "role": "first_frame"})
+            refs.append({"type": "image_url", "image_url": {"url": _tensor_to_b64(first_frame)}, "role": "first_frame"})
 
         if last_frame is not None:
-            raw_id = _upload_image_multipart(api, last_frame, f"lf_{ts}", group_id)
-            refs.append({"type": "image_url", "image_url": {"url": f"asset://{raw_id}"}, "role": "last_frame"})
+            refs.append({"type": "image_url", "image_url": {"url": _tensor_to_b64(last_frame)}, "role": "last_frame"})
 
         ref_slots = [ref_image_1, ref_image_2, ref_image_3, ref_image_4, ref_image_5,
                      ref_image_6, ref_image_7, ref_image_8, ref_image_9]
-        for idx, img in enumerate((img for img in ref_slots if img is not None), start=1):
-            raw_id = _upload_image_multipart(api, img, f"ref_{idx}_{ts}", group_id)
-            refs.append({"type": "image_url", "image_url": {"url": f"asset://{raw_id}"}, "role": "reference_image"})
+        for img in (img for img in ref_slots if img is not None):
+            refs.append({"type": "image_url", "image_url": {"url": _tensor_to_b64(img)}, "role": "reference_image"})
 
         if not refs:
             raise ValueError(
@@ -942,15 +924,11 @@ class SeedanceAnyfastImageUpload:
                 "to SeedanceAnyfastImageUpload."
             )
 
-        if propagation_wait > 0:
-            print(f"[Seedance/AnyFast] Waiting {propagation_wait}s for asset propagation ...")
-            time.sleep(propagation_wait)
-
-        print(f"[Seedance/AnyFast] {len(refs)} image ref(s) ready (group={group_id}):")
+        print(f"[Seedance/AnyFast] {len(refs)} image ref(s) prepared as base64:")
         for entry in refs:
-            print(f"  role={entry['role']}  url={entry['image_url']['url']}")
+            print(f"  role={entry['role']}  size={len(entry['image_url']['url'])} chars")
 
-        return (refs, group_id)
+        return (refs,)
 
 
 # --------------------------------------------------------------------------- #
@@ -1084,48 +1062,26 @@ class _V2Base:
                 for entry in anyfast_refs:
                     content.append(entry)
             else:
-                # Inline upload path (experimental — may fail due to AnyFast propagation delay).
-                # Use SeedanceAnyfastImageUpload + anyfast_refs for a reliable alternative.
-                runtime_group_id = None
-
-                def _resolve_anyfast_image_ref(img_tensor, role_name, index):
-                    nonlocal runtime_group_id
-                    runtime_group_id = runtime_group_id or _ensure_group(
-                        api,
-                        f"seedance-runtime-{int(time.time())}",
-                        None,
-                    )
-                    asset_uri, runtime_group_id = _anyfast_runtime_image_asset(
-                        api,
-                        img_tensor,
-                        f"{role_name}_{index}",
-                        runtime_group_id,
-                    )
-                    return asset_uri
-
+                # Inline path — embed images as base64 data URIs directly in the request.
                 if first_frame is not None:
                     content.append({
                         "type":      "image_url",
-                        "image_url": {"url": _resolve_anyfast_image_ref(first_frame, "first_frame", 1)},
+                        "image_url": {"url": _tensor_to_b64(first_frame)},
                         "role":      "first_frame",
                     })
                 if last_frame is not None:
                     content.append({
                         "type":      "image_url",
-                        "image_url": {"url": _resolve_anyfast_image_ref(last_frame, "last_frame", 1)},
+                        "image_url": {"url": _tensor_to_b64(last_frame)},
                         "role":      "last_frame",
                     })
                 if reference_images is not None:
-                    for idx, img_tensor in enumerate(reference_images, start=1):
+                    for img_tensor in reference_images:
                         content.append({
                             "type":      "image_url",
-                            "image_url": {"url": _resolve_anyfast_image_ref(img_tensor, "reference_image", idx)},
+                            "image_url": {"url": _tensor_to_b64(img_tensor)},
                             "role":      "reference_image",
                         })
-
-                if runtime_group_id is not None:
-                    print("[Seedance/AnyFast] Waiting 5s for inline-uploaded assets to propagate ...")
-                    time.sleep(5)
 
             if reference_video and reference_video.strip():
                 content.append({
