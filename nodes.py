@@ -1087,6 +1087,50 @@ class SeedanceTextInput:
 
 
 # --------------------------------------------------------------------------- #
+# Identity Input node — keep asset_id and group_id together in one place
+# --------------------------------------------------------------------------- #
+
+class SeedanceIdentityInput:
+    """Store real-human identity values in one node.
+
+    You can either type asset_id/group_id manually, or feed either value from
+    upstream nodes. Connected inputs take precedence over the widget values."""
+
+    CATEGORY = "Seedance AM"
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "asset_id": ("STRING", {"default": "", "multiline": False}),
+                "group_id": ("STRING", {"default": "", "multiline": False}),
+            },
+            "optional": {
+                "asset_id_in": ("STRING", {"forceInput": True}),
+                "group_id_in": ("STRING", {"forceInput": True}),
+            }
+        }
+
+    RETURN_TYPES = ("STRING", "STRING", "STRING")
+    RETURN_NAMES = ("asset_id", "group_id", "summary")
+    FUNCTION = "value"
+
+    def value(self, asset_id, group_id, asset_id_in=None, group_id_in=None):
+        resolved_asset_id = str(asset_id_in).strip() if asset_id_in is not None and str(asset_id_in).strip() else str(asset_id).strip()
+        resolved_group_id = str(group_id_in).strip() if group_id_in is not None and str(group_id_in).strip() else str(group_id).strip()
+
+        lines = [
+            f"asset_id: {resolved_asset_id or '-'}",
+            f"group_id: {resolved_group_id or '-'}",
+        ]
+        summary = "\n".join(lines)
+        return {
+            "ui": {"text": lines},
+            "result": (resolved_asset_id, resolved_group_id, summary),
+        }
+
+
+# --------------------------------------------------------------------------- #
 # Registration
 # --------------------------------------------------------------------------- #
 
@@ -1111,6 +1155,7 @@ NODE_CLASS_MAPPINGS = {
     "SeedanceSaveVideo":   SeedanceSaveVideo,
     "SeedanceShowText":    SeedanceShowText,
     "SeedanceTextInput":   SeedanceTextInput,
+    "SeedanceIdentityInput": SeedanceIdentityInput,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
@@ -1134,4 +1179,5 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "SeedanceSaveVideo":   "Seedance AM - Save Video",
     "SeedanceShowText":    "Seedance AM - Show Text",
     "SeedanceTextInput":   "Seedance AM - Text Input",
+    "SeedanceIdentityInput": "Seedance AM - Identity Input",
 }
