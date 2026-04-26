@@ -393,7 +393,7 @@ MAX_DURATION = 15
 # --------------------------------------------------------------------------- #
 
 class SeedanceApiKey:
-    CATEGORY = "Seedance AM"
+    CATEGORY = "Seedance AM/Core"
 
     @classmethod
     def INPUT_TYPES(cls):
@@ -442,7 +442,7 @@ class SeedanceRefImages:
 
     image_1 is required. Connect image_2 through image_9 as needed."""
 
-    CATEGORY = "Seedance AM"
+    CATEGORY = "Seedance AM/References"
 
     @classmethod
     def INPUT_TYPES(cls):
@@ -500,7 +500,7 @@ class SeedanceReferenceVideo:
     Pass an existing_group_id to reuse a previously verified identity group
     and avoid creating a new one each time."""
 
-    CATEGORY = "Seedance AM"
+    CATEGORY = "Seedance AM/References"
 
     @classmethod
     def INPUT_TYPES(cls):
@@ -542,7 +542,7 @@ class SeedanceReferenceAudio:
     Pass an existing_group_id to reuse a previously verified identity group
     and avoid creating a new one each time."""
 
-    CATEGORY = "Seedance AM"
+    CATEGORY = "Seedance AM/References"
 
     @classmethod
     def INPUT_TYPES(cls):
@@ -587,7 +587,7 @@ class SeedanceUploadAsset:
     Returns an Asset:// ID and the Group ID. Pass an existing_group_id to
     reuse a previously verified identity group without creating a new one."""
 
-    CATEGORY = "Seedance AM/Assets"
+    CATEGORY = "Seedance AM/Advanced"
 
     @classmethod
     def INPUT_TYPES(cls):
@@ -640,7 +640,7 @@ class SeedanceCreateHumanAsset:
     Next runs  — paste the saved Group ID into existing_group_id. No new
     verification is needed; the API matches faces automatically."""
 
-    CATEGORY   = "Seedance AM"
+    CATEGORY   = "Seedance AM/Identity"
     OUTPUT_NODE = True
 
     @classmethod
@@ -769,7 +769,7 @@ class SeedanceCreateHumanAsset:
 # --------------------------------------------------------------------------- #
 
 class _V2Base:
-    CATEGORY    = "Seedance AM"
+    CATEGORY    = "Seedance AM/Core"
     RESOLUTIONS = RES_V2
     MODEL_ID    = "seedance"
 
@@ -940,7 +940,7 @@ class SeedanceExtend:
     the clip. Returns the extended video_url, the new task_id, and the first
     frame of the extended video for further chaining."""
 
-    CATEGORY = "Seedance AM"
+    CATEGORY = "Seedance AM/Core"
 
     @classmethod
     def INPUT_TYPES(cls):
@@ -1001,7 +1001,7 @@ class SeedanceExtend:
 class SeedanceSaveVideo:
     """Download and save the generated video to the ComfyUI output folder."""
 
-    CATEGORY = "Seedance AM"
+    CATEGORY = "Seedance AM/Core"
 
     @classmethod
     def INPUT_TYPES(cls):
@@ -1043,7 +1043,7 @@ class SeedanceShowText:
     """Display any text value (asset_id, group_id, verify_url, video_url…)
     directly inside the node so you can read and copy it without extra nodes."""
 
-    CATEGORY    = "Seedance AM"
+    CATEGORY    = "Seedance AM/Debug"
     OUTPUT_NODE = True
 
     @classmethod
@@ -1096,7 +1096,7 @@ class SeedanceIdentityInput:
     You can either type asset_id/group_id manually, or feed either value from
     upstream nodes. Connected inputs take precedence over the widget values."""
 
-    CATEGORY = "Seedance AM"
+    CATEGORY = "Seedance AM/Identity"
 
     @classmethod
     def INPUT_TYPES(cls):

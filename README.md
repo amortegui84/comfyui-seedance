@@ -20,6 +20,19 @@ This repo does **not** use the same built-in ByteDance nodes shown in Comfy's of
 
 If you load `api_seedance2_0_r2v_real_human.json` and expect identical behavior, it will not match this custom node pack 1:1.
 
+## Recommended Node Set
+
+Most users only need these nodes:
+
+- `Seedance AM - API Key`
+- `Seedance AM 2.0 - Standard`
+- `Seedance AM - Save Video`
+- `Seedance AM - Reference Images (9 slots)` when using style/reference images
+- `Seedance AM - Create Human Asset` when using real-human identity verification
+- `Seedance AM - Identity Input` to keep `asset_id` and `group_id` organized
+
+Everything else is either advanced, specialized, or kept for backward compatibility.
+
 ## Install
 
 ```bash
@@ -62,13 +75,45 @@ For text-to-video, leave image inputs disconnected. To switch to image-to-video,
 | `Seedance AM - Extend Video` | Extend a previous generation using its `task_id` |
 | `Seedance AM - Reference Images (9 slots)` | Collect up to 9 reference images |
 | `Seedance AM - Create Human Asset` | First run starts H5 verification, later run creates the final `asset_id` using the verified `group_id` |
-| `Seedance AM - Upload Asset` | Upload a generic image, audio, or video asset |
+| `Seedance AM - Identity Input` | Store `asset_id` and `group_id` together and output either or both |
 | `Seedance AM - Reference Video` | Pick a local video from the input folder and upload it |
 | `Seedance AM - Reference Audio` | Pick a local audio file from the input folder and upload it |
+| `Seedance AM - Upload Asset` | Advanced generic uploader for image, audio, or video assets |
 | `Seedance AM - Save Video` | Download and save the generated video |
 | `Seedance AM - Show Text` | Generic string preview node, useful for debugging |
 | `Seedance AM - Text Input (Legacy)` | Older generic text holder kept for compatibility |
-| `Seedance AM - Identity Input` | Store `asset_id` and `group_id` together and output either or both |
+
+## Categories
+
+The nodes are grouped in ComfyUI like this:
+
+- `Seedance AM/Core` — main generation flow
+- `Seedance AM/Identity` — real-human ID and ID storage
+- `Seedance AM/References` — image, video, and audio references
+- `Seedance AM/Advanced` — lower-level asset utilities
+- `Seedance AM/Debug` — optional debug helpers
+- `Seedance AM/Legacy` — old compatibility nodes not recommended for new workflows
+
+## Which Node Should I Use?
+
+Use this as the short decision guide:
+
+- Generate a normal video:
+  `API Key` -> `Seedance 2.0 - Standard` -> `Save Video`
+- Add image references:
+  use `Reference Images (9 slots)`
+- Add reference video/audio:
+  use `Reference Video` or `Reference Audio`
+- Create a new real-human ID:
+  use `Create Human Asset`
+- Store or reuse `asset_id` and `group_id`:
+  use `Identity Input`
+- Debug a raw string:
+  use `Show Text`
+- Upload arbitrary asset files manually:
+  use `Upload Asset`
+- Build a new workflow from scratch:
+  avoid `Text Input (Legacy)` and `Image Batch (Legacy)`
 
 ## Usage
 
