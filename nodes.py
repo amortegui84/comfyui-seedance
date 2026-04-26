@@ -15,6 +15,13 @@ except ImportError:
 
 import folder_paths
 
+try:
+    from comfy_api.latest import io as comfy_io, ui as comfy_ui
+except ImportError:
+    comfy_io = None
+    comfy_ui = None
+
+
 
 # --------------------------------------------------------------------------- #
 # Helpers
@@ -1117,8 +1124,8 @@ class SeedanceExtend:
 class SeedanceSaveVideo:
     """Download and save the generated video to the ComfyUI output folder.
 
-    Kept mainly as a download helper. For preview, prefer a common video loader
-    node that opens the saved local file."""
+    Saves the generated video and returns a local preview when supported by
+    the current ComfyUI UI helpers."""
 
     CATEGORY = "Seedance AM/Core"
 
@@ -1142,8 +1149,9 @@ class SeedanceSaveVideo:
         timestamp  = int(time.time())
         filename   = f"{filename_prefix}_{timestamp}.mp4"
         filepath   = os.path.join(output_dir, filename)
+        subfolder  = ""
 
-        print(f"[Seedance] Downloading video → {filepath}")
+        print(f"[Seedance] Downloading video -> {filepath}")
         r = requests.get(video_url, stream=True, timeout=300)
         if not r.ok:
             raise RuntimeError(f"Failed to download video: {r.status_code}")
@@ -1153,14 +1161,24 @@ class SeedanceSaveVideo:
                 f.write(chunk)
 
         print(f"[Seedance] Saved: {filename}")
+        if comfy_ui is not None and comfy_io is not None:
+            folder_type = comfy_io.FolderType.output if save_to == "output" else comfy_io.FolderType.input
+            preview_ui = comfy_ui.PreviewVideo(
+                [comfy_ui.SavedResult(filename, subfolder, folder_type)]
+            ).as_dict()
+        else:
+            preview_ui = {
+                "videos": [{
+                    "filename": filename,
+                    "subfolder": subfolder,
+                    "type": save_to,
+                }]
+            }
+
         return {
             "ui": {
                 "text": [filepath],
-                "videos": [{
-                    "filename": filename,
-                    "subfolder": "",
-                    "type": save_to,
-                }],
+                **preview_ui,
             },
             "result": (filepath,),
         }
