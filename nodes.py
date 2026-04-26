@@ -379,15 +379,40 @@ def _upload_asset(api, asset_type, name, group_id=None, image_tensor=None, file_
 
 
 def _anyfast_runtime_image_asset(api, image_tensor, name, group_id=None):
-    """Upload an in-memory IMAGE tensor as an AnyFast image asset and return its Asset:// URI."""
-    asset_uri, _, resolved_group_id = _upload_asset(
-        api,
-        "Image",
-        name,
-        group_id=group_id,
-        image_tensor=image_tensor,
+    """Upload an in-memory IMAGE tensor as an AnyFast image asset using JSON + data URI.
+
+    This path matches AnyFast's documented image-asset flow more closely than
+    multipart upload for runtime-generated IMAGE tensors."""
+    base_url = api["base_url"].rstrip("/")
+    api_key  = api["api_key"].strip()
+    headers  = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
+
+    data_uri = _tensor_to_b64(image_tensor)
+    payload = {
+        "model": "volc-asset",
+        "AssetType": "Image",
+        "Name": name,
+        "URL": data_uri,
+    }
+    if group_id:
+        payload["GroupId"] = group_id
+
+    r = requests.post(
+        f"{base_url}/volc/asset/CreateAsset",
+        json=payload,
+        headers=headers,
+        timeout=120,
     )
-    return asset_uri, resolved_group_id
+    if not r.ok:
+        raise RuntimeError(f"Runtime image asset upload failed {r.status_code}: {r.text}")
+
+    resp = r.json()
+    raw_id = _extract_id(resp, "AssetId", "asset_id", "id", "ID")
+    resolved_group_id = group_id or _extract_optional_id(resp, "GroupId", "group_id", "GroupID")
+    return f"Asset://{raw_id}", resolved_group_id
 
 
 # --------------------------------------------------------------------------- #
