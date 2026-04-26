@@ -8,7 +8,7 @@
       "id": 1,
       "type": "MarkdownNote",
       "pos": [60, 20],
-      "size": [1780, 110],
+      "size": [1780, 120],
       "flags": {},
       "order": 0,
       "mode": 0,
@@ -16,7 +16,7 @@
       "outputs": [],
       "properties": {},
       "widgets_values": [
-        "### 07 AnyFast — Human ID + Reference Images\nPaste your verified `asset_id` into **SeedanceIdentityInput** (group_id is not needed).\n\nAnyFast Image Upload converts reference images to base64 data URIs — no upload required.\nThe human identity is resolved by `asset_id` alone via `asset://` URI in the generation request.\n\nHuman ID = @image1 in prompt. Reference images = @image2, @image3, etc."
+        "### 07 AnyFast - Human ID + Reference Images\nPaste an AnyFast `asset_id` and matching `group_id` into **SeedanceIdentityInput**.\n\nReference images are sent inline from `SeedanceAnyfastImageUpload`, while the real-human identity must come from `Seedance AM - Create Human Asset` under the same AnyFast token.\n\nHuman ID = @image1 in prompt. Reference images = @image2, @image3, etc."
       ]
     },
     {
@@ -54,7 +54,7 @@
         { "name": "asset_id", "type": "STRING", "links": [3] },
         { "name": "group_id", "type": "STRING", "links": [7] }
       ],
-      "title": "Paste verified asset_id + matching group_id here",
+      "title": "Paste verified AnyFast asset_id + matching group_id here",
       "properties": { "Node name for S&R": "SeedanceIdentityInput" },
       "widgets_values": ["asset-YOUR-ID-HERE", "group-YOUR-ID-HERE"]
     },
@@ -165,5 +165,3 @@
   "extra": {},
   "version": 0.4
 }
-
-

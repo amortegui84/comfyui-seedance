@@ -515,6 +515,8 @@ class SeedanceAnyfastImageUpload:
                ref_image_1=None, ref_image_2=None, ref_image_3=None,
                ref_image_4=None, ref_image_5=None, ref_image_6=None,
                ref_image_7=None, ref_image_8=None, ref_image_9=None):
+        if api.get("provider") != "anyfast":
+            raise ValueError("Seedance AM - AnyFast Image Upload only supports the anyfast provider.")
 
         refs = []
 
@@ -851,6 +853,9 @@ class SeedanceCreateHumanAsset:
     FUNCTION     = "upload"
 
     def upload(self, api, image, name, group_name, existing_group_id=None):
+        if api.get("provider") != "anyfast":
+            raise ValueError("Seedance AM - Create Human Asset only supports the anyfast provider.")
+
         eid = existing_group_id.strip() if existing_group_id else None
 
         if eid:
@@ -984,17 +989,17 @@ class _V2Base:
                 # Asset references — use SeedanceUploadAsset to get Asset:// IDs
                 "reference_video":  ("STRING", {"forceInput": True}),
                 "reference_audio":  ("STRING", {"forceInput": True}),
-                # ID-verified human asset — connect a verified ByteDance asset_id
+                # ID-verified human asset — connect an AnyFast asset_id created by SeedanceCreateHumanAsset
                 "human_asset_id":   ("STRING", {"forceInput": True,
-                                                 "tooltip": "Verified ByteDance asset_id for real-human generation — AnyFast only"}),
-                # AnyFast pre-uploaded image refs — connect SeedanceAnyfastImageUpload
-                # When connected, skips inline upload for first_frame/last_frame/reference_images on AnyFast
+                                                 "tooltip": "Verified AnyFast asset_id for real-human generation. Use Seedance AM - Create Human Asset."}),
+                # AnyFast prepared image refs — connect SeedanceAnyfastImageUpload
+                # When connected, uses the node's inline image refs for first_frame/last_frame/reference_images on AnyFast
                 "anyfast_refs":     ("ANYFAST_IMAGE_REFS", {"forceInput": True,
-                                                             "tooltip": "AnyFast only — pre-uploaded image refs from SeedanceAnyfastImageUpload"}),
-                # AnyFast group_id — required for asset lookup when using human_asset_id or anyfast_refs
-                # Connect from SeedanceAnyfastImageUpload.group_id or SeedanceIdentityInput.group_id
+                                                             "tooltip": "AnyFast only — prepared image refs from SeedanceAnyfastImageUpload"}),
+                # AnyFast group_id — required when using human_asset_id
+                # Connect from SeedanceIdentityInput.group_id or other AnyFast asset nodes
                 "group_id":         ("STRING", {"forceInput": True,
-                                                 "tooltip": "AnyFast group_id — scope asset lookup. Connect from SeedanceAnyfastImageUpload or SeedanceIdentityInput"}),
+                                                 "tooltip": "AnyFast group_id — required for human_asset_id and other AnyFast assets. Connect from SeedanceIdentityInput."}),
             }
         }
 
@@ -1059,7 +1064,7 @@ class _V2Base:
             if human_asset_id and human_asset_id.strip() and not (group_id and group_id.strip()):
                 raise ValueError(
                     "AnyFast real-human generation requires both human_asset_id and group_id. "
-                    "Connect both outputs from Seedance AM - Identity Input or the official ByteDance asset node."
+                    "Connect both outputs from Seedance AM - Identity Input after creating the identity with Seedance AM - Create Human Asset."
                 )
 
             content = [{"type": "text", "text": prompt}]
@@ -1080,9 +1085,9 @@ class _V2Base:
                 print(f"[Seedance/AnyFast] Human asset: {hid}")
 
             if anyfast_refs:
-                # Pre-uploaded path — use Asset:// URIs from SeedanceAnyfastImageUpload directly.
+                # Prepared path — use inline refs from SeedanceAnyfastImageUpload directly.
                 # first_frame / last_frame / reference_images inputs are ignored when this is wired.
-                print(f"[Seedance/AnyFast] Using {len(anyfast_refs)} pre-uploaded image ref(s)")
+                print(f"[Seedance/AnyFast] Using {len(anyfast_refs)} prepared image ref(s)")
                 for entry in anyfast_refs:
                     content.append(entry)
             else:

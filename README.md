@@ -37,7 +37,7 @@ For text-to-video leave all image inputs disconnected. For image-to-video on fal
 | Reference images (local tensors) | Via AnyFast Image Upload node | Direct IMAGE connectors |
 | Reference audio / video assets | Yes | Yes |
 | 1080p / 2K | Yes | 720p max |
-| Real human ID generation | Via official ByteDance node | No |
+| Real human ID generation | Via Seedance AM - Create Human Asset | No |
 | Extend video | Yes | No |
 
 ## Nodes
@@ -48,13 +48,13 @@ For text-to-video leave all image inputs disconnected. For image-to-video on fal
 | `Seedance AM 2.0 - Standard` | Core | Main generation — T2V, I2V, reference, real-human |
 | `Seedance AM 2.0 - Fast` | Core | Faster generation variant |
 | `Seedance AM 2.0 - Ultra` | Core | Highest quality, up to 2K |
-| `Seedance AM - AnyFast Image Upload` | AnyFast | Upload local images to AnyFast asset storage via multipart; returns Asset:// URIs ready for generation |
+| `Seedance AM - AnyFast Image Upload` | AnyFast | Prepare AnyFast image refs inline from local IMAGE inputs; returns `ANYFAST_IMAGE_REFS` for generation |
 | `Seedance AM - Extend Video` | Core | Extend a previous generation using its `task_id` |
 | `Seedance AM - Reference Images (9 slots)` | References | Collect up to 9 local images for fal.ai reference workflows |
 | `Seedance AM - Reference Video` | References | Pick a local video, upload it, get an Asset:// ID |
 | `Seedance AM - Reference Audio` | References | Pick a local audio file, upload it, get an Asset:// ID |
 | `Seedance AM - Upload Asset` | Advanced | Generic uploader for image, video, or audio assets |
-| `Seedance AM - Create Human Asset` | Identity | Upload a portrait for identity-verified real-human generation (AnyFast) |
+| `Seedance AM - Create Human Asset` | Identity | Create or reuse an AnyFast real-human identity asset and return `asset_id`, `group_id`, `verify_url` |
 | `Seedance AM - Identity Input` | Identity | Store and route `asset_id` and `group_id` together |
 | `Seedance AM - Save Video` | Core | Download and preview the generated mp4 |
 | `Seedance AM - Show Text` | Debug | Display any string value in-node |
@@ -63,13 +63,13 @@ For text-to-video leave all image inputs disconnected. For image-to-video on fal
 
 ## AnyFast — Image References
 
-AnyFast requires images to be uploaded to asset storage before generation. The **Seedance AM - AnyFast Image Upload** node handles this.
+For local image refs on AnyFast, this plugin prepares them inline from ComfyUI IMAGE tensors. The **Seedance AM - AnyFast Image Upload** node handles this.
 
 **How it works:**
 1. Connects to the same API key as your generation node
-2. Uploads each image via multipart form (the documented AnyFast method)
-3. Creates a group to hold the assets and waits for propagation
-4. Returns `ANYFAST_IMAGE_REFS` — a pre-built content list with `Asset://` URIs and correct roles
+2. Converts each image to a data URI
+3. Assigns the correct Seedance role (`first_frame`, `last_frame`, `reference_image`)
+4. Returns `ANYFAST_IMAGE_REFS` — a pre-built content list ready for generation
 
 **Workflow:**
 ```
@@ -80,9 +80,8 @@ SeedanceApiKey ─┬─→ SeedanceAnyfastImageUpload (first_frame / last_frame
 
 **Notes:**
 - `first_frame` input on Seedance2 should stay **disconnected** when using `anyfast_refs`
-- `propagation_wait` (default 5s) gives AnyFast time to commit the asset to storage before generation
-- Increase to 10–15s if generation still returns "asset not found" errors
-- The same group is reused within a session; pass `existing_group_id` to reuse across sessions
+- This node is for local image guidance only; it does not create persistent AnyFast asset IDs
+- Use **Seedance AM - Create Human Asset** when you need a reusable AnyFast human identity asset
 
 ## fal.ai — Image References
 
@@ -102,13 +101,16 @@ Add `@image1`, `@image2` etc. to the prompt so the model knows how to use each r
 
 ## Real Human Flow (AnyFast)
 
-The recommended path uses the official ByteDance ComfyUI node for identity verification:
+Use the built-in AnyFast identity flow in this plugin. Do not mix it with identity assets created by other ComfyUI nodes or other providers.
 
-1. Use `ByteDanceCreateImageAsset` (official ComfyUI node) to create and verify the person ID
-2. Feed the returned `asset_id` and `group_id` into **Seedance AM - Identity Input**
-3. Connect `asset_id → Seedance AM 2.0 - Standard.human_asset_id`
+1. Load the portrait image
+2. Run **Seedance AM - Create Human Asset**
+3. Complete `verify_url` if the node asks for liveness verification
+4. Feed the returned `asset_id` and `group_id` into **Seedance AM - Identity Input**
+5. Connect `asset_id -> Seedance AM 2.0 - Standard.human_asset_id`
+6. Connect `group_id -> Seedance AM 2.0 - Standard.group_id`
 
-For portrait upload without the official node, use **Seedance AM - Create Human Asset** which handles the verification link flow.
+AnyFast asset IDs are token-scoped. An `asset_id` created outside AnyFast asset management may return `asset not found`.
 
 ## Key Parameters
 
@@ -124,7 +126,7 @@ For portrait upload without the official node, use **Seedance AM - Create Human 
 | `first_frame` | fal.ai only direct I2V (AnyFast uses `anyfast_refs`) |
 | `last_frame` | fal.ai only direct last-frame control (AnyFast uses `anyfast_refs`) |
 | `reference_images` | fal.ai only (AnyFast uses `anyfast_refs`) |
-| `human_asset_id` | Verified real-human `asset_id` — AnyFast only |
+| `human_asset_id` | Verified AnyFast real-human `asset_id` from **Seedance AM - Create Human Asset** |
 | `anyfast_refs` | Pre-uploaded image refs from **AnyFast Image Upload** — AnyFast only |
 
 ## Example Workflows
@@ -138,10 +140,10 @@ For portrait upload without the official node, use **Seedance AM - Create Human 
 | `05_fal_image_to_video.json` | fal.ai | Image-to-video with direct first_frame connector |
 | `06_fal_reference_images.json` | fal.ai | Reference images using SeedanceRefImages |
 | `07_anyfast_human_id_with_ref_images.json` | AnyFast | **Human ID + reference images in the same generation** |
-| `02_generate_with_existing_real_human_id.json` | AnyFast | Generate with a saved verified `asset_id` and matching `group_id` |
+| `02_generate_with_existing_real_human_id.json` | AnyFast | Generate with a saved AnyFast `asset_id` and matching `group_id` |
+| `08_anyfast_create_human_asset.json` | AnyFast | Full AnyFast-only real-human flow: create identity asset, verify if needed, then generate |
 | `09_anyfast_save_to_input_for_vhs.json` | AnyFast | Save the generated mp4 into ComfyUI `input` so `VHS_LoadVideoPath` can load it by path |
 | `seedance_manual_asset_generation_workflow.json` | AnyFast | Paste an `asset_id` manually and generate |
-| `seedance_hybrid_official_id_our_generation.json` | AnyFast | Official ByteDance ID creation + Seedance AM generation |
 
 ## Human ID + Reference Images (AnyFast)
 
@@ -154,6 +156,7 @@ SeedanceApiKey ─┬─→ SeedanceAnyfastImageUpload (ref_image_1..9)
                 │         ↓ anyfast_refs
                 └─→ Seedance2 ─→ SeedanceSaveVideo
 SeedanceIdentityInput → asset_id → human_asset_id → Seedance2
+SeedanceIdentityInput → group_id → group_id → Seedance2
 ```
 
 **How it works:**
@@ -168,7 +171,8 @@ A cinematic video of the person from @image1 with the visual style of @image2, n
 
 **Notes:**
 - `first_frame` / `last_frame` / `reference_images` inputs on Seedance2 should stay **disconnected** when using `anyfast_refs`
-- The `asset_id` from `ByteDanceCreateImageAsset` (official node) or **Seedance AM - Create Human Asset** can be pasted directly into `SeedanceIdentityInput` — the `Asset://` prefix is added automatically if missing
+- The `asset_id` from **Seedance AM - Create Human Asset** can be pasted directly into `SeedanceIdentityInput` — the `Asset://` prefix is added automatically if missing
+- The matching `group_id` must also be passed into `Seedance2.group_id` for AnyFast real-human generation
 
 ## Video Output
 
@@ -211,7 +215,7 @@ Tags are auto-appended if missing, but writing them explicitly in the prompt giv
 - API key and base URL come from `https://www.anyfast.ai`
 - `anyfast_refs` is the stable path for local image references
 - `reference_video` and `reference_audio` asset flows work directly
-- The real-human flow uses the official ByteDance verification node
+- The real-human flow should use **Seedance AM - Create Human Asset** so the asset is created inside AnyFast asset management
 
 ## License
 
