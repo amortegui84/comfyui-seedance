@@ -871,144 +871,6 @@ class SeedanceUploadAsset:
 #   re-verification; the API compares facial features automatically
 # --------------------------------------------------------------------------- #
 
-class SeedanceCreateHumanAsset:
-    """Upload a portrait for identity-verified real human video generation.
-
-    First run  — leave existing_group_id empty. The node will display a
-    verification link directly in its preview area. Open that link on your
-    phone, complete the liveness check, then copy the Group ID shown below
-    and save it.
-
-    Next runs  — paste the saved Group ID into existing_group_id. No new
-    verification is needed; the API matches faces automatically."""
-
-    CATEGORY   = "Seedance AM/Identity"
-    OUTPUT_NODE = True
-
-    @classmethod
-    def INPUT_TYPES(cls):
-        return {
-            "required": {
-                "api":        ("SEEDANCE_API",),
-                "image":      ("IMAGE",),
-                "name":       ("STRING", {"default": "portrait"}),
-                "group_name": ("STRING", {"default": "comfyui-human-assets"}),
-            },
-            "optional": {
-                "existing_group_id": ("STRING", {"default": "", "multiline": False,
-                                                  "tooltip": "Paste your saved Group ID to skip re-verification"}),
-            }
-        }
-
-    RETURN_TYPES = ("STRING", "STRING", "STRING")
-    RETURN_NAMES = ("asset_id", "group_id", "verify_url")
-    FUNCTION     = "upload"
-
-    def upload(self, api, image, name, group_name, existing_group_id=None):
-        if api.get("provider") != "anyfast":
-            raise ValueError("Seedance AM - Create Human Asset only supports the anyfast provider.")
-
-        eid = existing_group_id.strip() if existing_group_id else None
-
-        if eid:
-            group_id = eid
-            asset_uri, verify_url, resolved_group_id = _upload_asset(
-                api, "Image", name, group_id, image_tensor=image
-            )
-            group_id = resolved_group_id or group_id
-        else:
-            try:
-                asset_uri, verify_url, group_id = _upload_asset(
-                    api, "Image", name, image_tensor=image
-                )
-            except RuntimeError as e:
-                original_error = str(e)
-                try:
-                    group_id = _ensure_group(api, group_name, None)
-                except RuntimeError as group_error:
-                    provider = api.get("provider", "unknown")
-                    base_url = api.get("base_url", "")
-                    raise RuntimeError(
-                        "Human asset upload failed before verification could start. "
-                        f"Provider={provider} BaseURL={base_url} | "
-                        f"Direct CreateAsset error: {original_error} | "
-                        f"CreateAssetGroup error: {group_error}"
-                    ) from group_error
-                try:
-                    asset_uri, verify_url, resolved_group_id = _upload_asset(
-                        api, "Image", name, group_id, image_tensor=image
-                    )
-                except RuntimeError as retry_error:
-                    provider = api.get("provider")
-                    if provider == "anyfast":
-                        lines = [
-                            "VERIFICATION SETUP REQUIRED",
-                            "",
-                            "Direct asset upload did not return a usable verification flow.",
-                            "Try the local H5 verification button in this node.",
-                            "",
-                            "1. Click 'Start Verification' below.",
-                            "2. Complete the H5 liveness check in your browser or phone.",
-                            "3. The node should fill existing_group_id automatically.",
-                            "4. Queue the node again to create the final asset_id.",
-                            "",
-                            f"Direct CreateAsset error: {original_error}",
-                            f"CreateAssetGroup+CreateAsset error: {retry_error}",
-                        ]
-                        return {
-                            "ui": {
-                                "text": lines,
-                                "verify_url": [""],
-                                "needs_h5_auth": ["1"],
-                                "asset_id": [""],
-                                "group_id": [""],
-                            },
-                            "result": ("", "", ""),
-                        }
-                    raise RuntimeError(
-                        "Human asset upload failed on both provider flows. "
-                        f"Direct CreateAsset error: {original_error} | "
-                        f"CreateAssetGroup+CreateAsset error: {retry_error}"
-                    ) from retry_error
-                group_id = resolved_group_id or group_id
-
-        if not group_id:
-            raise RuntimeError("Asset upload succeeded but no group_id was returned by the provider.")
-
-        if not verify_url:
-            _wait_for_asset_active(api, asset_uri, group_id)
-
-        if verify_url:
-            lines = [
-                "⚠  VERIFICATION REQUIRED",
-                "",
-                "1. Copy the link below and open it on your phone:",
-                verify_url,
-                "",
-                "2. Complete the liveness check (under 30 seconds).",
-                "",
-                "3. Save your Group ID for future uploads:",
-                group_id,
-                "",
-                "4. After verifying, use the asset_id output for generation:",
-                asset_uri,
-            ]
-        else:
-            lines = [
-                "✓  Ready — no verification needed",
-                "",
-                f"asset_id   {asset_uri}",
-                f"group_id   {group_id}",
-            ]
-
-        return {"ui": {"text": lines,
-                       "verify_url": [verify_url or ""],
-                       "needs_h5_auth": [""],
-                       "asset_id": [asset_uri],
-                       "group_id": [group_id]},
-                "result": (asset_uri, group_id, verify_url or "")}
-
-
 # --------------------------------------------------------------------------- #
 # Seedance 2.0 generation nodes
 # — T2V when no first_frame connected; I2V when first_frame connected
@@ -1044,17 +906,10 @@ class _V2Base:
                 # Asset references — use SeedanceUploadAsset to get Asset:// IDs
                 "reference_video":  ("STRING", {"forceInput": True}),
                 "reference_audio":  ("STRING", {"forceInput": True}),
-                # ID-verified human asset — connect an AnyFast asset_id created by SeedanceCreateHumanAsset
-                "human_asset_id":   ("STRING", {"forceInput": True,
-                                                 "tooltip": "Verified AnyFast asset_id for real-human generation. Use Seedance AM - Create Human Asset."}),
                 # AnyFast prepared image refs — connect SeedanceAnyfastImageUpload
                 # When connected, uses the node's inline image refs for first_frame/last_frame/reference_images on AnyFast
                 "anyfast_refs":     ("ANYFAST_IMAGE_REFS", {"forceInput": True,
                                                              "tooltip": "AnyFast only — prepared image refs from SeedanceAnyfastImageUpload"}),
-                # AnyFast group_id — required when using human_asset_id
-                # Connect from SeedanceIdentityInput.group_id or other AnyFast asset nodes
-                "group_id":         ("STRING", {"forceInput": True,
-                                                 "tooltip": "AnyFast group_id — required for human_asset_id and other AnyFast assets. Connect from SeedanceIdentityInput."}),
             }
         }
 
@@ -1066,16 +921,11 @@ class _V2Base:
     def generate(self, api, prompt, resolution, ratio, duration, generate_audio,
                  watermark, seed, first_frame=None, last_frame=None,
                  reference_images=None, reference_video=None, reference_audio=None,
-                 human_asset_id=None, anyfast_refs=None, group_id=None):
+                 anyfast_refs=None):
 
         # Seedance requires @image1, @video1, @audio1 tags in the prompt so the
         # model knows how to use each reference. Auto-append any missing tags.
-        # human_asset_id (if present) is always @image1; reference_images follow.
         img_start = 1
-        if human_asset_id and human_asset_id.strip():
-            if "@image1" not in prompt:
-                prompt = prompt + " @image1"
-            img_start = 2
         if anyfast_refs:
             # Count only reference_image role entries; first/last frame don't use @image tags
             ref_img_count = sum(1 for e in anyfast_refs if e.get("role") == "reference_image")
@@ -1111,34 +961,11 @@ class _V2Base:
                 "reference_images": reference_images,
                 "reference_video": reference_video or "",
                 "reference_audio": reference_audio or "",
-                # human_asset_id uses Asset:// URIs — not supported on fal.ai; ignored
             })
         else:
             print(f"[Seedance] Final prompt: {prompt}")
 
-            if human_asset_id and human_asset_id.strip() and not (group_id and group_id.strip()):
-                raise ValueError(
-                    "AnyFast real-human generation requires both human_asset_id and group_id. "
-                    "Connect both outputs from Seedance AM - Identity Input after creating the identity with Seedance AM - Create Human Asset."
-                )
-
             content = [{"type": "text", "text": prompt}]
-
-            # Human asset ID is always added first, regardless of image path.
-            # ByteDance API requires lowercase asset:// prefix.
-            # Strip any existing prefix variant and re-apply lowercase.
-            if human_asset_id and human_asset_id.strip():
-                _wait_for_asset_active(api, human_asset_id, group_id)
-                hid = human_asset_id.strip()
-                if hid.lower().startswith("asset://"):
-                    hid = hid[len("asset://"):]
-                hid = f"asset://{hid}"
-                content.append({
-                    "type":      "image_url",
-                    "image_url": {"url": hid},
-                    "role":      "reference_image",
-                })
-                print(f"[Seedance/AnyFast] Human asset: {hid}")
 
             if anyfast_refs:
                 # Prepared path — use inline refs from SeedanceAnyfastImageUpload directly.
@@ -1192,9 +1019,6 @@ class _V2Base:
             }
             if seed != -1:
                 payload["seed"] = seed
-            if group_id and group_id.strip():
-                payload["group_id"] = group_id.strip()
-                print(f"[Seedance/AnyFast] group_id: {group_id.strip()}")
 
             url, task_id, frame = _submit_and_poll(api, payload)
 
@@ -1397,45 +1221,6 @@ class SeedanceTextInput:
 # Identity Input node — keep asset_id and group_id together in one place
 # --------------------------------------------------------------------------- #
 
-class SeedanceIdentityInput:
-    """Store real-human identity values in one node.
-
-    You can either type asset_id/group_id manually, or feed either value from
-    upstream nodes. Connected inputs take precedence over the widget values."""
-
-    CATEGORY = "Seedance AM/Identity"
-
-    @classmethod
-    def INPUT_TYPES(cls):
-        return {
-            "required": {
-                "asset_id": ("STRING", {"default": "", "multiline": False}),
-                "group_id": ("STRING", {"default": "", "multiline": False}),
-            },
-            "optional": {
-                "asset_id_in": ("STRING", {"forceInput": True}),
-                "group_id_in": ("STRING", {"forceInput": True}),
-            }
-        }
-
-    RETURN_TYPES = ("STRING", "STRING")
-    RETURN_NAMES = ("asset_id", "group_id")
-    FUNCTION = "value"
-
-    def value(self, asset_id, group_id, asset_id_in=None, group_id_in=None):
-        resolved_asset_id = str(asset_id_in).strip() if asset_id_in is not None and str(asset_id_in).strip() else str(asset_id).strip()
-        resolved_group_id = str(group_id_in).strip() if group_id_in is not None and str(group_id_in).strip() else str(group_id).strip()
-
-        lines = [
-            f"asset_id: {resolved_asset_id or '-'}",
-            f"group_id: {resolved_group_id or '-'}",
-        ]
-        return {
-            "ui": {"text": lines},
-            "result": (resolved_asset_id, resolved_group_id),
-        }
-
-
 # --------------------------------------------------------------------------- #
 # Registration
 # --------------------------------------------------------------------------- #
@@ -1457,9 +1242,6 @@ NODE_CLASS_MAPPINGS = {
     # Utilities
     "SeedanceImageBatch":  SeedanceImageBatch,
     "SeedanceRefImages":   SeedanceRefImages,
-    # Identity
-    "SeedanceCreateHumanAsset": SeedanceCreateHumanAsset,
-    "SeedanceIdentityInput":    SeedanceIdentityInput,
     # Extend
     "SeedanceExtend":      SeedanceExtend,
     # Output
@@ -1485,9 +1267,6 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     # Utilities
     "SeedanceImageBatch":  "Seedance AM - Image Batch (Legacy)",
     "SeedanceRefImages":   "Seedance AM - Reference Images (9 slots)",
-    # Identity
-    "SeedanceCreateHumanAsset": "Seedance AM - Create Human Asset",
-    "SeedanceIdentityInput":    "Seedance AM - Identity Input",
     # Extend
     "SeedanceExtend":      "Seedance AM - Extend Video",
     # Output
@@ -1495,3 +1274,5 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "SeedanceShowText":    "Seedance AM - Show Text",
     "SeedanceTextInput":   "Seedance AM - Text Input (Legacy)",
 }
+
+
