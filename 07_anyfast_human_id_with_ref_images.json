@@ -2,13 +2,13 @@
   "id": "a1b2c3d4-0007-4000-8000-anyfastidref0",
   "revision": 0,
   "last_node_id": 7,
-  "last_link_id": 9,
+  "last_link_id": 8,
   "nodes": [
     {
       "id": 1,
       "type": "MarkdownNote",
       "pos": [60, 20],
-      "size": [1780, 100],
+      "size": [1780, 110],
       "flags": {},
       "order": 0,
       "mode": 0,
@@ -16,13 +16,13 @@
       "outputs": [],
       "properties": {},
       "widgets_values": [
-        "### 07 AnyFast — Human ID + Reference Images\nPaste your verified `asset_id` AND `group_id` into **SeedanceIdentityInput**.\n- `group_id` → `existing_group_id` on **AnyFast Image Upload** (uploads ref images into the same group as the human asset)\n- `group_id` → `group_id` on **Seedance2** (scopes asset lookup during generation)\n- `asset_id` → `human_asset_id` on **Seedance2** (the verified identity)\nHuman ID = @image1 in prompt. Reference images = @image2, @image3, etc."
+        "### 07 AnyFast — Human ID + Reference Images\nPaste only your verified `asset_id` into **SeedanceIdentityInput** (group_id is NOT needed here).\n\nAnyFast Image Upload creates its own **fresh group** each run for the reference images — do NOT wire the identity group_id into it.\nThe upload node passes its fresh `group_id` to Seedance2 so the API can scope asset lookup for the ref images.\nThe human identity is resolved by `asset_id` alone.\n\nHuman ID = @image1 in prompt. Reference images = @image2, @image3, etc."
       ]
     },
     {
       "id": 2,
       "type": "SeedanceApiKey",
-      "pos": [60, 140],
+      "pos": [60, 160],
       "size": [360, 170],
       "flags": {},
       "order": 1,
@@ -41,7 +41,7 @@
     {
       "id": 3,
       "type": "SeedanceIdentityInput",
-      "pos": [60, 400],
+      "pos": [60, 420],
       "size": [420, 180],
       "flags": {},
       "order": 2,
@@ -52,16 +52,16 @@
       ],
       "outputs": [
         { "name": "asset_id", "type": "STRING", "links": [3] },
-        { "name": "group_id", "type": "STRING", "links": [7, 9] }
+        { "name": "group_id", "type": "STRING", "links": null }
       ],
-      "title": "Paste your verified asset_id AND group_id here",
+      "title": "Paste your verified asset_id here (group_id not needed)",
       "properties": { "Node name for S&R": "SeedanceIdentityInput" },
-      "widgets_values": ["asset-YOUR-ID-HERE", "group-YOUR-GROUP-ID-HERE"]
+      "widgets_values": ["asset-YOUR-ID-HERE", ""]
     },
     {
       "id": 4,
       "type": "LoadImage",
-      "pos": [60, 660],
+      "pos": [60, 680],
       "size": [360, 460],
       "flags": {},
       "order": 3,
@@ -78,8 +78,8 @@
     {
       "id": 5,
       "type": "SeedanceAnyfastImageUpload",
-      "pos": [540, 140],
-      "size": [420, 480],
+      "pos": [540, 160],
+      "size": [420, 460],
       "flags": {},
       "order": 4,
       "mode": 0,
@@ -96,11 +96,11 @@
         { "name": "ref_image_7",       "type": "IMAGE",        "link": null },
         { "name": "ref_image_8",       "type": "IMAGE",        "link": null },
         { "name": "ref_image_9",       "type": "IMAGE",        "link": null },
-        { "name": "existing_group_id", "type": "STRING",       "link": 7 }
+        { "name": "existing_group_id", "type": "STRING",       "link": null }
       ],
       "outputs": [
         { "name": "anyfast_refs", "type": "ANYFAST_IMAGE_REFS", "links": [5] },
-        { "name": "group_id",     "type": "STRING",             "links": null }
+        { "name": "group_id",     "type": "STRING",             "links": [8] }
       ],
       "properties": { "Node name for S&R": "SeedanceAnyfastImageUpload" },
       "widgets_values": ["comfyui-runtime", 5]
@@ -108,7 +108,7 @@
     {
       "id": 6,
       "type": "Seedance2",
-      "pos": [1060, 120],
+      "pos": [1060, 140],
       "size": [480, 400],
       "flags": {},
       "order": 5,
@@ -122,7 +122,7 @@
         { "name": "reference_audio",  "type": "STRING",              "link": null },
         { "name": "human_asset_id",   "type": "STRING",              "link": 3 },
         { "name": "anyfast_refs",     "type": "ANYFAST_IMAGE_REFS",  "link": 5 },
-        { "name": "group_id",         "type": "STRING",              "link": 9 }
+        { "name": "group_id",         "type": "STRING",              "link": 8 }
       ],
       "outputs": [
         { "name": "video_url",   "type": "STRING", "links": [6] },
@@ -138,7 +138,7 @@
     {
       "id": 7,
       "type": "SeedanceSaveVideo",
-      "pos": [1640, 200],
+      "pos": [1640, 220],
       "size": [350, 130],
       "flags": {},
       "order": 6,
@@ -160,8 +160,7 @@
     [4, 4, 0, 5, 3, "IMAGE"],
     [5, 5, 0, 6, 7, "ANYFAST_IMAGE_REFS"],
     [6, 6, 0, 7, 0, "STRING"],
-    [7, 3, 1, 5, 12, "STRING"],
-    [9, 3, 1, 6, 8, "STRING"]
+    [8, 5, 1, 6, 8, "STRING"]
   ],
   "groups": [],
   "config": {},
