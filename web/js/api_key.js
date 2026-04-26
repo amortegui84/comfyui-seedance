@@ -45,5 +45,11 @@ app.registerExtension({
 
             syncBaseUrl(this);
         };
+
+        const onDrawForeground = nodeType.prototype.onDrawForeground;
+        nodeType.prototype.onDrawForeground = function () {
+            onDrawForeground?.apply(this, arguments);
+            syncBaseUrl(this);
+        };
     },
 });
