@@ -41,28 +41,70 @@ def _find_ci(obj, *keys):
     return None
 
 
+def _walk_dicts(root, max_depth=6):
+    """Yield nested dicts breadth-first so polling can tolerate schema drift."""
+    if not isinstance(root, dict):
+        return
+
+    queue = [(root, 0)]
+    seen = set()
+
+    while queue:
+        current, depth = queue.pop(0)
+        current_id = id(current)
+        if current_id in seen:
+            continue
+        seen.add(current_id)
+        yield current
+
+        if depth >= max_depth:
+            continue
+
+        for value in current.values():
+            if isinstance(value, dict):
+                queue.append((value, depth + 1))
+            elif isinstance(value, list):
+                for item in value:
+                    if isinstance(item, dict):
+                        queue.append((item, depth + 1))
+
+
 def _extract_poll_fields(body):
     """Extract status/video URL from AnyFast poll responses with loose schema handling."""
-    candidates = []
-    if isinstance(body, dict):
-        candidates.append(body)
-        data = _find_ci(body, "data", "result")
-        if isinstance(data, dict):
-            candidates.append(data)
-        payload = _find_ci(body, "payload")
-        if isinstance(payload, dict):
-            candidates.append(payload)
+    status = ""
+    video_url = ""
+    progress = ""
 
-    for candidate in candidates:
-        status = _find_ci(candidate, "status", "state")
-        video_url = _find_ci(candidate, "video_url", "url", "result_url", "resultUrl", "videoUrl")
-        if status is not None or video_url is not None:
-            return str(status or "").strip().lower(), str(video_url or "").strip()
+    for candidate in _walk_dicts(body):
+        if not status:
+            found_status = _find_ci(candidate, "status", "state")
+            if found_status not in (None, ""):
+                status = str(found_status).strip().lower()
 
-    return "", ""
+        if not progress:
+            found_progress = _find_ci(candidate, "progress")
+            if found_progress not in (None, ""):
+                progress = str(found_progress).strip()
+
+        if not video_url:
+            found_url = _find_ci(
+                candidate,
+                "video_url",
+                "url",
+                "result_url",
+                "resultUrl",
+                "videoUrl",
+            )
+            if found_url not in (None, ""):
+                video_url = str(found_url).strip()
+
+        if status and video_url:
+            break
+
+    return status, video_url, progress
 
 
-def _poll_v2(base_url, api_key, task_id, timeout=600, interval=5):
+def _poll_v2(base_url, api_key, task_id, timeout=1200, interval=5):
     """Poll Seedance 2.0 task until completion."""
     headers  = {"Authorization": f"Bearer {api_key}"}
     url      = f"{base_url}/v1/video/generations/{task_id}"
@@ -80,9 +122,10 @@ def _poll_v2(base_url, api_key, task_id, timeout=600, interval=5):
             print(f"[Seedance] Poll response keys: {list(body.keys())}")
             _first = False
 
-        status, video_url = _extract_poll_fields(body)
+        status, video_url, progress = _extract_poll_fields(body)
 
-        print(f"[Seedance] task_id={task_id}  status={status}  video_url={'yes' if video_url else 'no'}")
+        progress_label = progress or "?"
+        print(f"[Seedance] task_id={task_id}  status={status}  progress={progress_label}  video_url={'yes' if video_url else 'no'}")
 
         if status in ("completed", "succeeded", "success") or (not status and video_url):
             if not video_url:

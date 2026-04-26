@@ -139,6 +139,7 @@ For portrait upload without the official node, use **Seedance AM - Create Human 
 | `06_fal_reference_images.json` | fal.ai | Reference images using SeedanceRefImages |
 | `07_anyfast_human_id_with_ref_images.json` | AnyFast | **Human ID + reference images in the same generation** |
 | `02_generate_with_existing_real_human_id.json` | AnyFast | Generate with a saved verified `asset_id` (ID only, no extra refs) |
+| `09_anyfast_save_to_input_for_vhs.json` | AnyFast | Save the generated mp4 into ComfyUI `input` so `VHS_LoadVideoPath` can load it by path |
 | `seedance_manual_asset_generation_workflow.json` | AnyFast | Paste an `asset_id` manually and generate |
 | `seedance_hybrid_official_id_our_generation.json` | AnyFast | Official ByteDance ID creation + Seedance AM generation |
 
@@ -173,7 +174,20 @@ A cinematic video of the person from @image1 with the visual style of @image2, n
 
 `Seedance AM - Save Video` downloads the mp4 and previews it directly in the node.
 
-To use ComfyUI's native `LoadVideo` afterwards, set `save_to = input` instead of `output`.
+Recommended loader for follow-up processing: `VHS_LoadVideoPath` from `ComfyUI-VideoHelperSuite`.
+
+Why this one:
+- `Seedance AM - Save Video` returns a full `saved_path`
+- `VHS_LoadVideoPath` accepts an arbitrary file path directly
+- You do not have to manually browse for the latest mp4 in `input`
+
+Recommended chain:
+
+```text
+Seedance2 -> SeedanceSaveVideo(save_to=input) -> saved_path -> VHS_LoadVideoPath
+```
+
+If you prefer built-in ComfyUI nodes, set `save_to = input` and then pick the file manually in `LoadVideo`.
 
 ## Reference Tags in Prompts
 
