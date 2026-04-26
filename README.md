@@ -4,6 +4,11 @@ Generate AI videos with [ByteDance Seedance 2.0](https://seedance2.ai) directly 
 
 Works with `AnyFast` and `fal.ai`. Pick your provider in the API Key node.
 
+The `Seedance AM - API Key` node now auto-switches `base_url` to match the selected provider:
+
+- `anyfast` -> `https://www.anyfast.ai`
+- `fal.ai` -> `https://fal.run`
+
 ## Current Real-Human Flow
 
 This repo does **not** use the same built-in ByteDance nodes shown in Comfy's official Real Human workflow templates.
