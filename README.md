@@ -160,6 +160,12 @@ Paste the saved `group_id` into `existing_group_id`. The node skips new verifica
 - Use `Seedance AM - Text Input` to save a known `group_id` or `asset_id` directly in the workflow for later reuse
 - Use `Seedance AM - Identity Input` if you want one node with both `asset_id` and `group_id`
 
+### Recommended example workflows
+
+- `01_create_real_human_id.json` — verify a new real person and save both IDs
+- `02_generate_with_existing_real_human_id.json` — generate with a known `asset_id`
+- `03_reuse_group_id_same_person.json` — upload a new photo of the same person using a saved `group_id`
+
 ### Where to put each ID
 
 - Put `asset_id` into `Seedance AM 2.0 - Standard.human_asset_id`

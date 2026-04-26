@@ -1,0 +1,174 @@
+{
+  "id": "f66b00a2-f972-4ea8-89fc-ebef709d5a2d",
+  "revision": 0,
+  "last_node_id": 4,
+  "last_link_id": 3,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "SeedanceApiKey",
+      "pos": [
+        70,
+        140
+      ],
+      "size": [
+        360,
+        170
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "api",
+          "type": "SEEDANCE_API",
+          "links": [
+            1
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SeedanceApiKey"
+      },
+      "widgets_values": [
+        "",
+        "anyfast",
+        "https://www.anyfast.ai"
+      ]
+    },
+    {
+      "id": 2,
+      "type": "LoadImage",
+      "pos": [
+        70,
+        370
+      ],
+      "size": [
+        360,
+        520
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            2
+          ]
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": null
+        }
+      ],
+      "title": "Load New Image (Same Person)",
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "portrait.png",
+        "image"
+      ]
+    },
+    {
+      "id": 3,
+      "type": "SeedanceCreateHumanAsset",
+      "pos": [
+        580,
+        330
+      ],
+      "size": [
+        430,
+        260
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "api",
+          "type": "SEEDANCE_API",
+          "link": 1
+        },
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 2
+        }
+      ],
+      "outputs": [
+        {
+          "name": "asset_id",
+          "type": "STRING",
+          "links": null
+        },
+        {
+          "name": "group_id",
+          "type": "STRING",
+          "links": null
+        },
+        {
+          "name": "verify_url",
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SeedanceCreateHumanAsset"
+      },
+      "widgets_values": [
+        "portrait",
+        "comfyui-human-assets",
+        "group-paste-existing-group-id-here"
+      ]
+    },
+    {
+      "id": 4,
+      "type": "MarkdownNote",
+      "pos": [
+        60,
+        20
+      ],
+      "size": [
+        960,
+        90
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "properties": {},
+      "widgets_values": [
+        "### 03 Reuse Group ID For Same Person\nPaste a previously saved `group_id` into `existing_group_id`, then upload a new image of the same person. If the face matches, the node returns a new `asset_id` without requiring a fresh verification."
+      ]
+    }
+  ],
+  "links": [
+    [
+      1,
+      1,
+      0,
+      3,
+      0,
+      "SEEDANCE_API"
+    ],
+    [
+      2,
+      2,
+      0,
+      3,
+      1,
+      "IMAGE"
+    ]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {},
+  "version": 0.4
+}
