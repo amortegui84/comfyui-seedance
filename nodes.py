@@ -29,6 +29,39 @@ def _tensor_to_b64(tensor):
     return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
 
 
+def _find_ci(obj, *keys):
+    """Return the first matching dict value using case-insensitive key lookup."""
+    if not isinstance(obj, dict):
+        return None
+    lowered = {str(k).lower(): v for k, v in obj.items()}
+    for key in keys:
+        val = lowered.get(str(key).lower())
+        if val not in (None, ""):
+            return val
+    return None
+
+
+def _extract_poll_fields(body):
+    """Extract status/video URL from AnyFast poll responses with loose schema handling."""
+    candidates = []
+    if isinstance(body, dict):
+        candidates.append(body)
+        data = _find_ci(body, "data", "result")
+        if isinstance(data, dict):
+            candidates.append(data)
+        payload = _find_ci(body, "payload")
+        if isinstance(payload, dict):
+            candidates.append(payload)
+
+    for candidate in candidates:
+        status = _find_ci(candidate, "status", "state")
+        video_url = _find_ci(candidate, "video_url", "url", "result_url", "resultUrl", "videoUrl")
+        if status is not None or video_url is not None:
+            return str(status or "").strip().lower(), str(video_url or "").strip()
+
+    return "", ""
+
+
 def _poll_v2(base_url, api_key, task_id, timeout=600, interval=5):
     """Poll Seedance 2.0 task until completion."""
     headers  = {"Authorization": f"Bearer {api_key}"}
@@ -47,11 +80,7 @@ def _poll_v2(base_url, api_key, task_id, timeout=600, interval=5):
             print(f"[Seedance] Poll response keys: {list(body.keys())}")
             _first = False
 
-        # status may be at root or nested under "data"
-        data   = body.get("data") if isinstance(body.get("data"), dict) else body
-        status = (data.get("status") or data.get("state") or "").lower()
-
-        video_url = data.get("video_url") or data.get("url") or data.get("result_url")
+        status, video_url = _extract_poll_fields(body)
 
         print(f"[Seedance] task_id={task_id}  status={status}  video_url={'yes' if video_url else 'no'}")
 
@@ -60,7 +89,13 @@ def _poll_v2(base_url, api_key, task_id, timeout=600, interval=5):
                 raise RuntimeError(f"Status=completed but no video_url in response: {body}")
             return video_url
         if status in ("failed", "error"):
-            raise RuntimeError(f"Seedance generation failed: {data.get('error') or data.get('message') or body}")
+            message = None
+            if isinstance(body, dict):
+                message = _find_ci(body, "error", "message")
+                data = _find_ci(body, "data", "result")
+                if isinstance(data, dict):
+                    message = message or _find_ci(data, "error", "message")
+            raise RuntimeError(f"Seedance generation failed: {message or body}")
 
         time.sleep(interval)
 
@@ -402,60 +437,66 @@ def _upload_asset(api, asset_type, name, group_id=None, image_tensor=None, file_
     return f"asset://{raw_id}", verify_url, resolved_group_id
 
 
-def _upload_image_multipart(api, image_tensor, name, group_id):
-    """Upload a ComfyUI IMAGE tensor to AnyFast via multipart form.
+class SeedanceAnyfastImageUpload:
+    """Prepare images for AnyFast generation as base64 data URIs."""
 
-    Multipart is the documented upload path for binary files.
-    Returns the raw asset ID string (e.g. 'asset-2026...-xxxxx')."""
-    base_url = api["base_url"].rstrip("/")
-    api_key  = api["api_key"].strip()
-    headers  = {"Authorization": f"Bearer {api_key}"}
+    CATEGORY = "Seedance AM/AnyFast"
 
-    img_np     = (image_tensor[0].numpy() * 255).clip(0, 255).astype(np.uint8)
-    pil        = Image.fromarray(img_np).convert("RGB")
-    buf        = io.BytesIO()
-    pil.save(buf, format="PNG")
-    file_bytes = buf.getvalue()
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "api": ("SEEDANCE_API",),
+            },
+            "optional": {
+                "first_frame":  ("IMAGE",),
+                "last_frame":   ("IMAGE",),
+                "ref_image_1":  ("IMAGE",),
+                "ref_image_2":  ("IMAGE",),
+                "ref_image_3":  ("IMAGE",),
+                "ref_image_4":  ("IMAGE",),
+                "ref_image_5":  ("IMAGE",),
+                "ref_image_6":  ("IMAGE",),
+                "ref_image_7":  ("IMAGE",),
+                "ref_image_8":  ("IMAGE",),
+                "ref_image_9":  ("IMAGE",),
+            }
+        }
 
-    files = {"file": (f"{name}.png", file_bytes, "image/png")}
-    data  = {"Name": name, "model": "volc-asset", "GroupId": group_id}
+    RETURN_TYPES = ("ANYFAST_IMAGE_REFS",)
+    RETURN_NAMES = ("anyfast_refs",)
+    FUNCTION     = "upload"
 
-    print(f"[Seedance/AnyFast] Uploading '{name}' ({len(file_bytes)} bytes) to group {group_id}")
-    r = None
-    for attempt in range(1, 4):
-        r = requests.post(
-            f"{base_url}/volc/asset/CreateAsset",
-            files=files, data=data, headers=headers, timeout=120,
-        )
-        print(f"[Seedance/AnyFast] CreateAsset attempt {attempt} → {r.status_code}: {r.text}")
-        if r.ok:
-            break
-        # Group may not have propagated to the asset backend yet — retry with wait
-        txt = r.text.lower()
-        if r.status_code in (400, 502) and "group" in txt and ("notfound" in txt or "not found" in txt):
-            if attempt < 3:
-                print(f"[Seedance/AnyFast] Group not visible yet, waiting 4s before retry ...")
-                time.sleep(4)
-                continue
-        raise RuntimeError(f"Image upload failed {r.status_code}: {r.text}")
+    def upload(self, api,
+               first_frame=None, last_frame=None,
+               ref_image_1=None, ref_image_2=None, ref_image_3=None,
+               ref_image_4=None, ref_image_5=None, ref_image_6=None,
+               ref_image_7=None, ref_image_8=None, ref_image_9=None):
 
-    if not r.ok:
-        raise RuntimeError(f"Image upload failed after retries: {r.status_code}: {r.text}")
+        refs = []
 
-    resp   = r.json()
-    raw_id = _extract_id(resp, "AssetId", "asset_id", "Id", "id", "ID")
-    print(f"[Seedance/AnyFast] Asset created: {raw_id}")
-    return raw_id
+        if first_frame is not None:
+            refs.append({"type": "image_url", "image_url": {"url": _tensor_to_b64(first_frame)}, "role": "first_frame"})
 
+        if last_frame is not None:
+            refs.append({"type": "image_url", "image_url": {"url": _tensor_to_b64(last_frame)}, "role": "last_frame"})
 
-def _anyfast_runtime_image_asset(api, image_tensor, name, group_id):
-    """Upload a ComfyUI IMAGE tensor to AnyFast for inline use in generation.
+        ref_slots = [ref_image_1, ref_image_2, ref_image_3, ref_image_4, ref_image_5,
+                     ref_image_6, ref_image_7, ref_image_8, ref_image_9]
+        for img in (img for img in ref_slots if img is not None):
+            refs.append({"type": "image_url", "image_url": {"url": _tensor_to_b64(img)}, "role": "reference_image"})
 
-    Uses multipart form upload (same reliable path as SeedanceAnyfastImageUpload)
-    with retry logic for group propagation delays.
-    Propagation wait is handled by the caller after all images are uploaded."""
-    raw_id = _upload_image_multipart(api, image_tensor, name, group_id)
-    return f"asset://{raw_id}", group_id
+        if not refs:
+            raise ValueError(
+                "Connect at least one image (first_frame, last_frame, or ref_image_1) "
+                "to SeedanceAnyfastImageUpload."
+            )
+
+        print(f"[Seedance/AnyFast] {len(refs)} image ref(s) prepared as base64:")
+        for entry in refs:
+            print(f"  role={entry['role']}  size={len(entry['image_url']['url'])} chars")
+
+        return (refs,)
 
 
 # --------------------------------------------------------------------------- #
@@ -866,89 +907,11 @@ class SeedanceCreateHumanAsset:
 
 
 # --------------------------------------------------------------------------- #
-# AnyFast dedicated image upload node
-# — Uploads local ComfyUI images via multipart (the documented upload path)
-# — Outputs ANYFAST_IMAGE_REFS: pre-built content entries with Asset:// URIs
-# — Wire into anyfast_refs on any Seedance 2.0 generation node
-# — fal.ai is unaffected; this node is AnyFast-only
-# --------------------------------------------------------------------------- #
-
-class SeedanceAnyfastImageUpload:
-    """Prepare images for AnyFast generation as base64 data URIs.
-
-    Converts ComfyUI IMAGE tensors to base64 PNG data URIs and packages them
-    as ANYFAST_IMAGE_REFS content entries ready to wire into anyfast_refs on
-    any Seedance 2.0 generation node. No upload to AnyFast asset storage —
-    images are embedded directly in the generation request.
-
-    Assign roles: first_frame / last_frame get their roles automatically.
-    ref_image_1..9 are all tagged as reference_image."""
-
-    CATEGORY = "Seedance AM/AnyFast"
-
-    @classmethod
-    def INPUT_TYPES(cls):
-        return {
-            "required": {
-                "api": ("SEEDANCE_API",),
-            },
-            "optional": {
-                "first_frame":  ("IMAGE",),
-                "last_frame":   ("IMAGE",),
-                "ref_image_1":  ("IMAGE",),
-                "ref_image_2":  ("IMAGE",),
-                "ref_image_3":  ("IMAGE",),
-                "ref_image_4":  ("IMAGE",),
-                "ref_image_5":  ("IMAGE",),
-                "ref_image_6":  ("IMAGE",),
-                "ref_image_7":  ("IMAGE",),
-                "ref_image_8":  ("IMAGE",),
-                "ref_image_9":  ("IMAGE",),
-            }
-        }
-
-    RETURN_TYPES = ("ANYFAST_IMAGE_REFS",)
-    RETURN_NAMES = ("anyfast_refs",)
-    FUNCTION     = "upload"
-
-    def upload(self, api,
-               first_frame=None, last_frame=None,
-               ref_image_1=None, ref_image_2=None, ref_image_3=None,
-               ref_image_4=None, ref_image_5=None, ref_image_6=None,
-               ref_image_7=None, ref_image_8=None, ref_image_9=None):
-
-        refs = []
-
-        if first_frame is not None:
-            refs.append({"type": "image_url", "image_url": {"url": _tensor_to_b64(first_frame)}, "role": "first_frame"})
-
-        if last_frame is not None:
-            refs.append({"type": "image_url", "image_url": {"url": _tensor_to_b64(last_frame)}, "role": "last_frame"})
-
-        ref_slots = [ref_image_1, ref_image_2, ref_image_3, ref_image_4, ref_image_5,
-                     ref_image_6, ref_image_7, ref_image_8, ref_image_9]
-        for img in (img for img in ref_slots if img is not None):
-            refs.append({"type": "image_url", "image_url": {"url": _tensor_to_b64(img)}, "role": "reference_image"})
-
-        if not refs:
-            raise ValueError(
-                "Connect at least one image (first_frame, last_frame, or ref_image_1) "
-                "to SeedanceAnyfastImageUpload."
-            )
-
-        print(f"[Seedance/AnyFast] {len(refs)} image ref(s) prepared as base64:")
-        for entry in refs:
-            print(f"  role={entry['role']}  size={len(entry['image_url']['url'])} chars")
-
-        return (refs,)
-
-
-# --------------------------------------------------------------------------- #
 # Seedance 2.0 generation nodes
 # — T2V when no first_frame connected; I2V when first_frame connected
-# — reference_images: connect SeedanceImageBatch output (1–9 style refs)
+# — reference_images: connect SeedanceRefImages output (1–9 style refs)
 # — reference_video / reference_audio: connect SeedanceUploadAsset output
-# — anyfast_refs: connect SeedanceAnyfastImageUpload output (AnyFast only)
+# — AnyFast: images are embedded as base64 data URIs automatically
 # --------------------------------------------------------------------------- #
 
 class _V2Base:
