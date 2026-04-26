@@ -1,25 +1,15 @@
 # ComfyUI-Seedance AM
 
-Generate AI videos with [ByteDance Seedance 2.0](https://seedance2.ai) directly inside ComfyUI. This `Seedance AM` pack supports text-to-video, image-to-video, reference images, reference audio/video uploads, real-human asset verification, and video saving.
+Generate AI videos with [ByteDance Seedance 2.0](https://seedance2.ai) directly inside ComfyUI.
 
-Works with `AnyFast` and `fal.ai`. Use `Seedance AM - API Key` for normal workflows.
+This pack supports:
 
-Provider behavior:
-
-- `anyfast` uses the `base_url` field, normally `https://www.anyfast.ai`
-- `fal.ai` always uses `https://fal.run` internally
-- If the `base_url` widget does not visibly refresh in the UI, runtime still normalizes it correctly for fal.ai
-
-## Current Real-Human Flow
-
-This repo does **not** use the same built-in ByteDance nodes shown in Comfy's official Real Human workflow templates.
-
-- Official Comfy templates use core nodes like `ByteDance Create Image/Video Asset`
-- This repo uses the custom node `Seedance AM - Create Human Asset`
-- In this repo, the verification UI is shown inside `Seedance AM - Create Human Asset`
-- `Seedance AM - Show Text` is only for previewing plain string outputs after the fact
-
-If you load `api_seedance2_0_r2v_real_human.json` and expect identical behavior, it will not match this custom node pack 1:1.
+- text-to-video
+- image-to-video
+- reference images
+- reference audio and video uploads
+- real-human asset verification
+- AnyFast and fal.ai providers
 
 ## Recommended Node Set
 
@@ -31,16 +21,33 @@ Most users only need these nodes:
 - `Seedance AM - Create Human Asset` when using real-human identity verification
 - `Seedance AM - Identity Input` to keep `asset_id` and `group_id` organized
 
-Everything else is either advanced or for backward compatibility.
+Everything else is advanced, debug, or compatibility.
 
 ## Install
+
+Most users should clone directly inside `ComfyUI/custom_nodes`:
+
+```bash
+cd ComfyUI/custom_nodes
+git clone https://github.com/amortegui84/comfyui-seedance
+cd comfyui-seedance
+pip install -r requirements.txt
+```
+
+That should leave the repo here:
+
+```text
+ComfyUI/custom_nodes/comfyui-seedance
+```
+
+If you are cloning from another location, use:
 
 ```bash
 git clone https://github.com/amortegui84/comfyui-seedance ComfyUI/custom_nodes/comfyui-seedance
 pip install -r ComfyUI/custom_nodes/comfyui-seedance/requirements.txt
 ```
 
-Restart ComfyUI.
+Restart ComfyUI after installation.
 
 `opencv-python` is only required for the `first_frame` output. The rest of the nodes work without it.
 
@@ -51,7 +58,14 @@ Restart ComfyUI.
 3. Add `Seedance AM 2.0 - Standard`
 4. Connect `api` and run
 
-For text-to-video, leave image inputs disconnected. To switch to image-to-video, connect a `Load Image` node to `first_frame`.
+For text-to-video, leave image inputs disconnected. For image-to-video, connect a `Load Image` node to `first_frame`.
+
+## Provider Behavior
+
+- `anyfast` uses the `base_url` field, normally `https://www.anyfast.ai`
+- `fal.ai` always uses `https://fal.run` internally
+- `fal.ai` API keys come from `https://fal.ai/dashboard`
+- If the `base_url` widget does not visibly refresh in the UI, runtime still normalizes it correctly for `fal.ai`
 
 ## Providers
 
@@ -74,46 +88,36 @@ For text-to-video, leave image inputs disconnected. To switch to image-to-video,
 | `Seedance AM 2.0 - Ultra` | Highest quality variant, up to 2K |
 | `Seedance AM - Extend Video` | Extend a previous generation using its `task_id` |
 | `Seedance AM - Reference Images (9 slots)` | Collect up to 9 reference images |
-| `Seedance AM - Create Human Asset` | First run starts H5 verification, later run creates the final `asset_id` using the verified `group_id` |
+| `Seedance AM - Create Human Asset` | Start verification and create the final `asset_id` using a verified `group_id` |
 | `Seedance AM - Identity Input` | Store `asset_id` and `group_id` together and output either or both |
 | `Seedance AM - Reference Video` | Pick a local video from the input folder and upload it |
 | `Seedance AM - Reference Audio` | Pick a local audio file from the input folder and upload it |
 | `Seedance AM - Upload Asset` | Advanced generic uploader for image, audio, or video assets |
-| `Seedance AM - Download Video (Legacy)` | Download the generated video and output the saved local file path |
-| `Seedance AM - Show Text` | Generic string preview node, useful for debugging |
+| `Seedance AM - Download Video (Legacy)` | Downloads the generated video and returns the saved local file path |
+| `Seedance AM - Show Text` | Generic string preview node for debugging |
 | `Seedance AM - Text Input (Legacy)` | Older generic text holder kept for compatibility |
 
 ## Categories
 
 The nodes are grouped in ComfyUI like this:
 
-- `Seedance AM/Core` — main generation flow
-- `Seedance AM/Identity` — real-human ID and ID storage
-- `Seedance AM/References` — image, video, and audio references
-- `Seedance AM/Advanced` — lower-level asset utilities
-- `Seedance AM/Debug` — optional debug helpers
-- `Seedance AM/Legacy` — old compatibility nodes not recommended for new workflows
+- `Seedance AM/Core` - main generation flow
+- `Seedance AM/Identity` - real-human ID and ID storage
+- `Seedance AM/References` - image, video, and audio references
+- `Seedance AM/Advanced` - lower-level asset utilities
+- `Seedance AM/Debug` - optional debug helpers
+- `Seedance AM/Legacy` - old compatibility nodes not recommended for new workflows
 
 ## Which Node Should I Use?
 
-Use this as the short decision guide:
-
-- Generate a normal video:
-  `API Key` -> `Seedance 2.0 - Standard`
-- Add image references:
-  use `Reference Images (9 slots)`
-- Add reference video/audio:
-  use `Reference Video` or `Reference Audio`
-- Create a new real-human ID:
-  use `Create Human Asset`
-- Store or reuse `asset_id` and `group_id`:
-  use `Identity Input`
-- Debug a raw string:
-  use `Show Text`
-- Upload arbitrary asset files manually:
-  use `Upload Asset`
-- Build a new workflow from scratch:
-  avoid `Text Input (Legacy)`, `Image Batch (Legacy)`, and `Download Video (Legacy)` unless you specifically want a local file downloader
+- Generate a normal video: `API Key` -> `Seedance 2.0 - Standard`
+- Add image references: use `Reference Images (9 slots)`
+- Add reference video/audio: use `Reference Video` or `Reference Audio`
+- Create a new real-human ID: use `Create Human Asset`
+- Store or reuse `asset_id` and `group_id`: use `Identity Input`
+- Debug a raw string: use `Show Text`
+- Upload arbitrary asset files manually: use `Upload Asset`
+- Build a new workflow from scratch: avoid `Text Input (Legacy)` and `Download Video (Legacy)` unless you specifically need compatibility or a simple downloader
 
 ## Compatibility
 
@@ -124,18 +128,11 @@ Use this as the short decision guide:
 
 ### Text to Video
 
-Connect:
-
 ```text
 Seedance AM - API Key -> Seedance AM 2.0 - Standard
 ```
 
 Write a prompt and queue it.
-
-For preview:
-
-- use a common video loader/preview node on the saved local file when available
-- `Seedance AM - Download Video (Legacy)` can still download the file and return its saved path
 
 ### Image to Video
 
@@ -155,13 +152,14 @@ Connect a generation node's `task_id` output to `Seedance AM - Extend Video`, ad
 
 ## Real Human Video
 
-ByteDance requires identity verification before generating videos with a real person's likeness. This is normally a one-time flow per person. After verification, reuse the saved `group_id`.
+This repo does not use the same built-in ByteDance nodes shown in Comfy's official Real Human workflow templates.
 
-Rules:
+- Official Comfy templates use core nodes like `ByteDance Create Image/Video Asset`
+- This repo uses the custom node `Seedance AM - Create Human Asset`
+- In this repo, the verification UI is shown inside `Seedance AM - Create Human Asset`
+- `Seedance AM - Show Text` is only for previewing plain string outputs after the fact
 
-- One person per image or verification asset
-- Group IDs belong to the account that created them
-- Cross-account reuse is not supported
+If you load `api_seedance2_0_r2v_real_human.json` and expect identical behavior, it will not match this custom pack 1:1.
 
 ### First-time verification
 
@@ -173,19 +171,15 @@ Rules:
 6. The node fills `existing_group_id` automatically
 7. Queue the node again to create the final `asset_id`
 
-The verification controls now live directly inside `Seedance AM - Create Human Asset`, so no extra panel node is needed.
-
 Important:
 
-- The official Comfy workflow uses built-in `ByteDance Create Image/Video Asset` nodes
-- This repo replaces that flow with `Seedance AM - Create Human Asset`
-- `Seedance AM - Show Text` is only for displaying final string outputs like `asset_id`, `group_id`, or `video_url`
-- The verification link itself is expected to appear inside `Seedance AM - Create Human Asset`, not in `Show Text`
-- If the verification button or link does not appear, update ComfyUI and make sure you are running from `127.0.0.1` or `localhost` while logged into ComfyUI partner/API nodes
+- one person per image or verification asset
+- `group_id` belongs to the account that created it
+- cross-account reuse is not supported
+- the verification link is expected to appear inside `Seedance AM - Create Human Asset`, not in `Show Text`
+- if the verification button or link does not appear, update ComfyUI and make sure you are running from `127.0.0.1` or `localhost` while logged into ComfyUI partner/API nodes
 
 ### Troubleshooting when nothing appears
-
-If you run the node and do not see a button or verification link:
 
 1. Restart ComfyUI so the custom JS in `web/js/human_asset.js` reloads
 2. Open ComfyUI from `http://127.0.0.1:8188` or `http://localhost:8188`
@@ -193,8 +187,6 @@ If you run the node and do not see a button or verification link:
 4. Make sure partner/API-node login is active in ComfyUI
 5. Do not rely on `Seedance AM - Show Text` for the verification step
 6. If ComfyUI is started with `--listen` and accessed over LAN/IP, the verification proxy may not work
-
-The node now shows a visible status/error panel when the local verification proxy is unavailable.
 
 ### Generate with a verified human
 
@@ -213,24 +205,11 @@ If the prompt does not include `@image1`, the node adds it automatically when `h
 
 Paste the saved `group_id` into `existing_group_id`. The node skips new verification and returns a ready-to-use `asset_id`.
 
-### Keep IDs readable in the graph
-
-- Use `Seedance AM - Create Human Asset` for the full first-time verification flow and final asset creation
-- Use `Seedance AM - Identity Input` as the main place to store and route `asset_id` and `group_id`
-- Use `Seedance AM - Show Text` only if you want a separate generic debug preview
-- `Seedance AM - Text Input (Legacy)` is no longer needed for real-human ID workflows
-
-### Recommended example workflows
-
-- `01_create_real_human_id.json` — verify a new real person and save both IDs
-- `02_generate_with_existing_real_human_id.json` — generate with a known `asset_id`
-- `03_reuse_group_id_same_person.json` — upload a new photo of the same person using a saved `group_id`
-
 ### Where to put each ID
 
-- Put `asset_id` into `Seedance AM 2.0 - Standard.human_asset_id`
-- Put a saved `group_id` into `Seedance AM - Create Human Asset.existing_group_id`
-- Use `Seedance AM - Identity Input` if you want to keep both values together and route each output where needed
+- put `asset_id` into `Seedance AM 2.0 - Standard.human_asset_id`
+- put a saved `group_id` into `Seedance AM - Create Human Asset.existing_group_id`
+- use `Seedance AM - Identity Input` if you want to keep both values together and route each output where needed
 
 Example:
 
@@ -240,7 +219,19 @@ Seedance AM - Identity Input
   group_id -> Seedance AM - Create Human Asset.existing_group_id
 ```
 
-`Seedance AM - Identity Input` already shows both values inside the node, so its old `summary` output is no longer needed.
+## Example Workflows
+
+- `01_create_real_human_id.json` - verify a new real person and save both IDs
+- `02_generate_with_existing_real_human_id.json` - generate with a known `asset_id`
+- `03_reuse_group_id_same_person.json` - upload a new photo of the same person using a saved `group_id`
+- `seedance_hybrid_official_id_our_generation.json` - use official ByteDance ID creation with this pack for generation
+
+## fal.ai Notes
+
+- `fal.ai` works with this pack by selecting `provider = fal.ai` in `Seedance AM - API Key`
+- `fal.ai` uses normal reference inputs such as `reference_images`, `reference_video`, and `reference_audio`
+- `fal.ai` does not use `human_asset_id`, `asset_id`, or `group_id` as a real-human flow
+- `end_user_id` in fal is not the same as `asset_id` or `group_id`
 
 ## Video Output Recommendation
 
@@ -250,7 +241,7 @@ Seedance AM - Identity Input
 2. Download it to a local file
 3. Preview that local file with a common video loader node
 
-`Seedance AM - Download Video (Legacy)` still works with both `AnyFast` and `fal.ai` because it only downloads the returned `video_url`. It is no longer the recommended preview node, only the downloader.
+`Seedance AM - Download Video (Legacy)` still works with both `AnyFast` and `fal.ai` because it only downloads the returned `video_url`. It is kept as a simple downloader, not as the recommended preview node for new workflows.
 
 ## Key Parameters
 
