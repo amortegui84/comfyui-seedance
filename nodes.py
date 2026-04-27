@@ -432,16 +432,34 @@ def _ensure_group(api, group_name, existing_group_id=None):
     return group_id
 
 
+def _upload_to_temp_host(file_bytes, filename):
+    """Upload bytes to catbox.moe and return a public URL for AnyFast to fetch."""
+    r = requests.post(
+        "https://catbox.moe/user.php",
+        data={"reqtype": "fileupload"},
+        files={"fileToUpload": (filename, file_bytes)},
+        timeout=60,
+    )
+    r.raise_for_status()
+    url = r.text.strip()
+    if not url.startswith("http"):
+        raise RuntimeError(f"Temp host upload failed: {url}")
+    print(f"[Seedance Assets] Temp host URL: {url}")
+    return url
+
+
 def _upload_asset(api, asset_type, name, group_id=None, image_tensor=None, file_path=None):
     """Upload an image tensor or a local file to Seedance Asset Management.
+
+    AnyFast CreateAsset requires a publicly accessible URL (not multipart bytes).
+    We first upload to catbox.moe to get a public URL, then register it with AnyFast.
 
     Returns (asset_uri, verify_url, resolved_group_id) where verify_url may be
     None if the API does not require a liveness check for this upload."""
     base_url = api["base_url"].rstrip("/")
     api_key  = api["api_key"].strip()
-    headers  = {"Authorization": f"Bearer {api_key}"}
+    auth_headers = {"Authorization": f"Bearer {api_key}"}
 
-    model_map = {"Image": "volc-asset", "Video": "volc-asset", "Audio": "volc-asset"}
     mime_map  = {"Image": "image/png",  "Video": "video/mp4",  "Audio": "audio/mpeg"}
 
     audio_mime = {".mp3": "audio/mpeg", ".wav": "audio/wav", ".ogg": "audio/ogg",
@@ -464,15 +482,27 @@ def _upload_asset(api, asset_type, name, group_id=None, image_tensor=None, file_
     else:
         raise ValueError("Provide either an image input or a valid file_path.")
 
-    files = {"file": (filename, file_bytes, mime_map[asset_type])}
-    data  = {"Name": name, "model": model_map[asset_type], "AssetType": asset_type}
+    # Step 1: get a public URL (AnyFast CreateAsset requires URL, not raw bytes)
+    public_url = _upload_to_temp_host(file_bytes, filename)
+
+    # Step 2: register the asset with AnyFast using the public URL
+    json_data = {
+        "model": "volc-asset",
+        "Name": name,
+        "AssetType": asset_type,
+        "URL": public_url,
+    }
     if group_id:
-        data["GroupId"] = group_id
+        json_data["GroupId"] = group_id
 
     r = None
     for attempt in range(1, 4):
-        r = requests.post(f"{base_url}/volc/asset/CreateAsset",
-                          files=files, data=data, headers=headers, timeout=120)
+        r = requests.post(
+            f"{base_url}/volc/asset/CreateAsset",
+            json=json_data,
+            headers={**auth_headers, "Content-Type": "application/json"},
+            timeout=60,
+        )
         if r.ok:
             break
         txt = r.text.lower()
