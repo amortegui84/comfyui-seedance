@@ -429,8 +429,8 @@ def _upload_asset(api, asset_type, name, group_id=None, image_tensor=None, file_
     api_key  = api["api_key"].strip()
     headers  = {"Authorization": f"Bearer {api_key}"}
 
-    model_map = {"Image": "volc-asset", "Video": "volc-asset-video", "Audio": "volc-asset-audio"}
-    mime_map  = {"Image": "image/png",  "Video": "video/mp4",       "Audio": "audio/mpeg"}
+    model_map = {"Image": "volc-asset", "Video": "volc-asset", "Audio": "volc-asset"}
+    mime_map  = {"Image": "image/png",  "Video": "video/mp4",  "Audio": "audio/mpeg"}
 
     audio_mime = {".mp3": "audio/mpeg", ".wav": "audio/wav", ".ogg": "audio/ogg",
                   ".flac": "audio/flac", ".m4a": "audio/mp4"}
