@@ -213,7 +213,7 @@ def _submit_and_poll(api, payload):
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
     }
-    r = requests.post(f"{base_url}/v1/video/generations", json=payload, headers=headers, timeout=300)
+    r = requests.post(f"{base_url}/v1/video/generations", json=payload, headers=headers, timeout=(30, 600))
 
     if not r.ok:
         raise RuntimeError(f"Seedance API error {r.status_code}: {r.text}")
