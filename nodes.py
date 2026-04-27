@@ -202,6 +202,16 @@ def _blank_frame():
     return arr
 
 
+def _is_anyfast_asset_not_ready_error(response_text):
+    txt = str(response_text or "").lower()
+    return (
+        "fail_to_fetch_task" in txt
+        and "invalidparameter" in txt
+        and "asset" in txt
+        and "not found" in txt
+    )
+
+
 def _submit_and_poll(api, payload):
     base_url = api["base_url"].rstrip("/")
     api_key  = api["api_key"].strip()
@@ -214,15 +224,19 @@ def _submit_and_poll(api, payload):
         "Content-Type": "application/json",
     }
     r = None
-    for attempt in range(1, 4):
+    max_attempts = 8
+    retry_delay = 8
+    for attempt in range(1, max_attempts + 1):
         r = requests.post(f"{base_url}/v1/video/generations", json=payload, headers=headers, timeout=(30, 600))
         if r.ok:
             break
-        txt = r.text.lower()
-        if r.status_code == 400 and "asset" in txt and "not found" in txt:
-            if attempt < 3:
-                print(f"[Seedance] Asset not yet visible, retrying submit in 5s (attempt {attempt}/3)...")
-                time.sleep(5)
+        if r.status_code == 400 and _is_anyfast_asset_not_ready_error(r.text):
+            if attempt < max_attempts:
+                print(
+                    f"[Seedance/AnyFast] Asset not yet visible to generation, "
+                    f"retrying submit in {retry_delay}s (attempt {attempt}/{max_attempts})..."
+                )
+                time.sleep(retry_delay)
                 continue
         raise RuntimeError(f"Seedance API error {r.status_code}: {r.text}")
     if not r.ok:
@@ -568,14 +582,14 @@ def _upload_asset(api, asset_type, name, group_id=None, image_tensor=None, file_
 
     print(f"[Seedance Assets] Asset created: {raw_id} — waiting 5s for propagation")
     time.sleep(5)
-    return f"asset://{raw_id}", verify_url, resolved_group_id
+    return f"Asset://{raw_id}", verify_url, resolved_group_id
 
 
 def _wait_for_asset_active(api, asset_id, group_id, timeout=120, interval=5):
     """Wait until an AnyFast asset becomes visible and Active in its group."""
     raw_asset_id = str(asset_id or "").strip()
     if raw_asset_id.lower().startswith("asset://"):
-        raw_asset_id = raw_asset_id[len("asset://"):]
+        raw_asset_id = raw_asset_id.split("://", 1)[1]
     group_id = str(group_id or "").strip()
 
     if not raw_asset_id or not group_id:
@@ -718,7 +732,9 @@ class SeedanceAssetRef:
     def build_ref(self, asset_id, role, existing_refs=None):
         asset_id = asset_id.strip()
         if not asset_id.lower().startswith("asset://"):
-            asset_id = f"asset://{asset_id}"
+            asset_id = f"Asset://{asset_id}"
+        elif asset_id.startswith("asset://"):
+            asset_id = f"Asset://{asset_id[len('asset://'):]}"
 
         entry = {
             "type":      "image_url",
@@ -969,6 +985,7 @@ class SeedanceReferenceVideo:
         try:
             group_id  = _ensure_group(api, group_name, existing_group_id)
             asset_uri, _, group_id = _upload_asset(api, "Video", name, group_id, file_path=file_path)
+            _wait_for_asset_active(api, asset_uri, group_id)
             print(f"[Seedance] Reference video uploaded: {asset_uri}  group_id={group_id}")
             return (asset_uri, group_id)
         finally:
@@ -1034,6 +1051,7 @@ class SeedanceReferenceAudio:
         try:
             group_id  = _ensure_group(api, group_name, existing_group_id)
             asset_uri, _, group_id = _upload_asset(api, "Audio", name, group_id, file_path=file_path)
+            _wait_for_asset_active(api, asset_uri, group_id)
             print(f"[Seedance] Reference audio uploaded: {asset_uri}  group_id={group_id}")
             return (asset_uri, group_id)
         finally:
@@ -1080,6 +1098,7 @@ class SeedanceUploadAsset:
         group_id  = _ensure_group(api, group_name, existing_group_id)
         asset_uri, _, group_id = _upload_asset(api, asset_type, name, group_id,
                                                image_tensor=image, file_path=file_path)
+        _wait_for_asset_active(api, asset_uri, group_id)
         print(f"[Seedance Assets] Uploaded {asset_type}: {asset_uri}  group_id={group_id}")
         return (asset_uri, group_id)
 
