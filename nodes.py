@@ -218,7 +218,9 @@ def _submit_and_poll(api, payload):
     if not r.ok:
         raise RuntimeError(f"Seedance API error {r.status_code}: {r.text}")
 
-    task_id = r.json()["id"]
+    resp_json = r.json()
+    print(f"[Seedance] Submit response keys: {list(resp_json.keys()) if isinstance(resp_json, dict) else resp_json}")
+    task_id = _extract_id(resp_json, "id", "Id", "task_id", "taskId", "ID")
     print(f"[Seedance] Job submitted — task_id={task_id}")
 
     video_url = _poll_v2(base_url, api_key, task_id)
