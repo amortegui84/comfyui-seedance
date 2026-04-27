@@ -433,19 +433,35 @@ def _ensure_group(api, group_name, existing_group_id=None):
 
 
 def _upload_to_temp_host(file_bytes, filename):
-    """Upload bytes to catbox.moe and return a public URL for AnyFast to fetch."""
-    r = requests.post(
+    """Upload bytes to Catbox and return a public URL for AnyFast to fetch."""
+    errors = []
+    endpoints = [
+        "https://catbox.moe/user/api.php",
         "https://catbox.moe/user.php",
-        data={"reqtype": "fileupload"},
-        files={"fileToUpload": (filename, file_bytes)},
-        timeout=60,
+    ]
+
+    for endpoint in endpoints:
+        try:
+            r = requests.post(
+                endpoint,
+                data={"reqtype": "fileupload"},
+                files={"fileToUpload": (filename, file_bytes)},
+                headers={"User-Agent": "comfyui-seedance/1.0"},
+                timeout=60,
+            )
+            r.raise_for_status()
+            url = r.text.strip()
+            if not url.startswith("http"):
+                raise RuntimeError(f"Temp host upload failed: {url}")
+            print(f"[Seedance Assets] Temp host URL: {url}")
+            return url
+        except Exception as e:
+            errors.append(f"{endpoint}: {e}")
+
+    raise RuntimeError(
+        "Temp host upload failed on all Catbox endpoints. "
+        + " | ".join(errors)
     )
-    r.raise_for_status()
-    url = r.text.strip()
-    if not url.startswith("http"):
-        raise RuntimeError(f"Temp host upload failed: {url}")
-    print(f"[Seedance Assets] Temp host URL: {url}")
-    return url
 
 
 def _upload_asset(api, asset_type, name, group_id=None, image_tensor=None, file_path=None):
