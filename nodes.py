@@ -467,9 +467,6 @@ def _upload_to_temp_host(file_bytes, filename):
 def _upload_asset(api, asset_type, name, group_id=None, image_tensor=None, file_path=None):
     """Upload an image tensor or a local file to Seedance Asset Management.
 
-    AnyFast CreateAsset requires a publicly accessible URL (not multipart bytes).
-    We first upload to catbox.moe to get a public URL, then register it with AnyFast.
-
     Returns (asset_uri, verify_url, resolved_group_id) where verify_url may be
     None if the API does not require a liveness check for this upload."""
     base_url = api["base_url"].rstrip("/")
@@ -498,35 +495,62 @@ def _upload_asset(api, asset_type, name, group_id=None, image_tensor=None, file_
     else:
         raise ValueError("Provide either an image input or a valid file_path.")
 
-    # Step 1: get a public URL (AnyFast CreateAsset requires URL, not raw bytes)
-    public_url = _upload_to_temp_host(file_bytes, filename)
-
-    # Step 2: register the asset with AnyFast using the public URL
-    json_data = {
-        "model": "volc-asset",
-        "Name": name,
-        "AssetType": asset_type,
-        "URL": public_url,
-    }
-    if group_id:
-        json_data["GroupId"] = group_id
-
+    mime_type = mime_map.get(asset_type, "application/octet-stream")
     r = None
     for attempt in range(1, 4):
+        data = {
+            "model": "volc-asset",
+            "Name": name,
+        }
+        if group_id:
+            data["GroupId"] = group_id
+        if asset_type:
+            data["AssetType"] = asset_type
+
         r = requests.post(
             f"{base_url}/volc/asset/CreateAsset",
-            json=json_data,
-            headers={**auth_headers, "Content-Type": "application/json"},
+            data=data,
+            files={"file": (filename, file_bytes, mime_type)},
+            headers=auth_headers,
             timeout=60,
         )
         if r.ok:
             break
+
         txt = r.text.lower()
         if r.status_code in (400, 502) and "group" in txt and ("notfound" in txt or "not found" in txt):
             if attempt < 3:
                 print(f"[Seedance Assets] Group not visible yet, retrying in 4s (attempt {attempt}/3) ...")
                 time.sleep(4)
                 continue
+
+        # Fallback for Image uploads: docs say JSON CreateAsset also accepts data URIs.
+        if asset_type == "Image":
+            data_uri = f"data:{mime_type};base64,{base64.b64encode(file_bytes).decode('ascii')}"
+            json_data = {
+                "model": "volc-asset",
+                "Name": name,
+                "AssetType": asset_type,
+                "URL": data_uri,
+            }
+            if group_id:
+                json_data["GroupId"] = group_id
+            r = requests.post(
+                f"{base_url}/volc/asset/CreateAsset",
+                json=json_data,
+                headers={**auth_headers, "Content-Type": "application/json"},
+                timeout=60,
+            )
+            if r.ok:
+                break
+
+            txt = r.text.lower()
+            if r.status_code in (400, 502) and "group" in txt and ("notfound" in txt or "not found" in txt):
+                if attempt < 3:
+                    print(f"[Seedance Assets] Group not visible yet after JSON fallback, retrying in 4s (attempt {attempt}/3) ...")
+                    time.sleep(4)
+                    continue
+
         raise RuntimeError(f"Asset upload failed {r.status_code}: {r.text}")
     if not r.ok:
         raise RuntimeError(f"Asset upload failed after retries: {r.status_code}: {r.text}")
