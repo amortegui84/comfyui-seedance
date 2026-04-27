@@ -453,7 +453,7 @@ def _upload_asset(api, asset_type, name, group_id=None, image_tensor=None, file_
         raise ValueError("Provide either an image input or a valid file_path.")
 
     files = {"file": (filename, file_bytes, mime_map[asset_type])}
-    data  = {"Name": name, "model": model_map[asset_type]}
+    data  = {"Name": name, "model": model_map[asset_type], "AssetType": asset_type}
     if group_id:
         data["GroupId"] = group_id
 
@@ -603,6 +603,55 @@ class SeedanceAnyfastImageUpload:
         return (refs,)
 
 
+class SeedanceAssetRef:
+    """Wire an asset:// ID from SeedanceUploadAsset into a generation node.
+
+    Use this after SeedanceUploadAsset to turn the returned asset_id into an
+    ANYFAST_IMAGE_REFS entry that the generation node understands.
+
+    Chain multiple SeedanceAssetRef nodes via existing_refs to build a list
+    of asset-based references, or plug SeedanceAnyfastImageUpload output into
+    existing_refs to mix asset:// and base64 refs in the same generation."""
+
+    CATEGORY = "Seedance AM/AnyFast"
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "asset_id": ("STRING", {"forceInput": True}),
+                "role":     (["first_frame", "last_frame", "reference_image"],),
+            },
+            "optional": {
+                "existing_refs": ("ANYFAST_IMAGE_REFS", {"forceInput": True}),
+            }
+        }
+
+    RETURN_TYPES = ("ANYFAST_IMAGE_REFS",)
+    RETURN_NAMES = ("anyfast_refs",)
+    FUNCTION     = "build_ref"
+
+    def build_ref(self, asset_id, role, existing_refs=None):
+        asset_id = asset_id.strip()
+        if not asset_id.lower().startswith("asset://"):
+            asset_id = f"asset://{asset_id}"
+
+        entry = {
+            "type":      "image_url",
+            "image_url": {"url": asset_id},
+            "role":      role,
+        }
+
+        refs = list(existing_refs) if existing_refs else []
+        if role in ("first_frame", "last_frame"):
+            refs.insert(0, entry)
+        else:
+            refs.append(entry)
+
+        print(f"[Seedance/AnyFast] Asset ref: role={role}  url={asset_id}")
+        return (refs,)
+
+
 # --------------------------------------------------------------------------- #
 # Constants
 # --------------------------------------------------------------------------- #
@@ -742,12 +791,51 @@ def _list_files(extensions):
         return ["none"]
 
 
-class SeedanceReferenceVideo:
-    """Pick a video from your local disk, upload it, and get an Asset:// ID
-    ready to wire into reference_video on any Seedance 2.0 generation node.
+def _video_input_to_path(video_input):
+    """Extract a usable file path from a ComfyUI VIDEO object.
 
-    Pass an existing_group_id to reuse a previously verified identity group
-    and avoid creating a new one each time."""
+    Returns (path, is_temp). When is_temp is True the caller must delete path
+    after use — the video was in memory and had to be written to a temp file."""
+    import tempfile
+    source = video_input.get_stream_source()
+    if isinstance(source, str):
+        return source, False
+    source.seek(0)
+    tmp = tempfile.NamedTemporaryFile(suffix=".mp4", delete=False)
+    tmp.write(source.read())
+    tmp.close()
+    return tmp.name, True
+
+
+def _audio_dict_to_wav(audio_dict):
+    """Save a ComfyUI AUDIO dict {waveform, sample_rate} to a temp WAV file.
+
+    Returns the temp path — caller is responsible for deleting it."""
+    import tempfile
+    try:
+        import torchaudio
+    except ImportError:
+        raise RuntimeError(
+            "torchaudio is required for AUDIO input — it should already be present in ComfyUI."
+        )
+    waveform    = audio_dict["waveform"]
+    sample_rate = audio_dict["sample_rate"]
+    if waveform.dim() == 3:
+        waveform = waveform[0]
+    tmp = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
+    tmp.close()
+    torchaudio.save(tmp.name, waveform.cpu(), sample_rate)
+    return tmp.name
+
+
+class SeedanceReferenceVideo:
+    """Upload a reference video and get an asset:// ID for use in generation.
+
+    Connect either:
+    - A ComfyUI Load Video node to the 'video' input, OR
+    - Pick a file from the 'video_file' dropdown (files in the ComfyUI input directory).
+
+    Pass an existing_group_id to reuse a group across runs."""
 
     CATEGORY = "Seedance AM/References"
 
@@ -757,11 +845,12 @@ class SeedanceReferenceVideo:
         return {
             "required": {
                 "api":        ("SEEDANCE_API",),
-                "video_file": (files,),
                 "name":       ("STRING", {"default": "ref_video"}),
                 "group_name": ("STRING", {"default": "comfyui-assets"}),
             },
             "optional": {
+                "video_file":        (files,),
+                "video":             ("VIDEO", {"forceInput": True}),
                 "existing_group_id": ("STRING", {"forceInput": True}),
             }
         }
@@ -772,24 +861,45 @@ class SeedanceReferenceVideo:
 
     @classmethod
     def IS_CHANGED(cls, **kwargs):
+        if kwargs.get("video") is not None:
+            return float("nan")
         return kwargs.get("video_file", "")
 
-    def upload(self, api, video_file, name, group_name, existing_group_id=None):
-        if video_file == "none":
-            raise ValueError("No video found — use the 'Choose Video' button to upload one.")
-        file_path = os.path.join(folder_paths.get_input_directory(), video_file)
-        group_id  = _ensure_group(api, group_name, existing_group_id)
-        asset_uri, _, group_id = _upload_asset(api, "Video", name, group_id, file_path=file_path)
-        print(f"[Seedance] Reference video uploaded: {asset_uri}  group_id={group_id}")
-        return (asset_uri, group_id)
+    def upload(self, api, name, group_name,
+               video_file=None, video=None, existing_group_id=None):
+        cleanup   = False
+        file_path = None
+
+        if video is not None:
+            file_path, cleanup = _video_input_to_path(video)
+            print(f"[Seedance] Using Load Video node input: {file_path}")
+        elif video_file and video_file != "none":
+            file_path = os.path.join(folder_paths.get_input_directory(), video_file)
+            print(f"[Seedance] Using video_file dropdown: {video_file}")
+        else:
+            raise ValueError(
+                "Connect a Load Video node to the 'video' input, "
+                "or pick a file from the 'video_file' dropdown."
+            )
+
+        try:
+            group_id  = _ensure_group(api, group_name, existing_group_id)
+            asset_uri, _, group_id = _upload_asset(api, "Video", name, group_id, file_path=file_path)
+            print(f"[Seedance] Reference video uploaded: {asset_uri}  group_id={group_id}")
+            return (asset_uri, group_id)
+        finally:
+            if cleanup and file_path and os.path.exists(file_path):
+                os.remove(file_path)
 
 
 class SeedanceReferenceAudio:
-    """Pick an audio file from your local disk, upload it, and get an Asset:// ID
-    ready to wire into reference_audio on any Seedance 2.0 generation node.
+    """Upload a reference audio track and get an asset:// ID for use in generation.
 
-    Pass an existing_group_id to reuse a previously verified identity group
-    and avoid creating a new one each time."""
+    Connect either:
+    - A ComfyUI Load Audio node to the 'audio' input, OR
+    - Pick a file from the 'audio_file' dropdown (files in the ComfyUI input directory).
+
+    Pass an existing_group_id to reuse a group across runs."""
 
     CATEGORY = "Seedance AM/References"
 
@@ -799,11 +909,12 @@ class SeedanceReferenceAudio:
         return {
             "required": {
                 "api":        ("SEEDANCE_API",),
-                "audio_file": (files,),
                 "name":       ("STRING", {"default": "ref_audio"}),
                 "group_name": ("STRING", {"default": "comfyui-assets"}),
             },
             "optional": {
+                "audio_file":        (files,),
+                "audio":             ("AUDIO", {"forceInput": True}),
                 "existing_group_id": ("STRING", {"forceInput": True}),
             }
         }
@@ -814,16 +925,36 @@ class SeedanceReferenceAudio:
 
     @classmethod
     def IS_CHANGED(cls, **kwargs):
+        if kwargs.get("audio") is not None:
+            return float("nan")
         return kwargs.get("audio_file", "")
 
-    def upload(self, api, audio_file, name, group_name, existing_group_id=None):
-        if audio_file == "none":
-            raise ValueError("No audio found — use the 'Choose Audio' button to upload one.")
-        file_path = os.path.join(folder_paths.get_input_directory(), audio_file)
-        group_id  = _ensure_group(api, group_name, existing_group_id)
-        asset_uri, _, group_id = _upload_asset(api, "Audio", name, group_id, file_path=file_path)
-        print(f"[Seedance] Reference audio uploaded: {asset_uri}  group_id={group_id}")
-        return (asset_uri, group_id)
+    def upload(self, api, name, group_name,
+               audio_file=None, audio=None, existing_group_id=None):
+        cleanup   = False
+        file_path = None
+
+        if audio is not None:
+            file_path = _audio_dict_to_wav(audio)
+            cleanup   = True
+            print(f"[Seedance] Using Load Audio node input (saved to temp WAV)")
+        elif audio_file and audio_file != "none":
+            file_path = os.path.join(folder_paths.get_input_directory(), audio_file)
+            print(f"[Seedance] Using audio_file dropdown: {audio_file}")
+        else:
+            raise ValueError(
+                "Connect a Load Audio node to the 'audio' input, "
+                "or pick a file from the 'audio_file' dropdown."
+            )
+
+        try:
+            group_id  = _ensure_group(api, group_name, existing_group_id)
+            asset_uri, _, group_id = _upload_asset(api, "Audio", name, group_id, file_path=file_path)
+            print(f"[Seedance] Reference audio uploaded: {asset_uri}  group_id={group_id}")
+            return (asset_uri, group_id)
+        finally:
+            if cleanup and file_path and os.path.exists(file_path):
+                os.remove(file_path)
 
 
 # --------------------------------------------------------------------------- #
@@ -1255,8 +1386,9 @@ NODE_CLASS_MAPPINGS = {
     "SeedanceUploadAsset":      SeedanceUploadAsset,
     "SeedanceReferenceVideo":   SeedanceReferenceVideo,
     "SeedanceReferenceAudio":   SeedanceReferenceAudio,
-    # AnyFast dedicated image upload
+    # AnyFast image preparation
     "SeedanceAnyfastImageUpload": SeedanceAnyfastImageUpload,
+    "SeedanceAssetRef":           SeedanceAssetRef,
     # Utilities
     "SeedanceImageBatch":  SeedanceImageBatch,
     "SeedanceRefImages":   SeedanceRefImages,
@@ -1280,8 +1412,9 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "SeedanceUploadAsset":      "Seedance AM - Upload Asset",
     "SeedanceReferenceVideo":   "Seedance AM - Reference Video",
     "SeedanceReferenceAudio":   "Seedance AM - Reference Audio",
-    # AnyFast dedicated image upload
-    "SeedanceAnyfastImageUpload": "Seedance AM - AnyFast Image Upload",
+    # AnyFast image preparation
+    "SeedanceAnyfastImageUpload": "Seedance AM - AnyFast Image Upload (base64)",
+    "SeedanceAssetRef":           "Seedance AM - Asset Reference",
     # Utilities
     "SeedanceImageBatch":  "Seedance AM - Image Batch (Legacy)",
     "SeedanceRefImages":   "Seedance AM - Reference Images (9 slots)",
