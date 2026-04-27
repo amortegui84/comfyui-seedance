@@ -213,8 +213,18 @@ def _submit_and_poll(api, payload):
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
     }
-    r = requests.post(f"{base_url}/v1/video/generations", json=payload, headers=headers, timeout=(30, 600))
-
+    r = None
+    for attempt in range(1, 4):
+        r = requests.post(f"{base_url}/v1/video/generations", json=payload, headers=headers, timeout=(30, 600))
+        if r.ok:
+            break
+        txt = r.text.lower()
+        if r.status_code == 400 and "asset" in txt and "not found" in txt:
+            if attempt < 3:
+                print(f"[Seedance] Asset not yet visible, retrying submit in 5s (attempt {attempt}/3)...")
+                time.sleep(5)
+                continue
+        raise RuntimeError(f"Seedance API error {r.status_code}: {r.text}")
     if not r.ok:
         raise RuntimeError(f"Seedance API error {r.status_code}: {r.text}")
 
@@ -486,6 +496,8 @@ def _upload_asset(api, asset_type, name, group_id=None, image_tensor=None, file_
         if resolved_group_id:
             print(f"[Seedance Assets] After completing the liveness check, save your Group ID: {resolved_group_id}")
 
+    print(f"[Seedance Assets] Asset created: {raw_id} — waiting 5s for propagation")
+    time.sleep(5)
     return f"asset://{raw_id}", verify_url, resolved_group_id
 
 
