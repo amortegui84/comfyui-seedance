@@ -1,6 +1,10 @@
 API-KEY.txt
 AnyFast-Quick-Start-Guide.pdf
 seedance_guide.txt
+*_REPORT.txt
+example_*.png
+nodos.png
+opciones.png
 __pycache__/
 *.pyc
 *.pyo
