@@ -1104,7 +1104,7 @@ class SeedanceReferenceVideo:
 
     @classmethod
     def INPUT_TYPES(cls):
-        files = _list_files([".mp4", ".mov", ".avi", ".webm"])
+        files = ["none"] + _list_files([".mp4", ".mov", ".avi", ".webm"])
         return {
             "required": {
                 "api":        ("SEEDANCE_API",),
@@ -1170,7 +1170,7 @@ class SeedanceReferenceAudio:
 
     @classmethod
     def INPUT_TYPES(cls):
-        files = _list_files([".mp3", ".wav", ".ogg", ".flac", ".m4a"])
+        files = ["none"] + _list_files([".mp3", ".wav", ".ogg", ".flac", ".m4a"])
         return {
             "required": {
                 "api":        ("SEEDANCE_API",),
