@@ -662,7 +662,7 @@ def _upload_asset(api, asset_type, name, group_id=None, image_tensor=None, file_
 
     print(f"[Seedance Assets] Asset created: {raw_id} — waiting 5s for propagation")
     time.sleep(5)
-    return f"asset://{raw_id}", verify_url, resolved_group_id
+    return f"Asset://{raw_id}", verify_url, resolved_group_id
 
 
 def _wait_for_asset_active(api, asset_id, group_id, timeout=300, interval=5):
@@ -830,14 +830,14 @@ class SeedanceAnyfastImageUpload:
 
 
 class SeedanceAssetRef:
-    """Wire an asset:// ID from SeedanceUploadAsset into a generation node.
+    """Wire an Asset:// ID from SeedanceUploadAsset into a generation node.
 
     Use this after SeedanceUploadAsset to turn the returned asset_id into an
     ANYFAST_IMAGE_REFS entry that the generation node understands.
 
     Chain multiple SeedanceAssetRef nodes via existing_refs to build a list
     of asset-based references, or plug SeedanceAnyfastImageUpload output into
-    existing_refs to mix asset:// and base64 refs in the same generation."""
+    existing_refs to mix Asset:// and base64 refs in the same generation."""
 
     CATEGORY = "Seedance AM/AnyFast"
 
@@ -863,7 +863,7 @@ class SeedanceAssetRef:
             raw = asset_id.split("://", 1)[1]
         else:
             raw = asset_id
-        asset_id = f"asset://{raw}"
+        asset_id = f"Asset://{raw}"
 
         entry = {
             "type":      "image_url",
