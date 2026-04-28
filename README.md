@@ -46,7 +46,7 @@ Seedance AM - API Key → Seedance AM 2.0 - Standard → Seedance AM - Save Vide
 | `Seedance AM 2.0 - Standard` | Core | Main generation: T2V, I2V, multimodal references — model `seedance` |
 | `Seedance AM 2.0 - Fast` | Core | Faster generation variant — model `seedance-fast` |
 | `Seedance AM 2.0 - Ultra` | Core | Highest quality — model `seedance-2.0-ultra`, supports 2k resolution |
-| `Seedance AM - AnyFast Image Upload (base64)` | AnyFast | Encode images as base64 data URIs for first_frame / last_frame / reference_image roles |
+| `Seedance AM - AnyFast Image Upload (base64)` | AnyFast | Encode reference images as base64 data URIs for `reference_image` roles |
 | `Seedance AM - Asset Reference` | AnyFast | Wrap an `asset://` ID into `ANYFAST_IMAGE_REFS`; chain multiple via `existing_refs` |
 | `Seedance AM - Upload Asset` | Advanced | Upload image/video/audio to AnyFast storage; waits for `Active` status; returns `asset_id` + `group_id` |
 | `Seedance AM - Reference Video` | References | Upload a video file to AnyFast and return an `asset://` ID; accepts Load Video node or dropdown |
@@ -151,7 +151,6 @@ Tags are auto-appended to the prompt if missing. Writing them explicitly in the 
 | File | Provider | Description |
 |---|---|---|
 | `anyfast/01_t2v.json` | AnyFast | Text-to-video (simplest) |
-| `anyfast/03_first_frame.json` | AnyFast | Legacy/experimental first-frame via base64 refs; prefer asset upload |
 | `anyfast/04_reference_images.json` | AnyFast | Reference images via AnyFast Image Upload (base64) |
 | `anyfast/09_anyfast_save_to_input_for_vhs.json` | AnyFast | Save mp4 to `input` folder for VHS reload |
 | `anyfast/10_anyfast_video_audio_refs.json` | AnyFast | Reference video + audio via Load Video / Load Audio |
@@ -175,6 +174,7 @@ Seedance2 → SeedanceSaveVideo(save_to=input) → saved_path → VHS_LoadVideoP
 - API key and base URL: `https://www.anyfast.ai`
 - Asset creation (Upload Asset, Reference Video, Reference Audio) automatically waits for `Active` status before returning — the generation request is only sent once the asset is ready
 - AnyFast support confirmed that assets are supported for `first_frame`; this is the recommended workflow for image-to-video on AnyFast
+- Direct base64 `first_frame` / `last_frame` is intentionally blocked in this node; use the asset workflow for frame control
 - If generation submit times out after 600s, the node now fails with a clear message and does not auto-resubmit, to avoid duplicate generations if AnyFast already accepted the job
 - `group_id` from `SeedanceUploadAsset` can be reused across runs via `existing_group_id` to avoid creating a new group each time
 - Asset URIs are normalized to lowercase `asset://...`
