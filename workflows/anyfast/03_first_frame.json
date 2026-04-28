@@ -22,7 +22,7 @@
       "outputs": [],
       "properties": {},
       "widgets_values": [
-        "### 03 AnyFast \u2014 Image to Video (First Frame)\nLoad an image \u2192 AnyFast Image Upload (converts to base64, no upload needed) \u2192 Seedance2 via anyfast_refs. The first_frame slot on Seedance2 stays disconnected."
+        "### 03 AnyFast \u2014 Image to Video (First Frame, legacy/experimental)\nLoad an image \u2192 AnyFast Image Upload (converts to base64, no upload needed) \u2192 Seedance2 via anyfast_refs. The first_frame slot on Seedance2 stays disconnected.\nPrefer workflow 11 for production: AnyFast support confirmed the asset-based first_frame path and the node now waits for Active status before generation."
       ]
     },
     {

@@ -234,7 +234,29 @@ def _submit_and_poll(api, payload):
     max_attempts = 8
     retry_delay = 8
     for attempt in range(1, max_attempts + 1):
-        r = requests.post(f"{base_url}/v1/video/generations", json=payload, headers=headers, timeout=(30, 600))
+        try:
+            r = requests.post(
+                f"{base_url}/v1/video/generations",
+                json=payload,
+                headers=headers,
+                timeout=(30, 600),
+            )
+        except requests.exceptions.ReadTimeout as e:
+            raise RuntimeError(
+                "AnyFast did not return a generation task within 600 seconds. "
+                "The server may have accepted the job but failed to return the task_id in time, "
+                "so this node will not auto-retry the submit to avoid duplicate generations. "
+                "Check your AnyFast job history before running again."
+            ) from e
+        except requests.exceptions.RequestException as e:
+            if attempt < max_attempts:
+                print(
+                    f"[Seedance/AnyFast] Submit request failed with network error: {e}. "
+                    f"Retrying in {retry_delay}s (attempt {attempt}/{max_attempts})..."
+                )
+                time.sleep(retry_delay)
+                continue
+            raise RuntimeError(f"AnyFast submit request failed: {e}") from e
         if r.ok:
             break
         if r.status_code == 400 and _is_anyfast_asset_not_ready_error(r.text):

@@ -151,11 +151,11 @@ Tags are auto-appended to the prompt if missing. Writing them explicitly in the 
 | File | Provider | Description |
 |---|---|---|
 | `anyfast/01_t2v.json` | AnyFast | Text-to-video (simplest) |
-| `anyfast/03_first_frame.json` | AnyFast | Image-to-video via AnyFast Image Upload (base64) |
+| `anyfast/03_first_frame.json` | AnyFast | Legacy/experimental first-frame via base64 refs; prefer asset upload |
 | `anyfast/04_reference_images.json` | AnyFast | Reference images via AnyFast Image Upload (base64) |
 | `anyfast/09_anyfast_save_to_input_for_vhs.json` | AnyFast | Save mp4 to `input` folder for VHS reload |
 | `anyfast/10_anyfast_video_audio_refs.json` | AnyFast | Reference video + audio via Load Video / Load Audio |
-| `anyfast/11_anyfast_asset_first_frame.json` | AnyFast | Upload image as asset, use as first frame |
+| `anyfast/11_anyfast_asset_first_frame.json` | AnyFast | Recommended first-frame workflow: upload image as asset, wait for `Active`, then generate |
 | `fal/01_t2v.json` | fal.ai | Text-to-video (simplest) |
 | `fal/05_image_to_video.json` | fal.ai | Image-to-video with direct `first_frame` connector |
 | `fal/06_reference_images.json` | fal.ai | Reference images using `SeedanceRefImages` |
@@ -174,7 +174,11 @@ Seedance2 → SeedanceSaveVideo(save_to=input) → saved_path → VHS_LoadVideoP
 
 - API key and base URL: `https://www.anyfast.ai`
 - Asset creation (Upload Asset, Reference Video, Reference Audio) automatically waits for `Active` status before returning — the generation request is only sent once the asset is ready
+- AnyFast support confirmed that assets are supported for `first_frame`; this is the recommended workflow for image-to-video on AnyFast
+- If generation submit times out after 600s, the node now fails with a clear message and does not auto-resubmit, to avoid duplicate generations if AnyFast already accepted the job
 - `group_id` from `SeedanceUploadAsset` can be reused across runs via `existing_group_id` to avoid creating a new group each time
+- Asset URIs are normalized to lowercase `asset://...`
+- `ListAssets` is polled without `GroupType` because that filter can hide freshly-created groups in this workflow
 - `seedance-2.0-ultra` with `2k` resolution requires your AnyFast channel to have Ultra capacity allocated; if not available you will get a `model_not_found` style error — use Standard or Fast as fallback
 
 ## fal.ai Notes

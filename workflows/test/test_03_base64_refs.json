@@ -16,7 +16,7 @@
       "outputs": [],
       "properties": {},
       "widgets_values": [
-        "### TEST 3 — Base64 como First Frame (NO confirmado por AnyFast)\nCargar imagen → AnyFast Image Upload (convierte a base64, sin subir nada) → Seedance2 via anyfast_refs.\nSi hay timeout aquí pero TEST 2 funcionó, significa que el servidor NO acepta base64 y hay que usar siempre el flujo de asset upload."
+        "### TEST 3 - References to Video (working reference flow)\nLoad one or more reference images -> SeedanceAnyfastImageUpload using ref_image_X ports -> Seedance2 via anyfast_refs.\nThis validates the reference_image path and does not use first_frame directly."
       ]
     },
     {
@@ -49,9 +49,9 @@
       "inputs": [],
       "outputs": [
         {"name": "IMAGE", "type": "IMAGE", "links": [2]},
-        {"name": "MASK",  "type": "MASK",  "links": null}
+        {"name": "MASK", "type": "MASK", "links": null}
       ],
-      "title": "Load First Frame Image",
+      "title": "Load Reference Image 1",
       "properties": {"Node name for S&R": "LoadImage"},
       "widgets_values": ["example.png", "image"]
     },
@@ -64,18 +64,18 @@
       "order": 3,
       "mode": 0,
       "inputs": [
-        {"name": "api",        "type": "SEEDANCE_API", "link": 1},
-        {"name": "first_frame","type": "IMAGE",        "link": 2},
-        {"name": "last_frame", "type": "IMAGE",        "link": null},
-        {"name": "ref_image_1","type": "IMAGE",        "link": null},
-        {"name": "ref_image_2","type": "IMAGE",        "link": null},
-        {"name": "ref_image_3","type": "IMAGE",        "link": null},
-        {"name": "ref_image_4","type": "IMAGE",        "link": null},
-        {"name": "ref_image_5","type": "IMAGE",        "link": null},
-        {"name": "ref_image_6","type": "IMAGE",        "link": null},
-        {"name": "ref_image_7","type": "IMAGE",        "link": null},
-        {"name": "ref_image_8","type": "IMAGE",        "link": null},
-        {"name": "ref_image_9","type": "IMAGE",        "link": null}
+        {"name": "api", "type": "SEEDANCE_API", "link": 1},
+        {"name": "first_frame", "type": "IMAGE", "link": null},
+        {"name": "last_frame", "type": "IMAGE", "link": null},
+        {"name": "ref_image_1", "type": "IMAGE", "link": 2},
+        {"name": "ref_image_2", "type": "IMAGE", "link": null},
+        {"name": "ref_image_3", "type": "IMAGE", "link": null},
+        {"name": "ref_image_4", "type": "IMAGE", "link": null},
+        {"name": "ref_image_5", "type": "IMAGE", "link": null},
+        {"name": "ref_image_6", "type": "IMAGE", "link": null},
+        {"name": "ref_image_7", "type": "IMAGE", "link": null},
+        {"name": "ref_image_8", "type": "IMAGE", "link": null},
+        {"name": "ref_image_9", "type": "IMAGE", "link": null}
       ],
       "outputs": [
         {"name": "anyfast_refs", "type": "ANYFAST_IMAGE_REFS", "links": [4]}
@@ -92,23 +92,28 @@
       "order": 4,
       "mode": 0,
       "inputs": [
-        {"name": "api",              "type": "SEEDANCE_API",       "link": 3},
-        {"name": "first_frame",      "type": "IMAGE",              "link": null},
-        {"name": "last_frame",       "type": "IMAGE",              "link": null},
-        {"name": "reference_images", "type": "SEEDANCE_IMAGE_LIST","link": null},
-        {"name": "reference_video",  "type": "STRING",             "link": null},
-        {"name": "reference_audio",  "type": "STRING",             "link": null},
-        {"name": "anyfast_refs",     "type": "ANYFAST_IMAGE_REFS", "link": 4}
+        {"name": "api", "type": "SEEDANCE_API", "link": 3},
+        {"name": "first_frame", "type": "IMAGE", "link": null},
+        {"name": "last_frame", "type": "IMAGE", "link": null},
+        {"name": "reference_images", "type": "SEEDANCE_IMAGE_LIST", "link": null},
+        {"name": "reference_video", "type": "STRING", "link": null},
+        {"name": "reference_audio", "type": "STRING", "link": null},
+        {"name": "anyfast_refs", "type": "ANYFAST_IMAGE_REFS", "link": 4}
       ],
       "outputs": [
-        {"name": "video_url",   "type": "STRING", "links": [5]},
-        {"name": "task_id",     "type": "STRING", "links": null},
-        {"name": "first_frame", "type": "IMAGE",  "links": null}
+        {"name": "video_url", "type": "STRING", "links": [5]},
+        {"name": "task_id", "type": "STRING", "links": null},
+        {"name": "first_frame", "type": "IMAGE", "links": null}
       ],
       "properties": {"Node name for S&R": "Seedance2"},
       "widgets_values": [
-        "Cinematic video starting from this image, smooth natural motion, photorealistic, high quality.",
-        "720p", "16:9", 5, true, false, -1
+        "A cinematic scene inspired by @image1, preserving the subject style and composition cues, smooth natural motion, photorealistic, high quality.",
+        "720p",
+        "16:9",
+        5,
+        true,
+        false,
+        -1
       ]
     },
     {
@@ -126,12 +131,12 @@
         {"name": "saved_path", "type": "STRING", "links": null}
       ],
       "properties": {"Node name for S&R": "SeedanceSaveVideo"},
-      "widgets_values": ["seedance_test3", "output"]
+      "widgets_values": ["seedance_test3_reference_images", "output"]
     }
   ],
   "links": [
     [1, 1, 0, 3, 0, "SEEDANCE_API"],
-    [2, 2, 0, 3, 1, "IMAGE"],
+    [2, 2, 0, 3, 3, "IMAGE"],
     [3, 1, 0, 4, 0, "SEEDANCE_API"],
     [4, 3, 0, 4, 6, "ANYFAST_IMAGE_REFS"],
     [5, 4, 0, 5, 0, "STRING"]

@@ -16,7 +16,7 @@
       "outputs": [],
       "properties": {},
       "widgets_values": [
-        "### TEST 1 — Text to Video (sin imágenes)\nPrueba base: solo texto, sin ninguna imagen ni referencia. Si esto funciona, la conexión, el submit y el polling están correctos.\nSi falla aquí, el problema es de API key, URL base, o en el submit/poll."
+        "### TEST 1 - Text to Video (baseline confirmed)\nBase test: text only, no images and no references. If this passes, the API key, base URL, submit, and polling are working.\nRun this first before testing first-frame or reference-image flows."
       ]
     },
     {
@@ -49,23 +49,28 @@
       "order": 2,
       "mode": 0,
       "inputs": [
-        {"name": "api",              "type": "SEEDANCE_API",       "link": 1},
-        {"name": "first_frame",      "type": "IMAGE",              "link": null},
-        {"name": "last_frame",       "type": "IMAGE",              "link": null},
-        {"name": "reference_images", "type": "SEEDANCE_IMAGE_LIST","link": null},
-        {"name": "reference_video",  "type": "STRING",             "link": null},
-        {"name": "reference_audio",  "type": "STRING",             "link": null},
-        {"name": "anyfast_refs",     "type": "ANYFAST_IMAGE_REFS", "link": null}
+        {"name": "api", "type": "SEEDANCE_API", "link": 1},
+        {"name": "first_frame", "type": "IMAGE", "link": null},
+        {"name": "last_frame", "type": "IMAGE", "link": null},
+        {"name": "reference_images", "type": "SEEDANCE_IMAGE_LIST", "link": null},
+        {"name": "reference_video", "type": "STRING", "link": null},
+        {"name": "reference_audio", "type": "STRING", "link": null},
+        {"name": "anyfast_refs", "type": "ANYFAST_IMAGE_REFS", "link": null}
       ],
       "outputs": [
-        {"name": "video_url",   "type": "STRING", "links": [2]},
-        {"name": "task_id",     "type": "STRING", "links": null},
-        {"name": "first_frame", "type": "IMAGE",  "links": null}
+        {"name": "video_url", "type": "STRING", "links": [2]},
+        {"name": "task_id", "type": "STRING", "links": null},
+        {"name": "first_frame", "type": "IMAGE", "links": null}
       ],
       "properties": {"Node name for S&R": "Seedance2"},
       "widgets_values": [
         "A serene aerial view of ocean waves at golden hour, slow motion, cinematic, photorealistic.",
-        "720p", "16:9", 5, true, false, -1
+        "720p",
+        "16:9",
+        5,
+        true,
+        false,
+        -1
       ]
     },
     {
@@ -83,7 +88,7 @@
         {"name": "saved_path", "type": "STRING", "links": null}
       ],
       "properties": {"Node name for S&R": "SeedanceSaveVideo"},
-      "widgets_values": ["seedance_test1", "output"]
+      "widgets_values": ["seedance_test1_t2v", "output"]
     }
   ],
   "links": [

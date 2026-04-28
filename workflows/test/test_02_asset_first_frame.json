@@ -16,7 +16,7 @@
       "outputs": [],
       "properties": {},
       "widgets_values": [
-        "### TEST 2 — Asset Upload como First Frame (flujo confirmado por AnyFast support)\nCarga una imagen → SeedanceUploadAsset (CreateAssetGroup + CreateAsset en AnyFast) → SeedanceAssetRef (role=first_frame) → Seedance2 via anyfast_refs.\nSi TEST 1 pasó y este falla, el problema está en el upload multipart o en el asset:// en generación."
+        "### TEST 2 - First Image to Video via Asset (recommended path)\nLoad one image -> SeedanceUploadAsset (CreateAssetGroup + CreateAsset + wait until Active) -> SeedanceAssetRef(role=first_frame) -> Seedance2 via anyfast_refs.\nIf TEST 1 passed and this fails, the problem is isolated to the asset upload / Active / asset:// first_frame flow."
       ]
     },
     {
@@ -49,7 +49,7 @@
       "inputs": [],
       "outputs": [
         {"name": "IMAGE", "type": "IMAGE", "links": [3]},
-        {"name": "MASK",  "type": "MASK",  "links": null}
+        {"name": "MASK", "type": "MASK", "links": null}
       ],
       "title": "Load First Frame Image",
       "properties": {"Node name for S&R": "LoadImage"},
@@ -64,10 +64,10 @@
       "order": 3,
       "mode": 0,
       "inputs": [
-        {"name": "api",              "type": "SEEDANCE_API", "link": 1},
-        {"name": "image",            "type": "IMAGE",        "link": 3},
-        {"name": "file_path",        "type": "STRING",       "link": null},
-        {"name": "existing_group_id","type": "STRING",       "link": null}
+        {"name": "api", "type": "SEEDANCE_API", "link": 1},
+        {"name": "image", "type": "IMAGE", "link": 3},
+        {"name": "file_path", "type": "STRING", "link": null},
+        {"name": "existing_group_id", "type": "STRING", "link": null}
       ],
       "outputs": [
         {"name": "asset_id", "type": "STRING", "links": [4]},
@@ -86,8 +86,8 @@
       "order": 4,
       "mode": 0,
       "inputs": [
-        {"name": "asset_id",     "type": "STRING",           "link": 4},
-        {"name": "existing_refs","type": "ANYFAST_IMAGE_REFS","link": null}
+        {"name": "asset_id", "type": "STRING", "link": 4},
+        {"name": "existing_refs", "type": "ANYFAST_IMAGE_REFS", "link": null}
       ],
       "outputs": [
         {"name": "anyfast_refs", "type": "ANYFAST_IMAGE_REFS", "links": [5]}
@@ -104,23 +104,28 @@
       "order": 5,
       "mode": 0,
       "inputs": [
-        {"name": "api",              "type": "SEEDANCE_API",       "link": 2},
-        {"name": "first_frame",      "type": "IMAGE",              "link": null},
-        {"name": "last_frame",       "type": "IMAGE",              "link": null},
-        {"name": "reference_images", "type": "SEEDANCE_IMAGE_LIST","link": null},
-        {"name": "reference_video",  "type": "STRING",             "link": null},
-        {"name": "reference_audio",  "type": "STRING",             "link": null},
-        {"name": "anyfast_refs",     "type": "ANYFAST_IMAGE_REFS", "link": 5}
+        {"name": "api", "type": "SEEDANCE_API", "link": 2},
+        {"name": "first_frame", "type": "IMAGE", "link": null},
+        {"name": "last_frame", "type": "IMAGE", "link": null},
+        {"name": "reference_images", "type": "SEEDANCE_IMAGE_LIST", "link": null},
+        {"name": "reference_video", "type": "STRING", "link": null},
+        {"name": "reference_audio", "type": "STRING", "link": null},
+        {"name": "anyfast_refs", "type": "ANYFAST_IMAGE_REFS", "link": 5}
       ],
       "outputs": [
-        {"name": "video_url",   "type": "STRING", "links": [6]},
-        {"name": "task_id",     "type": "STRING", "links": null},
-        {"name": "first_frame", "type": "IMAGE",  "links": null}
+        {"name": "video_url", "type": "STRING", "links": [6]},
+        {"name": "task_id", "type": "STRING", "links": null},
+        {"name": "first_frame", "type": "IMAGE", "links": null}
       ],
       "properties": {"Node name for S&R": "Seedance2"},
       "widgets_values": [
         "Cinematic video starting from this image, smooth natural motion, photorealistic, high quality.",
-        "720p", "16:9", 5, true, false, -1
+        "720p",
+        "16:9",
+        5,
+        true,
+        false,
+        -1
       ]
     },
     {
@@ -138,7 +143,7 @@
         {"name": "saved_path", "type": "STRING", "links": null}
       ],
       "properties": {"Node name for S&R": "SeedanceSaveVideo"},
-      "widgets_values": ["seedance_test2", "output"]
+      "widgets_values": ["seedance_test2_first_frame_asset", "output"]
     }
   ],
   "links": [
