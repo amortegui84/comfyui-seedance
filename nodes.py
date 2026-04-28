@@ -751,6 +751,20 @@ def _wait_for_asset_active(api, asset_id, group_id, timeout=300, interval=5):
     )
 
 
+def _stabilize_anyfast_asset(asset_type):
+    """Allow extra backend propagation time after Active for some asset types."""
+    settle_delays = {
+        "Image": 20,
+    }
+    delay = settle_delays.get(asset_type, 0)
+    if delay > 0:
+        print(
+            f"[Seedance Assets] Asset reached Active but AnyFast may still be propagating it "
+            f"to generation. Waiting {delay}s before continuing..."
+        )
+        time.sleep(delay)
+
+
 class SeedanceAnyfastImageUpload:
     """Prepare images for AnyFast generation as base64 data URIs."""
 
@@ -1101,6 +1115,7 @@ class SeedanceReferenceVideo:
             group_id  = _ensure_group(api, group_name, existing_group_id)
             asset_uri, _, group_id = _upload_asset(api, "Video", name, group_id, file_path=file_path)
             _wait_for_asset_active(api, asset_uri, group_id)
+            _stabilize_anyfast_asset("Video")
             print(f"[Seedance] Reference video uploaded: {asset_uri}  group_id={group_id}")
             return (asset_uri, group_id)
         finally:
@@ -1167,6 +1182,7 @@ class SeedanceReferenceAudio:
             group_id  = _ensure_group(api, group_name, existing_group_id)
             asset_uri, _, group_id = _upload_asset(api, "Audio", name, group_id, file_path=file_path)
             _wait_for_asset_active(api, asset_uri, group_id)
+            _stabilize_anyfast_asset("Audio")
             print(f"[Seedance] Reference audio uploaded: {asset_uri}  group_id={group_id}")
             return (asset_uri, group_id)
         finally:
@@ -1214,6 +1230,7 @@ class SeedanceUploadAsset:
         asset_uri, _, group_id = _upload_asset(api, asset_type, name, group_id,
                                                image_tensor=image, file_path=file_path)
         _wait_for_asset_active(api, asset_uri, group_id)
+        _stabilize_anyfast_asset(asset_type)
         print(f"[Seedance Assets] Uploaded {asset_type}: {asset_uri}  group_id={group_id}")
         return (asset_uri, group_id)
 
@@ -1327,8 +1344,33 @@ class _V2Base:
                 # Prepared path — use inline refs from SeedanceAnyfastImageUpload directly.
                 # first_frame / last_frame / reference_images inputs are ignored when this is wired.
                 print(f"[Seedance/AnyFast] Using {len(anyfast_refs)} prepared image ref(s)")
+                has_frame_control = any(
+                    e.get("role") in ("first_frame", "last_frame") for e in anyfast_refs
+                )
+                has_reference_roles = any(
+                    e.get("role") == "reference_image" for e in anyfast_refs
+                )
+                if has_frame_control and (
+                    has_reference_roles
+                    or (reference_video and reference_video.strip())
+                    or (reference_audio and reference_audio.strip())
+                ):
+                    raise ValueError(
+                        "AnyFast does not support mixing first/last frame control with multimodal "
+                        "references in the same request. Use either frame control or references."
+                    )
+                only_first_frame = (
+                    len(anyfast_refs) == 1
+                    and anyfast_refs[0].get("role") == "first_frame"
+                    and anyfast_refs[0].get("type") == "image_url"
+                    and not (reference_video and reference_video.strip())
+                    and not (reference_audio and reference_audio.strip())
+                )
                 for entry in anyfast_refs:
-                    content.append(entry)
+                    normalized = dict(entry)
+                    if only_first_frame:
+                        normalized.pop("role", None)
+                    content.append(normalized)
             else:
                 # Inline path — embed images as base64 data URIs directly in the request.
                 if first_frame is not None or last_frame is not None:
