@@ -141,10 +141,11 @@ def _poll_v2(base_url, api_key, task_id, timeout=1200, interval=5):
         if status in ("failed", "error"):
             message = None
             if isinstance(body, dict):
-                message = _find_ci(body, "error", "message")
                 data = _find_ci(body, "data", "result")
                 if isinstance(data, dict):
-                    message = message or _find_ci(data, "error", "message")
+                    # fail_reason is the actual AnyFast failure field
+                    message = _find_ci(data, "fail_reason", "failReason", "error", "message")
+                message = message or _find_ci(body, "error", "message")
             raise RuntimeError(f"Seedance generation failed: {message or body}")
 
         time.sleep(interval)
@@ -204,12 +205,18 @@ def _blank_frame():
 
 def _is_anyfast_asset_not_ready_error(response_text):
     txt = str(response_text or "").lower()
-    return (
+    # Older AnyFast error pattern
+    if (
         "fail_to_fetch_task" in txt
         and "invalidparameter" in txt
         and "asset" in txt
         and "not found" in txt
-    )
+    ):
+        return True
+    # Generation endpoint: "The specified asset <id> is not found"
+    if "specified asset" in txt and "not found" in txt:
+        return True
+    return False
 
 
 def _submit_and_poll(api, payload):
@@ -440,7 +447,7 @@ def _ensure_group(api, group_name, existing_group_id=None):
     if not r.ok:
         raise RuntimeError(f"CreateAssetGroup failed {r.status_code}: {r.text}")
 
-    group_id = _extract_id(r.json(), "GroupId", "group_id", "id", "ID")
+    group_id = _extract_id(r.json(), "Id", "GroupId", "group_id", "id", "ID")
     print(f"[Seedance Assets] Group created: {group_id} — waiting 3s for propagation")
     time.sleep(3)
     return group_id
@@ -510,6 +517,8 @@ def _upload_asset(api, asset_type, name, group_id=None, image_tensor=None, file_
         raise ValueError("Provide either an image input or a valid file_path.")
 
     mime_type = mime_map.get(asset_type, "application/octet-stream")
+    model_map = {"Image": "volc-asset", "Video": "volc-asset-video", "Audio": "volc-asset-audio"}
+    asset_model = model_map.get(asset_type, "volc-asset")
     r = None
     for attempt in range(1, 4):
         # For Image assets, prefer the documented JSON data-URI flow first.
@@ -518,7 +527,7 @@ def _upload_asset(api, asset_type, name, group_id=None, image_tensor=None, file_
         if asset_type == "Image":
             data_uri = f"data:{mime_type};base64,{base64.b64encode(file_bytes).decode('ascii')}"
             json_data = {
-                "model": "volc-asset",
+                "model": asset_model,
                 "Name": name,
                 "AssetType": asset_type,
                 "URL": data_uri,
@@ -542,8 +551,9 @@ def _upload_asset(api, asset_type, name, group_id=None, image_tensor=None, file_
                     continue
 
         data = {
-            "model": "volc-asset",
+            "model": asset_model,
             "Name": name,
+            "AssetType": asset_type,
         }
         if group_id:
             data["GroupId"] = group_id
@@ -570,7 +580,7 @@ def _upload_asset(api, asset_type, name, group_id=None, image_tensor=None, file_
         raise RuntimeError(f"Asset upload failed after retries: {r.status_code}: {r.text}")
 
     resp = r.json()
-    raw_id     = _extract_id(resp, "AssetId", "asset_id", "id", "ID")
+    raw_id     = _extract_id(resp, "Id", "AssetId", "asset_id", "id", "ID")
     verify_url = _extract_verify_url(resp)
     resolved_group_id = group_id or _extract_optional_id(resp, "GroupId", "group_id", "GroupID")
 
@@ -582,11 +592,14 @@ def _upload_asset(api, asset_type, name, group_id=None, image_tensor=None, file_
 
     print(f"[Seedance Assets] Asset created: {raw_id} — waiting 5s for propagation")
     time.sleep(5)
-    return f"Asset://{raw_id}", verify_url, resolved_group_id
+    return f"asset://{raw_id}", verify_url, resolved_group_id
 
 
-def _wait_for_asset_active(api, asset_id, group_id, timeout=120, interval=5):
-    """Wait until an AnyFast asset becomes visible and Active in its group."""
+def _wait_for_asset_active(api, asset_id, group_id, timeout=300, interval=5):
+    """Wait until an AnyFast asset becomes visible and Active in its group.
+
+    ListAssets is polled without GroupType — groups are created without a type
+    field, so filtering by GroupType returns nothing."""
     raw_asset_id = str(asset_id or "").strip()
     if raw_asset_id.lower().startswith("asset://"):
         raw_asset_id = raw_asset_id.split("://", 1)[1]
@@ -600,6 +613,7 @@ def _wait_for_asset_active(api, asset_id, group_id, timeout=120, interval=5):
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
     deadline = time.time() + timeout
 
+    print(f"[Seedance Assets] Waiting for asset {raw_asset_id} to become Active (timeout={timeout}s)...")
     while time.time() < deadline:
         r = requests.post(
             f"{base_url}/volc/asset/ListAssets",
@@ -607,7 +621,6 @@ def _wait_for_asset_active(api, asset_id, group_id, timeout=120, interval=5):
                 "model": "volc-asset",
                 "Filter": {
                     "GroupIds": [group_id],
-                    "GroupType": "AIGC",
                 },
                 "PageNumber": 1,
                 "PageSize": 100,
@@ -620,14 +633,27 @@ def _wait_for_asset_active(api, asset_id, group_id, timeout=120, interval=5):
 
         body = r.json()
         items = body.get("Items") or body.get("items") or []
+
+        if not items:
+            print(f"[Seedance Assets] asset_id={raw_asset_id} — group has no assets yet, retrying...")
+            time.sleep(interval)
+            continue
+
+        found = False
         for item in items:
-            item_id = _extract_optional_id(item, "AssetId", "asset_id", "id", "ID")
+            item_id = _extract_optional_id(item, "Id", "AssetId", "asset_id", "id", "ID")
             if item_id != raw_asset_id:
                 continue
+            found = True
             status = str(_find_ci(item, "Status", "status") or "").strip().lower()
             print(f"[Seedance Assets] asset_id={raw_asset_id} group_id={group_id} status={status or '?'}")
             if status == "active":
                 return
+            break
+
+        if not found:
+            print(f"[Seedance Assets] asset_id={raw_asset_id} — not in group list yet ({len(items)} other item(s)), retrying...")
+
         time.sleep(interval)
 
     raise RuntimeError(
@@ -731,10 +757,11 @@ class SeedanceAssetRef:
 
     def build_ref(self, asset_id, role, existing_refs=None):
         asset_id = asset_id.strip()
-        if not asset_id.lower().startswith("asset://"):
-            asset_id = f"Asset://{asset_id}"
-        elif asset_id.startswith("asset://"):
-            asset_id = f"Asset://{asset_id[len('asset://'):]}"
+        if asset_id.lower().startswith("asset://"):
+            raw = asset_id.split("://", 1)[1]
+        else:
+            raw = asset_id
+        asset_id = f"asset://{raw}"
 
         entry = {
             "type":      "image_url",
@@ -757,7 +784,7 @@ class SeedanceAssetRef:
 # --------------------------------------------------------------------------- #
 
 RES_V2       = ["1080p", "720p", "480p"]
-RES_V2_ULTRA = ["2K", "1080p", "720p"]
+RES_V2_ULTRA = ["2k", "1080p", "720p"]
 RATIO_V2     = ["16:9", "9:16", "4:3", "3:4", "1:1", "21:9", "adaptive"]
 MAX_DURATION = 15
 
@@ -1142,7 +1169,7 @@ class _V2Base:
                 # Frame control
                 "first_frame":      ("IMAGE",),
                 "last_frame":       ("IMAGE",),
-                # Style / context references — use SeedanceImageBatch for 1–9 images
+                # Style / context references — connect SeedanceRefImages (up to 9 images)
                 "reference_images": ("SEEDANCE_IMAGE_LIST",),
                 # Asset references — use SeedanceUploadAsset to get Asset:// IDs
                 "reference_video":  ("STRING", {"forceInput": True}),
@@ -1279,7 +1306,7 @@ class Seedance2Fast(_V2Base):
 
 
 class Seedance2Ultra(_V2Base):
-    """Seedance 2.0 Ultra — Highest quality (720p / 1080p / 2K, up to 15s, with audio)."""
+    """Seedance 2.0 Ultra — Highest quality (720p / 1080p / 2k, up to 15s, with audio)."""
     RESOLUTIONS = RES_V2_ULTRA
     MODEL_ID    = "seedance-2.0-ultra"
 
