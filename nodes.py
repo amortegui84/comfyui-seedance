@@ -219,6 +219,22 @@ def _is_anyfast_asset_not_ready_error(response_text):
     return False
 
 
+def _payload_uses_anyfast_assets(payload):
+    """Return True if the generation payload references any asset:// URI."""
+    content = payload.get("content") or []
+    for entry in content:
+        if not isinstance(entry, dict):
+            continue
+        url = (
+            entry.get("image_url", {}).get("url")
+            or entry.get("video_url", {}).get("url")
+            or entry.get("audio_url", {}).get("url")
+        )
+        if isinstance(url, str) and url.lower().startswith("asset://"):
+            return True
+    return False
+
+
 def _submit_and_poll(api, payload):
     base_url = api["base_url"].rstrip("/")
     api_key  = api["api_key"].strip()
@@ -230,9 +246,10 @@ def _submit_and_poll(api, payload):
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
     }
+    uses_assets = _payload_uses_anyfast_assets(payload)
     r = None
-    max_attempts = 8
-    retry_delay = 8
+    max_attempts = 12 if uses_assets else 8
+    retry_delay = 10 if uses_assets else 8
     for attempt in range(1, max_attempts + 1):
         try:
             r = requests.post(
@@ -261,11 +278,12 @@ def _submit_and_poll(api, payload):
             break
         if r.status_code == 400 and _is_anyfast_asset_not_ready_error(r.text):
             if attempt < max_attempts:
+                delay = retry_delay + (attempt - 1) * 2 if uses_assets else retry_delay
                 print(
                     f"[Seedance/AnyFast] Asset not yet visible to generation, "
-                    f"retrying submit in {retry_delay}s (attempt {attempt}/{max_attempts})..."
+                    f"retrying submit in {delay}s (attempt {attempt}/{max_attempts})..."
                 )
-                time.sleep(retry_delay)
+                time.sleep(delay)
                 continue
         raise RuntimeError(f"Seedance API error {r.status_code}: {r.text}")
     if not r.ok:
