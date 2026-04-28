@@ -178,7 +178,7 @@ Seedance2 → SeedanceSaveVideo(save_to=input) → saved_path → VHS_LoadVideoP
 - If generation submit times out after 600s, the node now fails with a clear message and does not auto-resubmit, to avoid duplicate generations if AnyFast already accepted the job
 - `group_id` from `SeedanceUploadAsset` can be reused across runs via `existing_group_id` to avoid creating a new group each time
 - Asset URIs are normalized to lowercase `asset://...`
-- `ListAssets` is polled without `GroupType` because that filter can hide freshly-created groups in this workflow
+- `ListAssets` is tried first with `GroupIds`; if your AnyFast backend requires `GroupType`, the node resolves it via `ListAssetGroups` and retries automatically
 - `seedance-2.0-ultra` with `2k` resolution requires your AnyFast channel to have Ultra capacity allocated; if not available you will get a `model_not_found` style error — use Standard or Fast as fallback
 
 ## fal.ai Notes
