@@ -452,6 +452,36 @@ def _extract_verify_url(resp_json):
             resp_json.get("data", {}).get("verify_url"))
 
 
+def _list_asset_group_type(base_url, headers, group_id):
+    """Resolve GroupType for an AnyFast asset group if ListAssets requires it."""
+    r = requests.post(
+        f"{base_url}/volc/asset/ListAssetGroups",
+        json={
+            "model": "volc-asset",
+            "Filter": {
+                "GroupIds": [group_id],
+            },
+            "PageNumber": 1,
+            "PageSize": 10,
+        },
+        headers=headers,
+        timeout=30,
+    )
+    if not r.ok:
+        raise RuntimeError(f"ListAssetGroups failed {r.status_code}: {r.text}")
+
+    body = r.json()
+    items = body.get("Items") or body.get("items") or []
+    for item in items:
+        item_id = _extract_optional_id(item, "Id", "GroupId", "group_id", "id", "ID")
+        if item_id != group_id:
+            continue
+        group_type = _find_ci(item, "GroupType", "group_type")
+        if group_type:
+            return str(group_type).strip()
+    return None
+
+
 def _ensure_group(api, group_name, existing_group_id=None):
     """Return existing_group_id if provided, otherwise create a new asset group."""
     if existing_group_id and existing_group_id.strip():
@@ -634,16 +664,21 @@ def _wait_for_asset_active(api, asset_id, group_id, timeout=300, interval=5):
     api_key = api["api_key"].strip()
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
     deadline = time.time() + timeout
+    resolved_group_type = None
 
     print(f"[Seedance Assets] Waiting for asset {raw_asset_id} to become Active (timeout={timeout}s)...")
     while time.time() < deadline:
+        filter_payload = {
+            "GroupIds": [group_id],
+        }
+        if resolved_group_type:
+            filter_payload["GroupType"] = resolved_group_type
+
         r = requests.post(
             f"{base_url}/volc/asset/ListAssets",
             json={
                 "model": "volc-asset",
-                "Filter": {
-                    "GroupIds": [group_id],
-                },
+                "Filter": filter_payload,
                 "PageNumber": 1,
                 "PageSize": 100,
             },
@@ -651,6 +686,19 @@ def _wait_for_asset_active(api, asset_id, group_id, timeout=300, interval=5):
             timeout=30,
         )
         if not r.ok:
+            txt = r.text or ""
+            if (
+                resolved_group_type is None
+                and "GroupType" in txt
+                and "missing" in txt.lower()
+            ):
+                resolved_group_type = _list_asset_group_type(base_url, headers, group_id)
+                if resolved_group_type:
+                    print(
+                        f"[Seedance Assets] ListAssets requires GroupType; "
+                        f"resolved group_id={group_id} GroupType={resolved_group_type}"
+                    )
+                    continue
             raise RuntimeError(f"ListAssets failed {r.status_code}: {r.text}")
 
         body = r.json()
