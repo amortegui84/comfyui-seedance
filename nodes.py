@@ -837,13 +837,13 @@ class SeedanceAnyfastImageUpload:
         if api.get("provider") != "anyfast":
             raise ValueError("Seedance AM - AnyFast Image Upload only supports the anyfast provider.")
 
-        if first_frame is not None or last_frame is not None:
-            raise ValueError(
-                "AnyFast base64 first_frame/last_frame is no longer supported in this node. "
-                "Use SeedanceUploadAsset -> SeedanceAssetRef -> anyfast_refs for frame control."
-            )
-
         refs = []
+
+        if first_frame is not None:
+            refs.append({"type": "image_url", "image_url": {"url": _tensor_to_b64(first_frame)}, "role": "first_frame"})
+
+        if last_frame is not None:
+            refs.append({"type": "image_url", "image_url": {"url": _tensor_to_b64(last_frame)}, "role": "last_frame"})
 
         ref_slots = [ref_image_1, ref_image_2, ref_image_3, ref_image_4, ref_image_5,
                      ref_image_6, ref_image_7, ref_image_8, ref_image_9]
@@ -852,7 +852,7 @@ class SeedanceAnyfastImageUpload:
 
         if not refs:
             raise ValueError(
-                "Connect at least one reference image (ref_image_1 ... ref_image_9) "
+                "Connect at least one image (first_frame, last_frame, or ref_image_1 ... ref_image_9) "
                 "to SeedanceAnyfastImageUpload."
             )
 
@@ -1407,11 +1407,6 @@ class _V2Base:
                     content.append(normalized)
             else:
                 # Inline path — embed images as base64 data URIs directly in the request.
-                if first_frame is not None or last_frame is not None:
-                    raise ValueError(
-                        "AnyFast first_frame/last_frame now requires the asset workflow. "
-                        "Use SeedanceUploadAsset -> SeedanceAssetRef -> anyfast_refs."
-                    )
                 if first_frame is not None:
                     content.append({
                         "type":      "image_url",
