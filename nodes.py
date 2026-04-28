@@ -500,6 +500,37 @@ def _list_asset_group_type(base_url, headers, group_id):
     return None
 
 
+def _validate_anyfast_image_bytes(file_bytes, filename):
+    """Validate documented AnyFast image constraints and log useful diagnostics."""
+    size_mb = len(file_bytes) / (1024 * 1024)
+    if size_mb >= 30:
+        raise ValueError(f"Image asset exceeds AnyFast 30 MB limit: {size_mb:.2f} MB ({filename})")
+
+    try:
+        with Image.open(io.BytesIO(file_bytes)) as img:
+            width, height = img.size
+            fmt = (img.format or "").upper()
+    except Exception as e:
+        raise ValueError(f"Could not inspect image asset {filename}: {e}") from e
+
+    if width < 300 or height < 300 or width > 6000 or height > 6000:
+        raise ValueError(
+            f"Image asset dimensions {width}x{height} are outside AnyFast limits "
+            f"(300–6000 px per side): {filename}"
+        )
+
+    ratio = width / float(height)
+    if ratio < 0.4 or ratio > 2.5:
+        raise ValueError(
+            f"Image asset aspect ratio {ratio:.3f} is outside AnyFast limits (0.4–2.5): {filename}"
+        )
+
+    print(
+        f"[Seedance Assets] Image validated for AnyFast: "
+        f"format={fmt or '?'} size={size_mb:.2f}MB dims={width}x{height} ratio={ratio:.3f}"
+    )
+
+
 def _ensure_group(api, group_name, existing_group_id=None):
     """Return existing_group_id if provided, otherwise create a new asset group."""
     if existing_group_id and existing_group_id.strip():
@@ -586,6 +617,9 @@ def _upload_asset(api, asset_type, name, group_id=None, image_tensor=None, file_
     else:
         raise ValueError("Provide either an image input or a valid file_path.")
 
+    if asset_type == "Image":
+        _validate_anyfast_image_bytes(file_bytes, filename)
+
     mime_type = mime_map.get(asset_type, "application/octet-stream")
     model_map = {"Image": "volc-asset", "Video": "volc-asset-video", "Audio": "volc-asset-audio"}
     asset_model = model_map.get(asset_type, "volc-asset")
@@ -662,7 +696,7 @@ def _upload_asset(api, asset_type, name, group_id=None, image_tensor=None, file_
 
     print(f"[Seedance Assets] Asset created: {raw_id} — waiting 5s for propagation")
     time.sleep(5)
-    return f"Asset://{raw_id}", verify_url, resolved_group_id
+    return f"asset://{raw_id}", verify_url, resolved_group_id
 
 
 def _wait_for_asset_active(api, asset_id, group_id, timeout=300, interval=5):
@@ -830,14 +864,14 @@ class SeedanceAnyfastImageUpload:
 
 
 class SeedanceAssetRef:
-    """Wire an Asset:// ID from SeedanceUploadAsset into a generation node.
+    """Wire an asset:// ID from SeedanceUploadAsset into a generation node.
 
     Use this after SeedanceUploadAsset to turn the returned asset_id into an
     ANYFAST_IMAGE_REFS entry that the generation node understands.
 
     Chain multiple SeedanceAssetRef nodes via existing_refs to build a list
     of asset-based references, or plug SeedanceAnyfastImageUpload output into
-    existing_refs to mix Asset:// and base64 refs in the same generation."""
+    existing_refs to mix asset:// and base64 refs in the same generation."""
 
     CATEGORY = "Seedance AM/AnyFast"
 
@@ -863,7 +897,7 @@ class SeedanceAssetRef:
             raw = asset_id.split("://", 1)[1]
         else:
             raw = asset_id
-        asset_id = f"Asset://{raw}"
+        asset_id = f"asset://{raw}"
 
         entry = {
             "type":      "image_url",
