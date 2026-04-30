@@ -743,21 +743,20 @@ class SeedanceAnyfastImageUpload:
     @classmethod
     def INPUT_TYPES(cls):
         return {
-            "required": {
-                "api": ("SEEDANCE_API",),
-            },
+            "required": {},
             "optional": {
-                "first_frame":  ("IMAGE",),
-                "last_frame":   ("IMAGE",),
-                "ref_image_1":  ("IMAGE",),
-                "ref_image_2":  ("IMAGE",),
-                "ref_image_3":  ("IMAGE",),
-                "ref_image_4":  ("IMAGE",),
-                "ref_image_5":  ("IMAGE",),
-                "ref_image_6":  ("IMAGE",),
-                "ref_image_7":  ("IMAGE",),
-                "ref_image_8":  ("IMAGE",),
-                "ref_image_9":  ("IMAGE",),
+                "api":         ("SEEDANCE_API",),  # kept for backwards compat, not used
+                "first_frame": ("IMAGE",),
+                "last_frame":  ("IMAGE",),
+                "ref_image_1": ("IMAGE",),
+                "ref_image_2": ("IMAGE",),
+                "ref_image_3": ("IMAGE",),
+                "ref_image_4": ("IMAGE",),
+                "ref_image_5": ("IMAGE",),
+                "ref_image_6": ("IMAGE",),
+                "ref_image_7": ("IMAGE",),
+                "ref_image_8": ("IMAGE",),
+                "ref_image_9": ("IMAGE",),
             }
         }
 
@@ -765,14 +764,11 @@ class SeedanceAnyfastImageUpload:
     RETURN_NAMES = ("anyfast_refs",)
     FUNCTION     = "upload"
 
-    def upload(self, api,
+    def upload(self, api=None,
                first_frame=None, last_frame=None,
                ref_image_1=None, ref_image_2=None, ref_image_3=None,
                ref_image_4=None, ref_image_5=None, ref_image_6=None,
                ref_image_7=None, ref_image_8=None, ref_image_9=None):
-        if api.get("provider") != "anyfast":
-            raise ValueError("Seedance AM - AnyFast Image Upload only supports the anyfast provider.")
-
         refs = []
 
         if first_frame is not None:
@@ -993,6 +989,7 @@ class SeedanceApiKey:
         return {
             "required": {
                 "api_key":  ("STRING", {"default": "", "multiline": False}),
+                "provider": (["anyfast"],),   # single option — kept so old saved workflows still load cleanly
                 "base_url": ("STRING", {"default": "https://www.anyfast.ai", "multiline": False}),
             }
         }
@@ -1001,7 +998,7 @@ class SeedanceApiKey:
     RETURN_NAMES = ("api",)
     FUNCTION = "configure"
 
-    def configure(self, api_key, base_url, provider="anyfast"):
+    def configure(self, api_key, provider, base_url):
         return ({"api_key": api_key, "provider": "anyfast", "base_url": base_url or "https://www.anyfast.ai"},)
 
 
@@ -1259,10 +1256,14 @@ class SeedanceReferenceAudio:
 # --------------------------------------------------------------------------- #
 
 class SeedanceUploadAsset:
-    """Upload an image, video, or audio to Seedance Asset Management.
+    """Upload a single asset to AnyFast Asset Management manually.
 
-    Returns an Asset:// ID and the Group ID. Pass an existing_group_id to
-    reuse a previously verified identity group without creating a new one."""
+    On the Direct channel only Image assets work reliably. Video and Audio
+    asset types (volc-asset-video / volc-asset-audio) are not available on
+    Direct — use SeedanceReferenceVideo / SeedanceReferenceAudio instead.
+
+    For uploading face images in bulk, prefer SeedanceFaceRef which handles
+    the full group + upload + wait + cache flow automatically."""
 
     CATEGORY = "Seedance AM/Advanced"
 

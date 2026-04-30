@@ -88,7 +88,7 @@
         {"name": "anyfast_refs",     "type": "ANYFAST_IMAGE_REFS",  "link": 4}
       ],
       "properties": {"Node name for S&R": "Seedance2"},
-      "widgets_values": ["Animate this image, cinematic motion, smooth movement @image1", "720p", "16:9", 5, true, false, -1]
+      "widgets_values": ["Animate this image, cinematic motion, smooth movement", "720p", "16:9", 5, true, false, -1]
     },
     {
       "id": 5,

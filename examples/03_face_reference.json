@@ -1,6 +1,6 @@
 {
-  "last_node_id": 6,
-  "last_link_id": 6,
+  "last_node_id": 7,
+  "last_link_id": 7,
   "nodes": [
     {
       "id": 1,
@@ -38,37 +38,41 @@
     {
       "id": 3,
       "type": "SeedanceFaceRef",
-      "title": "3. Upload face via asset:// (bypasses face moderation) — ref_image_1 = style reference",
-      "pos": [450, 150],
-      "size": [360, 380],
+      "title": "3. Upload face/person via asset:// — ref_image_N = style/identity ref (@imageN in prompt)",
+      "pos": [450, 100],
+      "size": [360, 480],
       "flags": {},
       "order": 2,
       "mode": 0,
       "outputs": [
         {"name": "anyfast_refs", "type": "ANYFAST_IMAGE_REFS", "links": [4], "slot_index": 0},
-        {"name": "group_id",     "type": "STRING",             "links": [6], "slot_index": 1}
+        {"name": "group_id",     "type": "STRING",             "links": [6], "slot_index": 1},
+        {"name": "asset_ids",    "type": "STRING",             "links": [7], "slot_index": 2}
       ],
       "inputs": [
-        {"name": "api",              "type": "SEEDANCE_API",       "link": 1},
-        {"name": "existing_group_id","type": "STRING",             "link": null},
-        {"name": "first_frame",      "type": "IMAGE",              "link": null},
-        {"name": "last_frame",       "type": "IMAGE",              "link": null},
-        {"name": "ref_image_1",      "type": "IMAGE",              "link": 2},
-        {"name": "ref_image_2",      "type": "IMAGE",              "link": null},
-        {"name": "ref_image_3",      "type": "IMAGE",              "link": null},
-        {"name": "ref_image_4",      "type": "IMAGE",              "link": null},
-        {"name": "ref_image_5",      "type": "IMAGE",              "link": null},
-        {"name": "ref_image_6",      "type": "IMAGE",              "link": null},
-        {"name": "existing_refs",    "type": "ANYFAST_IMAGE_REFS", "link": null}
+        {"name": "api",               "type": "SEEDANCE_API",        "link": 1},
+        {"name": "existing_group_id", "type": "STRING",              "link": null},
+        {"name": "first_frame",       "type": "IMAGE",               "link": null},
+        {"name": "last_frame",        "type": "IMAGE",               "link": null},
+        {"name": "ref_image_1",       "type": "IMAGE",               "link": 2},
+        {"name": "ref_image_2",       "type": "IMAGE",               "link": null},
+        {"name": "ref_image_3",       "type": "IMAGE",               "link": null},
+        {"name": "ref_image_4",       "type": "IMAGE",               "link": null},
+        {"name": "ref_image_5",       "type": "IMAGE",               "link": null},
+        {"name": "ref_image_6",       "type": "IMAGE",               "link": null},
+        {"name": "ref_image_7",       "type": "IMAGE",               "link": null},
+        {"name": "ref_image_8",       "type": "IMAGE",               "link": null},
+        {"name": "ref_image_9",       "type": "IMAGE",               "link": null},
+        {"name": "existing_refs",     "type": "ANYFAST_IMAGE_REFS",  "link": null}
       ],
       "properties": {"Node name for S&R": "SeedanceFaceRef"},
-      "widgets_values": ["comfyui-assets"]
+      "widgets_values": ["comfyui-assets", false]
     },
     {
       "id": 4,
       "type": "Seedance2",
       "title": "4. Generate — @image1 tells the model where to use the face reference",
-      "pos": [900, 200],
+      "pos": [900, 150],
       "size": [430, 340],
       "flags": {},
       "order": 3,
@@ -94,7 +98,7 @@
       "id": 5,
       "type": "SeedanceSaveVideo",
       "title": "5. Save video",
-      "pos": [1410, 330],
+      "pos": [1410, 280],
       "size": [320, 100],
       "flags": {},
       "order": 4,
@@ -111,8 +115,8 @@
     {
       "id": 6,
       "type": "SeedanceShowText",
-      "title": "SAVE this group_id — paste into existing_group_id next run to skip re-upload",
-      "pos": [900, 580],
+      "title": "SAVE group_id — paste into existing_group_id next run to skip re-upload",
+      "pos": [900, 530],
       "size": [430, 80],
       "flags": {},
       "order": 5,
@@ -125,6 +129,24 @@
       ],
       "properties": {"Node name for S&R": "SeedanceShowText"},
       "widgets_values": []
+    },
+    {
+      "id": 7,
+      "type": "SeedanceShowText",
+      "title": "Asset IDs — each asset:// URI for the uploaded face images",
+      "pos": [900, 640],
+      "size": [430, 80],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "outputs": [
+        {"name": "text", "type": "STRING", "links": [], "slot_index": 0}
+      ],
+      "inputs": [
+        {"name": "text", "type": "STRING", "link": 7}
+      ],
+      "properties": {"Node name for S&R": "SeedanceShowText"},
+      "widgets_values": []
     }
   ],
   "links": [
@@ -133,7 +155,8 @@
     [3, 1, 0, 4, 0,  "SEEDANCE_API"],
     [4, 3, 0, 4, 6,  "ANYFAST_IMAGE_REFS"],
     [5, 4, 0, 5, 0,  "STRING"],
-    [6, 3, 1, 6, 0,  "STRING"]
+    [6, 3, 1, 6, 0,  "STRING"],
+    [7, 3, 2, 7, 0,  "STRING"]
   ],
   "groups": [],
   "config": {},
