@@ -437,8 +437,7 @@ def _fal_generate(api, params):
         if status == "COMPLETED":
             r = requests.get(result_url, headers=headers, timeout=30)
             if not r.ok:
-                print(f"[Seedance/fal.ai] Result fetch error {r.status_code}: {r.text}")
-                r.raise_for_status()
+                raise RuntimeError(f"[Seedance/fal.ai] Result error {r.status_code}: {r.text[:2000]}")
             data = r.json()
             if "video" not in data:
                 raise RuntimeError(f"[Seedance/fal.ai] Unexpected result shape: {data}")
