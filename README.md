@@ -149,12 +149,17 @@ Make the video match a soundtrack — motion and energy follow the audio.
 **Example:** `examples/04_reference_audio.json`
 
 ```
-Load Audio → SeedanceReferenceAudio → reference_audio → Seedance2 → SaveVideo
+Load Audio  → SeedanceReferenceAudio ──────────────────────────────→ reference_audio ─┐
+LoadImage   → SeedanceAnyfastImageUpload(ref_image_1) → anyfast_refs ─→ Seedance2 → SaveVideo
+                                                                                      ↑
+                                                                              reference_audio ─┘
 ```
 
-Or pick a file from the `audio_file` dropdown (files in the ComfyUI `input` folder).
+> **Important:** AnyFast requires at least one image reference alongside `reference_audio`.
+> Connecting audio alone returns a 400 error. Always pair it with an image via
+> `SeedanceAnyfastImageUpload` (for non-face images) or `SeedanceFaceRef` (for real people).
 
-- `@audio1` is auto-appended to the prompt if not already present.
+- `@audio1` and `@image1` are auto-appended to the prompt if not present.
 - Turn off `generate_audio` in the generation node when using a reference audio track.
 - Files ≤ 10 MB are sent as base64; larger files are uploaded to a temporary host.
 
@@ -236,6 +241,8 @@ Or pick a file from the `video_file` dropdown.
 | `ref_image_N` + `reference_audio` | ✅ Yes |
 | `ref_image_N` + `reference_video` | ✅ Yes |
 | `ref_image_N` + `reference_audio` + `reference_video` | ✅ Yes |
+| `reference_video` alone | ✅ Yes |
+| `reference_audio` alone | ❌ No — AnyFast requires at least one image reference alongside audio |
 | `first_frame` alone | ✅ Yes (pure I2V) |
 | `first_frame` + `reference_audio` | ❌ No — frame control cannot mix with multimodal refs |
 | `first_frame` + `ref_image_N` | ❌ No |

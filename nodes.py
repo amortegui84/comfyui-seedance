@@ -1382,6 +1382,18 @@ class _V2Base:
         if reference_audio and reference_audio.strip():
             if "@audio1" not in prompt:
                 prompt = prompt + " @audio1"
+            # AnyFast requires at least one image or video reference alongside audio
+            has_other_ref = (
+                anyfast_refs
+                or reference_images
+                or (reference_video and reference_video.strip())
+            )
+            if not has_other_ref:
+                raise ValueError(
+                    "AnyFast requires at least one image (or video) reference alongside reference_audio.\n"
+                    "Connect a reference image via anyfast_refs (SeedanceAnyfastImageUpload or SeedanceFaceRef)\n"
+                    "or via reference_images (SeedanceRefImages), or add a reference_video as well."
+                )
 
         print(f"[Seedance] Final prompt: {prompt}")
 
