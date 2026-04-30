@@ -1132,13 +1132,15 @@ def _audio_dict_to_wav(audio_dict):
 
 
 class SeedanceReferenceVideo:
-    """Upload a reference video and get an asset:// ID for use in generation.
+    """Prepare a reference video for Seedance generation.
+
+    Uploads the video to a temporary public host (catbox.moe) and returns
+    the public URL. AnyFast generation accepts video URLs directly — no
+    AnyFast asset upload required.
 
     Connect either:
     - A ComfyUI Load Video node to the 'video' input, OR
-    - Pick a file from the 'video_file' dropdown (files in the ComfyUI input directory).
-
-    Pass an existing_group_id to reuse a group across runs."""
+    - Pick a file from the 'video_file' dropdown (files in the ComfyUI input directory)."""
 
     CATEGORY = "Seedance AM/References"
 
@@ -1198,13 +1200,15 @@ class SeedanceReferenceVideo:
 
 
 class SeedanceReferenceAudio:
-    """Upload a reference audio track and get an asset:// ID for use in generation.
+    """Prepare a reference audio track for Seedance generation.
+
+    Encodes the audio as a base64 data URI (or uploads to catbox if >10 MB).
+    AnyFast generation accepts audio as base64 directly — no AnyFast asset
+    upload required.
 
     Connect either:
     - A ComfyUI Load Audio node to the 'audio' input, OR
-    - Pick a file from the 'audio_file' dropdown (files in the ComfyUI input directory).
-
-    Pass an existing_group_id to reuse a group across runs."""
+    - Pick a file from the 'audio_file' dropdown (files in the ComfyUI input directory)."""
 
     CATEGORY = "Seedance AM/References"
 
