@@ -372,14 +372,6 @@ def _fal_generate(api, params):
     resolution = params["resolution"]
     duration   = int(params["duration"])
 
-    # fal.ai Seedance 2.0 only supports up to 720p
-    _FAL_SUPPORTED_RES = {"480p", "720p"}
-    if resolution not in _FAL_SUPPORTED_RES:
-        raise ValueError(
-            f"fal.ai Seedance 2.0 does not support resolution '{resolution}'. "
-            f"Select 480p or 720p in the node settings."
-        )
-
     payload = {
         "prompt":         params["prompt"],
         "resolution":     resolution,
