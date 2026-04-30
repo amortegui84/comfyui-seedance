@@ -1186,12 +1186,12 @@ class SeedanceReferenceVideo:
             )
 
         try:
-            group_id  = _ensure_group(api, group_name, existing_group_id)
-            asset_uri, _, group_id = _upload_asset(api, "Video", name, group_id, file_path=file_path)
-            _wait_for_asset_active(api, asset_uri, group_id)
-            _stabilize_anyfast_asset("Video")
-            print(f"[Seedance] Reference video uploaded: {asset_uri}  group_id={group_id}")
-            return (asset_uri, group_id)
+            with open(file_path, "rb") as f:
+                file_bytes = f.read()
+            filename  = os.path.basename(file_path)
+            video_url = _upload_to_temp_host(file_bytes, filename)
+            print(f"[Seedance] Reference video → {video_url}")
+            return (video_url, "")
         finally:
             if cleanup and file_path and os.path.exists(file_path):
                 os.remove(file_path)
@@ -1253,12 +1253,19 @@ class SeedanceReferenceAudio:
             )
 
         try:
-            group_id  = _ensure_group(api, group_name, existing_group_id)
-            asset_uri, _, group_id = _upload_asset(api, "Audio", name, group_id, file_path=file_path)
-            _wait_for_asset_active(api, asset_uri, group_id)
-            _stabilize_anyfast_asset("Audio")
-            print(f"[Seedance] Reference audio uploaded: {asset_uri}  group_id={group_id}")
-            return (asset_uri, group_id)
+            with open(file_path, "rb") as f:
+                file_bytes = f.read()
+            ext      = os.path.splitext(file_path)[1].lower()
+            mime_map = {".mp3": "audio/mpeg", ".wav": "audio/wav",
+                        ".ogg": "audio/ogg",  ".flac": "audio/flac", ".m4a": "audio/mp4"}
+            mime     = mime_map.get(ext, "audio/wav")
+            if len(file_bytes) <= 10 * 1024 * 1024:
+                audio_url = f"data:{mime};base64,{base64.b64encode(file_bytes).decode('ascii')}"
+                print(f"[Seedance] Reference audio → base64 data URI ({len(file_bytes)//1024} KB)")
+            else:
+                audio_url = _upload_to_temp_host(file_bytes, os.path.basename(file_path))
+                print(f"[Seedance] Reference audio → {audio_url}")
+            return (audio_url, "")
         finally:
             if cleanup and file_path and os.path.exists(file_path):
                 os.remove(file_path)
