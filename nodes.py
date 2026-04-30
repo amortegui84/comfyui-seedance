@@ -840,7 +840,11 @@ def _stabilize_anyfast_asset(asset_type):
 
 
 class SeedanceAnyfastImageUpload:
-    """Prepare images for AnyFast generation as base64 data URIs."""
+    """Prepare images for AnyFast generation as base64 data URIs.
+
+    Use this for images that do NOT contain real human faces or identifiable persons.
+    For images with real faces, use SeedanceFaceRef instead — it routes through
+    the AnyFast asset system to satisfy Volcano Engine's face-moderation policy."""
 
     CATEGORY = "Seedance AM/AnyFast"
 
@@ -901,6 +905,106 @@ class SeedanceAnyfastImageUpload:
             print(f"  role={entry['role']}  size={len(entry['image_url']['url'])} chars")
 
         return (refs,)
+
+
+class SeedanceFaceRef:
+    """Upload images containing real human faces as AnyFast assets to bypass face moderation.
+
+    Volcano Engine blocks real-person images sent as base64 directly to the generation
+    API. This node routes each image through the required asset flow
+    (CreateAssetGroup → CreateAsset → wait Active → asset://) so the generation
+    request uses asset:// URIs instead of raw base64.
+
+    Use this instead of SeedanceAnyfastImageUpload when images contain real faces.
+
+    On first use with a new identity, AnyFast may return a liveness verification
+    link in the console — open it on your phone within 30 seconds. After that,
+    save the output group_id and reconnect it via existing_group_id to skip
+    re-verification on future runs."""
+
+    CATEGORY = "Seedance AM/AnyFast"
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "api":        ("SEEDANCE_API",),
+                "group_name": ("STRING", {"default": "comfyui-assets"}),
+            },
+            "optional": {
+                "existing_group_id": ("STRING", {"forceInput": True,
+                                                  "tooltip": "Paste the group_id from a previous run to skip re-uploading to a new group."}),
+                "first_frame":  ("IMAGE",),
+                "last_frame":   ("IMAGE",),
+                "ref_image_1":  ("IMAGE",),
+                "ref_image_2":  ("IMAGE",),
+                "ref_image_3":  ("IMAGE",),
+                "ref_image_4":  ("IMAGE",),
+                "ref_image_5":  ("IMAGE",),
+                "ref_image_6":  ("IMAGE",),
+                "existing_refs": ("ANYFAST_IMAGE_REFS", {"forceInput": True,
+                                                          "tooltip": "Chain from another SeedanceFaceRef or SeedanceAnyfastImageUpload to merge refs."}),
+            }
+        }
+
+    RETURN_TYPES = ("ANYFAST_IMAGE_REFS", "STRING")
+    RETURN_NAMES = ("anyfast_refs", "group_id")
+    FUNCTION     = "upload"
+
+    def upload(self, api, group_name, existing_group_id=None,
+               first_frame=None, last_frame=None,
+               ref_image_1=None, ref_image_2=None, ref_image_3=None,
+               ref_image_4=None, ref_image_5=None, ref_image_6=None,
+               existing_refs=None):
+
+        if api.get("provider") != "anyfast":
+            raise ValueError("SeedanceFaceRef only supports the anyfast provider.")
+
+        images_with_roles = []
+        if first_frame is not None:
+            images_with_roles.append((first_frame, "first_frame"))
+        if last_frame is not None:
+            images_with_roles.append((last_frame, "last_frame"))
+        for img in [ref_image_1, ref_image_2, ref_image_3,
+                    ref_image_4, ref_image_5, ref_image_6]:
+            if img is not None:
+                images_with_roles.append((img, "reference_image"))
+
+        if not images_with_roles:
+            raise ValueError(
+                "Connect at least one image (first_frame, last_frame, or ref_image_1 … ref_image_6) "
+                "to SeedanceFaceRef."
+            )
+
+        group_id = _ensure_group(api, group_name, existing_group_id)
+
+        refs = list(existing_refs) if existing_refs else []
+
+        for idx, (img_tensor, role) in enumerate(images_with_roles):
+            asset_name = f"face_{role}_{idx + 1}"
+            asset_uri, _verify_url, group_id = _upload_asset(
+                api, "Image", asset_name, group_id, image_tensor=img_tensor
+            )
+            _wait_for_asset_active(api, asset_uri, group_id)
+            _stabilize_anyfast_asset("Image")
+
+            entry = {
+                "type":      "image_url",
+                "image_url": {"url": asset_uri},
+                "role":      role,
+            }
+            if role in ("first_frame", "last_frame"):
+                refs.insert(0, entry)
+            else:
+                refs.append(entry)
+
+            print(f"[Seedance/AnyFast] Face asset ready: role={role}  url={asset_uri}")
+
+        print(f"[Seedance/AnyFast] {len(refs)} face ref(s) ready via asset://:")
+        for e in refs:
+            print(f"  role={e['role']}  url={e['image_url']['url']}")
+
+        return (refs, group_id)
 
 
 class SeedanceAssetRef:
@@ -1134,9 +1238,7 @@ def _audio_dict_to_wav(audio_dict):
 class SeedanceReferenceVideo:
     """Prepare a reference video for Seedance generation.
 
-    Uploads the video to a temporary public host (catbox.moe) and returns
-    the public URL. AnyFast generation accepts video URLs directly — no
-    AnyFast asset upload required.
+    Uploads to catbox.moe and returns a public URL. No API connection required.
 
     Connect either:
     - A ComfyUI Load Video node to the 'video' input, OR
@@ -1148,15 +1250,11 @@ class SeedanceReferenceVideo:
     def INPUT_TYPES(cls):
         files = ["none"] + _list_files([".mp4", ".mov", ".avi", ".webm"])
         return {
-            "required": {
-                "api":        ("SEEDANCE_API",),
-                "name":       ("STRING", {"default": "ref_video"}),
-                "group_name": ("STRING", {"default": "comfyui-assets"}),
-            },
+            "required": {},
             "optional": {
-                "video_file":        (files,),
-                "video":             ("VIDEO", {"forceInput": True}),
-                "existing_group_id": ("STRING", {"forceInput": True}),
+                "video_file": (files,),
+                "video":      ("VIDEO", {"forceInput": True}),
+                "api":        ("SEEDANCE_API",),   # kept for backwards compat, not used
             }
         }
 
@@ -1170,8 +1268,8 @@ class SeedanceReferenceVideo:
             return float("nan")
         return kwargs.get("video_file", "")
 
-    def upload(self, api, name, group_name,
-               video_file=None, video=None, existing_group_id=None):
+    def upload(self, video_file=None, video=None, api=None,
+               name="ref_video", group_name="comfyui-assets", existing_group_id=None):
         cleanup   = False
         file_path = None
 
@@ -1202,9 +1300,8 @@ class SeedanceReferenceVideo:
 class SeedanceReferenceAudio:
     """Prepare a reference audio track for Seedance generation.
 
-    Encodes the audio as a base64 data URI (or uploads to catbox if >10 MB).
-    AnyFast generation accepts audio as base64 directly — no AnyFast asset
-    upload required.
+    Encodes as base64 data URI (<10 MB) or uploads to catbox (>10 MB).
+    No API connection required.
 
     Connect either:
     - A ComfyUI Load Audio node to the 'audio' input, OR
@@ -1216,15 +1313,11 @@ class SeedanceReferenceAudio:
     def INPUT_TYPES(cls):
         files = ["none"] + _list_files([".mp3", ".wav", ".ogg", ".flac", ".m4a"])
         return {
-            "required": {
-                "api":        ("SEEDANCE_API",),
-                "name":       ("STRING", {"default": "ref_audio"}),
-                "group_name": ("STRING", {"default": "comfyui-assets"}),
-            },
+            "required": {},
             "optional": {
-                "audio_file":        (files,),
-                "audio":             ("AUDIO", {"forceInput": True}),
-                "existing_group_id": ("STRING", {"forceInput": True}),
+                "audio_file": (files,),
+                "audio":      ("AUDIO", {"forceInput": True}),
+                "api":        ("SEEDANCE_API",),   # kept for backwards compat, not used
             }
         }
 
@@ -1238,8 +1331,8 @@ class SeedanceReferenceAudio:
             return float("nan")
         return kwargs.get("audio_file", "")
 
-    def upload(self, api, name, group_name,
-               audio_file=None, audio=None, existing_group_id=None):
+    def upload(self, audio_file=None, audio=None, api=None,
+               name="ref_audio", group_name="comfyui-assets", existing_group_id=None):
         cleanup   = False
         file_path = None
 
@@ -1265,7 +1358,7 @@ class SeedanceReferenceAudio:
             mime     = mime_map.get(ext, "audio/wav")
             if len(file_bytes) <= 10 * 1024 * 1024:
                 audio_url = f"data:{mime};base64,{base64.b64encode(file_bytes).decode('ascii')}"
-                print(f"[Seedance] Reference audio → base64 data URI ({len(file_bytes)//1024} KB)")
+                print(f"[Seedance] Reference audio → base64 ({len(file_bytes)//1024} KB)")
             else:
                 audio_url = _upload_to_temp_host(file_bytes, os.path.basename(file_path))
                 print(f"[Seedance] Reference audio → {audio_url}")
@@ -1733,6 +1826,7 @@ NODE_CLASS_MAPPINGS = {
     "SeedanceReferenceAudio":   SeedanceReferenceAudio,
     # AnyFast image preparation
     "SeedanceAnyfastImageUpload": SeedanceAnyfastImageUpload,
+    "SeedanceFaceRef":            SeedanceFaceRef,
     "SeedanceAssetRef":           SeedanceAssetRef,
     # Utilities
     "SeedanceImageBatch":  SeedanceImageBatch,
@@ -1758,7 +1852,8 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "SeedanceReferenceVideo":   "Seedance AM - Reference Video",
     "SeedanceReferenceAudio":   "Seedance AM - Reference Audio",
     # AnyFast image preparation
-    "SeedanceAnyfastImageUpload": "Seedance AM - AnyFast Image Upload (base64)",
+    "SeedanceAnyfastImageUpload": "Seedance AM - AnyFast Image Upload (base64, no faces)",
+    "SeedanceFaceRef":            "Seedance AM - Face / Person Reference (asset)",
     "SeedanceAssetRef":           "Seedance AM - Asset Reference",
     # Utilities
     "SeedanceImageBatch":  "Seedance AM - Image Batch (Legacy)",
