@@ -21,7 +21,7 @@
     {
       "id": 2,
       "type": "LoadImage",
-      "title": "2. Load portrait / face image",
+      "title": "2. Load face image (will be the literal first frame of the video)",
       "pos": [50, 100],
       "size": [315, 315],
       "flags": {},
@@ -38,7 +38,7 @@
     {
       "id": 3,
       "type": "SeedanceFaceRef",
-      "title": "3. Upload face as asset (bypasses face moderation)",
+      "title": "3. Upload face via asset:// — first_frame = video starts FROM this image",
       "pos": [450, 150],
       "size": [360, 380],
       "flags": {},
@@ -49,17 +49,17 @@
         {"name": "group_id",     "type": "STRING",             "links": [6], "slot_index": 1}
       ],
       "inputs": [
-        {"name": "api",              "type": "SEEDANCE_API",        "link": 1},
-        {"name": "existing_group_id","type": "STRING",              "link": null},
-        {"name": "first_frame",      "type": "IMAGE",               "link": 2},
-        {"name": "last_frame",       "type": "IMAGE",               "link": null},
-        {"name": "ref_image_1",      "type": "IMAGE",               "link": null},
-        {"name": "ref_image_2",      "type": "IMAGE",               "link": null},
-        {"name": "ref_image_3",      "type": "IMAGE",               "link": null},
-        {"name": "ref_image_4",      "type": "IMAGE",               "link": null},
-        {"name": "ref_image_5",      "type": "IMAGE",               "link": null},
-        {"name": "ref_image_6",      "type": "IMAGE",               "link": null},
-        {"name": "existing_refs",    "type": "ANYFAST_IMAGE_REFS",  "link": null}
+        {"name": "api",              "type": "SEEDANCE_API",       "link": 1},
+        {"name": "existing_group_id","type": "STRING",             "link": null},
+        {"name": "first_frame",      "type": "IMAGE",              "link": 2},
+        {"name": "last_frame",       "type": "IMAGE",              "link": null},
+        {"name": "ref_image_1",      "type": "IMAGE",              "link": null},
+        {"name": "ref_image_2",      "type": "IMAGE",              "link": null},
+        {"name": "ref_image_3",      "type": "IMAGE",              "link": null},
+        {"name": "ref_image_4",      "type": "IMAGE",              "link": null},
+        {"name": "ref_image_5",      "type": "IMAGE",              "link": null},
+        {"name": "ref_image_6",      "type": "IMAGE",              "link": null},
+        {"name": "existing_refs",    "type": "ANYFAST_IMAGE_REFS", "link": null}
       ],
       "properties": {"Node name for S&R": "SeedanceFaceRef"},
       "widgets_values": ["comfyui-assets"]
@@ -67,7 +67,7 @@
     {
       "id": 4,
       "type": "Seedance2",
-      "title": "4. Generate video",
+      "title": "4. Generate — video animates FROM the face image (no @image tags needed)",
       "pos": [900, 200],
       "size": [430, 340],
       "flags": {},
@@ -88,7 +88,7 @@
         {"name": "anyfast_refs",     "type": "ANYFAST_IMAGE_REFS",  "link": 4}
       ],
       "properties": {"Node name for S&R": "Seedance2"},
-      "widgets_values": ["A person walking in a park, cinematic @image1", "720p", "16:9", 5, true, false, -1]
+      "widgets_values": ["The person turns and smiles, cinematic, smooth motion", "720p", "16:9", 5, true, false, -1]
     },
     {
       "id": 5,
@@ -106,12 +106,12 @@
         {"name": "video_url", "type": "STRING", "link": 5}
       ],
       "properties": {"Node name for S&R": "SeedanceSaveVideo"},
-      "widgets_values": ["seedance_face", "output"]
+      "widgets_values": ["seedance_face_i2v", "output"]
     },
     {
       "id": 6,
       "type": "SeedanceShowText",
-      "title": "SAVE this group_id for future runs (paste into existing_group_id)",
+      "title": "SAVE this group_id — paste into existing_group_id next run to skip re-upload",
       "pos": [900, 580],
       "size": [430, 80],
       "flags": {},
