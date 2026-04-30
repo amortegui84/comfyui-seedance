@@ -233,17 +233,36 @@ Or pick a file from the `video_file` dropdown.
 
 ## Mixing References
 
-| Combination | Allowed? |
+There are two **mutually exclusive** modes. You must pick one:
+
+| Mode | Inputs used | What it does |
+|---|---|---|
+| **I2V** (Image-to-Video) | `first_frame` and/or `last_frame` | Video starts and/or ends on an exact frame |
+| **R2V** (Reference-to-Video) | `reference_images`, `reference_video`, `reference_audio` | Style, motion, and rhythm transfer |
+
+You cannot combine I2V and R2V inputs in the same request.
+
+### Valid combinations
+
+| Combination | Mode | Example |
+|---|---|---|
+| prompt only | T2V | `01_text_to_video.json` |
+| `first_frame` | I2V | `02_image_to_video.json` |
+| `first_frame` + `last_frame` | I2V | — |
+| `reference_images` | R2V | `03_face_reference.json` |
+| `reference_video` | R2V | `05_reference_video.json` |
+| `reference_audio` + `reference_images` | R2V | `04_reference_audio.json` |
+| `reference_video` + `reference_images` | R2V | `06_video_image_ref.json` |
+| `reference_video` + `reference_audio` + `reference_images` | R2V | `07_video_audio_image_ref.json` |
+
+### Invalid combinations
+
+| Combination | Why |
 |---|---|
-| `reference_images` + `reference_audio` | ✅ Yes |
-| `reference_images` + `reference_video` | ✅ Yes |
-| `reference_images` + `reference_audio` + `reference_video` | ✅ Yes |
-| `reference_video` alone | ✅ Yes |
-| `reference_audio` alone | ❌ No — AnyFast requires at least one image reference alongside audio |
-| `first_frame` alone | ✅ Yes (pure I2V) |
-| `first_frame` + `last_frame` | ✅ Yes |
-| `first_frame` + `reference_audio` | ❌ No — frame control cannot mix with multimodal refs |
-| `first_frame` + `reference_images` | ❌ No |
+| `reference_audio` alone | AnyFast requires at least one image or video ref alongside audio |
+| `first_frame` + `reference_images` | Cannot mix I2V frame control with R2V references |
+| `first_frame` + `reference_video` | Cannot mix I2V frame control with R2V references |
+| `first_frame` + `reference_audio` | Cannot mix I2V frame control with R2V references |
 
 ---
 
@@ -252,11 +271,13 @@ Or pick a file from the `video_file` dropdown.
 | File | Mode | Description |
 |---|---|---|
 | `examples/01_text_to_video.json` | T2V | Minimal baseline — prompt only |
-| `examples/02_image_to_video.json` | I2V | Animate an image directly from first frame |
+| `examples/02_image_to_video.json` | I2V | Animate an image from its first frame |
 | `examples/03_face_reference.json` | R2V | Face/person as style reference (`@image1` in prompt) |
 | `examples/03b_face_first_frame.json` | I2V | Face/person image as the literal first frame |
-| `examples/04_reference_audio.json` | T2V + audio | Video generation driven by a reference audio track |
-| `examples/05_reference_video.json` | T2V + video | Video generation with a reference video for style/motion |
+| `examples/04_reference_audio.json` | R2V | Audio + image reference — motion driven by soundtrack |
+| `examples/05_reference_video.json` | R2V | Video reference for style/motion transfer |
+| `examples/06_video_image_ref.json` | R2V | Video reference + image reference combined |
+| `examples/07_video_audio_image_ref.json` | R2V | Full multimodal — video + audio + image references |
 
 To use: in ComfyUI, go to **Load** → select the JSON file.
 
