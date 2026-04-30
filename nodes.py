@@ -385,9 +385,18 @@ def _fal_generate(api, params):
 
     print(f"[Seedance/fal.ai] Submitting to {app_id}")
 
-    # Submit to async queue
-    r = requests.post(f"{_FAL_QUEUE}/{app_id}", json=payload, headers=headers, timeout=60)
-    if not r.ok:
+    # Submit to async queue — retry on transient 502/503/504 gateway errors
+    _SUBMIT_RETRIES = 4
+    _SUBMIT_BACKOFF = [3, 6, 12, 24]
+    for _attempt in range(_SUBMIT_RETRIES):
+        r = requests.post(f"{_FAL_QUEUE}/{app_id}", json=payload, headers=headers, timeout=60)
+        if r.ok:
+            break
+        if r.status_code in (502, 503, 504) and _attempt < _SUBMIT_RETRIES - 1:
+            wait = _SUBMIT_BACKOFF[_attempt]
+            print(f"[Seedance/fal.ai] {r.status_code} gateway error — retrying in {wait}s (attempt {_attempt+1}/{_SUBMIT_RETRIES})")
+            time.sleep(wait)
+            continue
         raise RuntimeError(f"fal.ai submission error {r.status_code}: {r.text}")
 
     task_id = r.json()["request_id"]
