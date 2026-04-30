@@ -397,6 +397,11 @@ def _fal_generate(api, params):
         payload["audio_urls"] = [ref_audio]
 
     print(f"[Seedance/fal.ai] Submitting to {app_id}")
+    print(f"[Seedance/fal.ai] Payload keys: {list(payload.keys())}")
+    # Log payload without image data (can be huge)
+    safe = {k: (v[:80] + "...") if isinstance(v, str) and v.startswith("data:") else v
+            for k, v in payload.items()}
+    print(f"[Seedance/fal.ai] Payload: {safe}")
 
     # Submit to async queue — retry on transient 502/503/504 gateway errors
     _SUBMIT_RETRIES = 4
@@ -423,14 +428,21 @@ def _fal_generate(api, params):
 
     while time.time() < deadline:
         r = requests.get(status_url, headers=headers, timeout=30)
-        r.raise_for_status()
+        if not r.ok:
+            print(f"[Seedance/fal.ai] Status poll error {r.status_code}: {r.text}")
+            r.raise_for_status()
         status = r.json().get("status", "")
         print(f"[Seedance/fal.ai] request_id={task_id}  status={status}")
 
         if status == "COMPLETED":
             r = requests.get(result_url, headers=headers, timeout=30)
-            r.raise_for_status()
-            video_url = r.json()["video"]["url"]
+            if not r.ok:
+                print(f"[Seedance/fal.ai] Result fetch error {r.status_code}: {r.text}")
+                r.raise_for_status()
+            data = r.json()
+            if "video" not in data:
+                raise RuntimeError(f"[Seedance/fal.ai] Unexpected result shape: {data}")
+            video_url = data["video"]["url"]
             frame     = _first_frame(video_url)
             return video_url, task_id, frame
 
