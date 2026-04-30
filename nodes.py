@@ -159,7 +159,14 @@ def _poll_v2(base_url, api_key, task_id, timeout=1200, interval=5):
                     # fail_reason is the actual AnyFast failure field
                     message = _find_ci(data, "fail_reason", "failReason", "error", "message")
                 message = message or _find_ci(body, "error", "message")
-            raise RuntimeError(f"Seedance generation failed: {message or body}")
+            msg_str = str(message or body)
+            if "PrivacyInformation" in msg_str or "SensitiveContent" in msg_str or "real people" in msg_str.lower():
+                raise RuntimeError(
+                    "AnyFast rejected the image: real-person face detected.\n"
+                    "Use the SeedanceUploadAsset node to upload the image as an asset first,\n"
+                    "then connect it via SeedanceAssetRef instead of sending base64 directly."
+                )
+            raise RuntimeError(f"Seedance generation failed: {msg_str}")
 
         time.sleep(interval)
 
