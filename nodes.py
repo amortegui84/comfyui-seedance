@@ -4,6 +4,8 @@ import base64
 import io
 import tempfile
 import re
+import json
+import hashlib
 import requests
 import numpy as np
 from PIL import Image
@@ -35,18 +37,6 @@ def _tensor_to_b64(tensor):
     pil.save(buf, format="PNG")
     return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
 
-
-def _tensor_to_jpeg_b64(tensor, quality=90):
-    """ComfyUI IMAGE tensor → JPEG data URI.
-
-    JPEG at quality=90 is ~10x smaller than PNG, keeping payloads well under
-    fal.ai's request body limit without needing a separate storage upload.
-    """
-    img_np = (tensor[0].numpy() * 255).clip(0, 255).astype(np.uint8)
-    pil = Image.fromarray(img_np).convert("RGB")
-    buf = io.BytesIO()
-    pil.save(buf, format="JPEG", quality=quality)
-    return "data:image/jpeg;base64," + base64.b64encode(buf.getvalue()).decode()
 
 
 def _find_ci(obj, *keys):
@@ -317,147 +307,6 @@ def _submit_and_poll(api, payload):
     video_url = _poll_v2(base_url, api_key, task_id)
     frame     = _first_frame(video_url)
     return video_url, task_id, frame
-
-
-# --------------------------------------------------------------------------- #
-# fal.ai provider
-# --------------------------------------------------------------------------- #
-
-_FAL_BASE     = "https://fal.run"
-_FAL_QUEUE    = "https://queue.fal.run"
-_FAL_APP_BASE = "bytedance/seedance-2.0"
-
-# Maps our MODEL_ID → fal.ai endpoint path segment
-_FAL_VARIANT  = {
-    "seedance":        "",          # standard
-    "seedance-fast":   "fast/",     # fast
-    "seedance-2.0-ultra": "",       # no ultra on fal — falls back to standard
-}
-
-# Maps our ratio values → fal.ai aspect_ratio values
-_FAL_RATIO_MAP = {"adaptive": "auto"}
-
-
-def _fal_generate(api, params):
-    """Submit a generation job to fal.ai and return (video_url, task_id, first_frame).
-
-    Dispatches to the right fal.ai endpoint (T2V / I2V / R2V) based on params.
-    Images are sent as base64 data URIs; fal.ai accepts them for all image fields."""
-    api_key  = api["api_key"].strip()
-    if not api_key:
-        raise ValueError("API key is empty — paste your fal.ai key in the Seedance API Key node.")
-
-    headers = {
-        "Authorization": f"Key {api_key}",
-        "Content-Type":  "application/json",
-    }
-
-    model_id = params.get("model_id", "seedance")
-    variant  = _FAL_VARIANT.get(model_id, "")
-
-    # --- determine endpoint ---
-    first_frame     = params.get("first_frame")
-    last_frame      = params.get("last_frame")
-    ref_images      = params.get("reference_images") or []
-    ref_video       = (params.get("reference_video") or "").strip()
-    ref_audio       = (params.get("reference_audio") or "").strip()
-
-    has_references  = bool(ref_images or ref_video or ref_audio)
-    has_first_frame = first_frame is not None
-
-    if has_references:
-        endpoint = f"{variant}reference-to-video"
-    elif has_first_frame:
-        endpoint = f"{variant}image-to-video"
-    else:
-        endpoint = f"{variant}text-to-video"
-
-    app_id = f"{_FAL_APP_BASE}/{endpoint}"
-
-    # --- build payload ---
-    ratio      = _FAL_RATIO_MAP.get(params["ratio"], params["ratio"])
-    resolution = params["resolution"]
-    duration   = int(params["duration"])
-
-    payload = {
-        "prompt":         params["prompt"],
-        "resolution":     resolution,
-        "aspect_ratio":   ratio,
-        "duration":       duration,
-        "generate_audio": params["generate_audio"],
-    }
-    if params.get("seed", -1) != -1:
-        payload["seed"] = params["seed"]
-
-    # I2V: start / end frames — use JPEG base64 to avoid 413 on large images
-    if has_first_frame:
-        payload["image_url"] = _tensor_to_jpeg_b64(first_frame)
-    if last_frame is not None:
-        payload["end_image_url"] = _tensor_to_jpeg_b64(last_frame)
-
-    # R2V: reference arrays
-    if ref_images:
-        payload["image_urls"] = [_tensor_to_jpeg_b64(img) for img in ref_images]
-    if ref_video:
-        payload["video_urls"] = [ref_video]
-    if ref_audio:
-        payload["audio_urls"] = [ref_audio]
-
-    print(f"[Seedance/fal.ai] Submitting to {app_id}")
-    print(f"[Seedance/fal.ai] Payload keys: {list(payload.keys())}")
-    # Log payload without image data (can be huge)
-    safe = {k: (v[:80] + "...") if isinstance(v, str) and v.startswith("data:") else v
-            for k, v in payload.items()}
-    print(f"[Seedance/fal.ai] Payload: {safe}")
-
-    # Submit to async queue — retry on transient 502/503/504 gateway errors
-    _SUBMIT_RETRIES = 4
-    _SUBMIT_BACKOFF = [3, 6, 12, 24]
-    for _attempt in range(_SUBMIT_RETRIES):
-        r = requests.post(f"{_FAL_QUEUE}/{app_id}", json=payload, headers=headers, timeout=60)
-        if r.ok:
-            break
-        if r.status_code in (502, 503, 504) and _attempt < _SUBMIT_RETRIES - 1:
-            wait = _SUBMIT_BACKOFF[_attempt]
-            print(f"[Seedance/fal.ai] {r.status_code} gateway error — retrying in {wait}s (attempt {_attempt+1}/{_SUBMIT_RETRIES})")
-            time.sleep(wait)
-            continue
-        raise RuntimeError(f"fal.ai submission error {r.status_code}: {r.text}")
-
-    task_id = r.json()["request_id"]
-    print(f"[Seedance/fal.ai] Job submitted — request_id={task_id}")
-
-    # Poll for completion
-    status_url = f"{_FAL_QUEUE}/fal-ai/queue/requests/{task_id}/status"
-    result_url = f"{_FAL_QUEUE}/fal-ai/queue/requests/{task_id}"
-    deadline   = time.time() + 600
-    time.sleep(3)
-
-    while time.time() < deadline:
-        r = requests.get(status_url, headers=headers, timeout=30)
-        if not r.ok:
-            print(f"[Seedance/fal.ai] Status poll error {r.status_code}: {r.text}")
-            r.raise_for_status()
-        status = r.json().get("status", "")
-        print(f"[Seedance/fal.ai] request_id={task_id}  status={status}")
-
-        if status == "COMPLETED":
-            r = requests.get(result_url, headers=headers, timeout=30)
-            if not r.ok:
-                raise RuntimeError(f"[Seedance/fal.ai] Result error {r.status_code}: {r.text[:2000]}")
-            data = r.json()
-            if "video" not in data:
-                raise RuntimeError(f"[Seedance/fal.ai] Unexpected result shape: {data}")
-            video_url = data["video"]["url"]
-            frame     = _first_frame(video_url)
-            return video_url, task_id, frame
-
-        if status in ("FAILED", "ERROR"):
-            raise RuntimeError(f"fal.ai generation failed: {r.json()}")
-
-        time.sleep(5)
-
-    raise TimeoutError(f"fal.ai timed out after 600s (request_id={task_id})")
 
 
 # --------------------------------------------------------------------------- #
@@ -839,6 +688,49 @@ def _stabilize_anyfast_asset(asset_type):
         time.sleep(delay)
 
 
+# --------------------------------------------------------------------------- #
+# Asset ID cache — avoids re-uploading the same image on repeated runs
+# --------------------------------------------------------------------------- #
+
+def _get_asset_cache_path():
+    try:
+        cache_dir = folder_paths.get_user_directory()
+    except Exception:
+        cache_dir = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(cache_dir, "seedance_asset_cache.json")
+
+
+def _load_asset_cache():
+    path = _get_asset_cache_path()
+    if os.path.exists(path):
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return {}
+
+
+def _save_asset_cache(cache):
+    path = _get_asset_cache_path()
+    try:
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(cache, f, indent=2)
+    except Exception as e:
+        print(f"[Seedance Assets] Warning: could not save asset cache: {e}")
+
+
+def _image_asset_cache_key(img_tensor, base_url):
+    """SHA-256 of PNG bytes + AnyFast base URL → unique cache key per image+server."""
+    img_np = (img_tensor[0].numpy() * 255).clip(0, 255).astype(np.uint8)
+    pil    = Image.fromarray(img_np).convert("RGB")
+    buf    = io.BytesIO()
+    pil.save(buf, format="PNG")
+    img_hash = hashlib.sha256(buf.getvalue()).hexdigest()[:24]
+    url_hash = hashlib.md5(base_url.encode()).hexdigest()[:8]
+    return f"{img_hash}_{url_hash}"
+
+
 class SeedanceAnyfastImageUpload:
     """Prepare images for AnyFast generation as base64 data URIs.
 
@@ -915,12 +807,18 @@ class SeedanceFaceRef:
     (CreateAssetGroup → CreateAsset → wait Active → asset://) so the generation
     request uses asset:// URIs instead of raw base64.
 
-    Use this instead of SeedanceAnyfastImageUpload when images contain real faces.
+    Asset IDs are cached locally — if you run again with the same images the upload
+    is skipped entirely. Use force_reupload to override.
 
-    On first use with a new identity, AnyFast may return a liveness verification
-    link in the console — open it on your phone within 30 seconds. After that,
-    save the output group_id and reconnect it via existing_group_id to skip
-    re-verification on future runs."""
+    Roles:
+      ref_image_1…9 → style/identity reference (R2V, use @image1…N in prompt,
+                       compatible with reference_audio and reference_video)
+      first_frame    → video starts literally from this image (I2V, cannot mix
+                       with reference_images / audio / video)
+
+    On first use, AnyFast may show a liveness verification link in the console —
+    open it on your phone within 30 s. Save the output group_id and reconnect it
+    via existing_group_id to skip re-verification on future runs."""
 
     CATEGORY = "Seedance AM/AnyFast"
 
@@ -932,33 +830,34 @@ class SeedanceFaceRef:
                 "group_name": ("STRING", {"default": "comfyui-assets"}),
             },
             "optional": {
-                "existing_group_id": ("STRING", {"forceInput": True,
-                                                  "tooltip": "Paste the group_id from a previous run to skip re-uploading to a new group."}),
-                "first_frame":  ("IMAGE",),
-                "last_frame":   ("IMAGE",),
-                "ref_image_1":  ("IMAGE",),
-                "ref_image_2":  ("IMAGE",),
-                "ref_image_3":  ("IMAGE",),
-                "ref_image_4":  ("IMAGE",),
-                "ref_image_5":  ("IMAGE",),
-                "ref_image_6":  ("IMAGE",),
-                "existing_refs": ("ANYFAST_IMAGE_REFS", {"forceInput": True,
-                                                          "tooltip": "Chain from another SeedanceFaceRef or SeedanceAnyfastImageUpload to merge refs."}),
+                "existing_group_id": ("STRING", {"forceInput": True}),
+                "force_reupload":    ("BOOLEAN", {"default": False,
+                                                   "tooltip": "Force re-upload even if asset IDs are cached locally."}),
+                "first_frame":   ("IMAGE",),
+                "last_frame":    ("IMAGE",),
+                "ref_image_1":   ("IMAGE",),
+                "ref_image_2":   ("IMAGE",),
+                "ref_image_3":   ("IMAGE",),
+                "ref_image_4":   ("IMAGE",),
+                "ref_image_5":   ("IMAGE",),
+                "ref_image_6":   ("IMAGE",),
+                "ref_image_7":   ("IMAGE",),
+                "ref_image_8":   ("IMAGE",),
+                "ref_image_9":   ("IMAGE",),
+                "existing_refs": ("ANYFAST_IMAGE_REFS", {"forceInput": True}),
             }
         }
 
-    RETURN_TYPES = ("ANYFAST_IMAGE_REFS", "STRING")
-    RETURN_NAMES = ("anyfast_refs", "group_id")
+    RETURN_TYPES = ("ANYFAST_IMAGE_REFS", "STRING", "STRING")
+    RETURN_NAMES = ("anyfast_refs", "group_id", "asset_ids")
     FUNCTION     = "upload"
 
-    def upload(self, api, group_name, existing_group_id=None,
+    def upload(self, api, group_name, existing_group_id=None, force_reupload=False,
                first_frame=None, last_frame=None,
                ref_image_1=None, ref_image_2=None, ref_image_3=None,
                ref_image_4=None, ref_image_5=None, ref_image_6=None,
+               ref_image_7=None, ref_image_8=None, ref_image_9=None,
                existing_refs=None):
-
-        if api.get("provider") != "anyfast":
-            raise ValueError("SeedanceFaceRef only supports the anyfast provider.")
 
         images_with_roles = []
         if first_frame is not None:
@@ -966,28 +865,43 @@ class SeedanceFaceRef:
         if last_frame is not None:
             images_with_roles.append((last_frame, "last_frame"))
         for img in [ref_image_1, ref_image_2, ref_image_3,
-                    ref_image_4, ref_image_5, ref_image_6]:
+                    ref_image_4, ref_image_5, ref_image_6,
+                    ref_image_7, ref_image_8, ref_image_9]:
             if img is not None:
                 images_with_roles.append((img, "reference_image"))
 
         if not images_with_roles:
             raise ValueError(
-                "Connect at least one image (first_frame, last_frame, or ref_image_1 … ref_image_6) "
+                "Connect at least one image (first_frame, last_frame, or ref_image_1 … ref_image_9) "
                 "to SeedanceFaceRef."
             )
 
+        cache    = {} if force_reupload else _load_asset_cache()
         group_id = _ensure_group(api, group_name, existing_group_id)
-
-        refs = list(existing_refs) if existing_refs else []
+        refs     = list(existing_refs) if existing_refs else []
+        asset_id_list = []
 
         for idx, (img_tensor, role) in enumerate(images_with_roles):
-            asset_name = f"face_{role}_{idx + 1}"
-            asset_uri, _verify_url, group_id = _upload_asset(
-                api, "Image", asset_name, group_id, image_tensor=img_tensor
-            )
-            _wait_for_asset_active(api, asset_uri, group_id)
-            _stabilize_anyfast_asset("Image")
+            cache_key = _image_asset_cache_key(img_tensor, api["base_url"])
 
+            if not force_reupload and cache_key in cache:
+                asset_uri = cache[cache_key]["asset_id"]
+                print(f"[Seedance Assets] Cache hit — reusing {asset_uri} (role={role}, skipping upload)")
+            else:
+                asset_name = f"face_{role}_{idx + 1}"
+                asset_uri, _verify_url, group_id = _upload_asset(
+                    api, "Image", asset_name, group_id, image_tensor=img_tensor
+                )
+                _wait_for_asset_active(api, asset_uri, group_id)
+                _stabilize_anyfast_asset("Image")
+                cache[cache_key] = {
+                    "asset_id":    asset_uri,
+                    "group_id":    group_id,
+                    "uploaded_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
+                }
+                _save_asset_cache(cache)
+
+            asset_id_list.append(asset_uri)
             entry = {
                 "type":      "image_url",
                 "image_url": {"url": asset_uri},
@@ -1000,11 +914,9 @@ class SeedanceFaceRef:
 
             print(f"[Seedance/AnyFast] Face asset ready: role={role}  url={asset_uri}")
 
-        print(f"[Seedance/AnyFast] {len(refs)} face ref(s) ready via asset://:")
-        for e in refs:
-            print(f"  role={e['role']}  url={e['image_url']['url']}")
-
-        return (refs, group_id)
+        asset_ids_text = "\n".join(asset_id_list)
+        print(f"[Seedance/AnyFast] {len(refs)} face ref(s) ready via asset://")
+        return (refs, group_id, asset_ids_text)
 
 
 class SeedanceAssetRef:
@@ -1081,9 +993,7 @@ class SeedanceApiKey:
         return {
             "required": {
                 "api_key":  ("STRING", {"default": "", "multiline": False}),
-                "provider": (["anyfast", "fal.ai"],),
-                "base_url": ("STRING", {"default": "https://www.anyfast.ai", "multiline": False,
-                                        "tooltip": "Only used for the 'anyfast' provider. Ignored for fal.ai."}),
+                "base_url": ("STRING", {"default": "https://www.anyfast.ai", "multiline": False}),
             }
         }
 
@@ -1091,32 +1001,8 @@ class SeedanceApiKey:
     RETURN_NAMES = ("api",)
     FUNCTION = "configure"
 
-    def configure(self, api_key, provider, base_url):
-        normalized_base = "https://fal.run" if provider == "fal.ai" else (base_url or "https://www.anyfast.ai")
-        return ({"api_key": api_key, "provider": provider, "base_url": normalized_base},)
-
-
-class SeedanceApiKeyV2:
-    CATEGORY = "Seedance AM/_Compatibility"
-
-    @classmethod
-    def INPUT_TYPES(cls):
-        return {
-            "required": {
-                "api_key":  ("STRING", {"default": "", "multiline": False}),
-                "provider": (["anyfast", "fal.ai"],),
-                "base_url": ("STRING", {"default": "https://www.anyfast.ai", "multiline": False,
-                                        "tooltip": "Auto-switches with provider. Used for anyfast. Kept visible for clarity with fal.ai."}),
-            }
-        }
-
-    RETURN_TYPES = ("SEEDANCE_API",)
-    RETURN_NAMES = ("api",)
-    FUNCTION = "configure"
-
-    def configure(self, api_key, provider, base_url):
-        normalized_base = "https://fal.run" if provider == "fal.ai" else (base_url or "https://www.anyfast.ai")
-        return ({"api_key": api_key, "provider": provider, "base_url": normalized_base},)
+    def configure(self, api_key, base_url, provider="anyfast"):
+        return ({"api_key": api_key, "provider": "anyfast", "base_url": base_url or "https://www.anyfast.ai"},)
 
 
 # --------------------------------------------------------------------------- #
@@ -1496,108 +1382,86 @@ class _V2Base:
             if "@audio1" not in prompt:
                 prompt = prompt + " @audio1"
 
-        provider = api.get("provider", "anyfast")
+        print(f"[Seedance] Final prompt: {prompt}")
 
-        if provider == "fal.ai":
-            url, task_id, frame = _fal_generate(api, {
-                "model_id":        self.MODEL_ID,
-                "prompt":          prompt,   # already has @ tags
-                "resolution":      resolution,
-                "ratio":           ratio,
-                "duration":        duration,
-                "generate_audio":  generate_audio,
-                "seed":            seed,
-                "first_frame":     first_frame,
-                "last_frame":      last_frame,
-                "reference_images": reference_images,
-                "reference_video": reference_video or "",
-                "reference_audio": reference_audio or "",
-            })
+        content = [{"type": "text", "text": prompt}]
+
+        if anyfast_refs:
+            print(f"[Seedance/AnyFast] Using {len(anyfast_refs)} prepared image ref(s)")
+            has_frame_control = any(
+                e.get("role") in ("first_frame", "last_frame") for e in anyfast_refs
+            )
+            has_reference_roles = any(
+                e.get("role") == "reference_image" for e in anyfast_refs
+            )
+            if has_frame_control and (
+                has_reference_roles
+                or (reference_video and reference_video.strip())
+                or (reference_audio and reference_audio.strip())
+            ):
+                raise ValueError(
+                    "AnyFast does not support mixing first/last frame control with multimodal "
+                    "references in the same request. Use either frame control or references."
+                )
+            only_first_frame = (
+                len(anyfast_refs) == 1
+                and anyfast_refs[0].get("role") == "first_frame"
+                and anyfast_refs[0].get("type") == "image_url"
+                and not (reference_video and reference_video.strip())
+                and not (reference_audio and reference_audio.strip())
+            )
+            for entry in anyfast_refs:
+                normalized = dict(entry)
+                if only_first_frame:
+                    normalized.pop("role", None)
+                content.append(normalized)
         else:
-            print(f"[Seedance] Final prompt: {prompt}")
-
-            content = [{"type": "text", "text": prompt}]
-
-            if anyfast_refs:
-                # Prepared path — use inline refs from SeedanceAnyfastImageUpload directly.
-                # first_frame / last_frame / reference_images inputs are ignored when this is wired.
-                print(f"[Seedance/AnyFast] Using {len(anyfast_refs)} prepared image ref(s)")
-                has_frame_control = any(
-                    e.get("role") in ("first_frame", "last_frame") for e in anyfast_refs
-                )
-                has_reference_roles = any(
-                    e.get("role") == "reference_image" for e in anyfast_refs
-                )
-                if has_frame_control and (
-                    has_reference_roles
-                    or (reference_video and reference_video.strip())
-                    or (reference_audio and reference_audio.strip())
-                ):
-                    raise ValueError(
-                        "AnyFast does not support mixing first/last frame control with multimodal "
-                        "references in the same request. Use either frame control or references."
-                    )
-                only_first_frame = (
-                    len(anyfast_refs) == 1
-                    and anyfast_refs[0].get("role") == "first_frame"
-                    and anyfast_refs[0].get("type") == "image_url"
-                    and not (reference_video and reference_video.strip())
-                    and not (reference_audio and reference_audio.strip())
-                )
-                for entry in anyfast_refs:
-                    normalized = dict(entry)
-                    if only_first_frame:
-                        normalized.pop("role", None)
-                    content.append(normalized)
-            else:
-                # Inline path — embed images as base64 data URIs directly in the request.
-                if first_frame is not None:
+            if first_frame is not None:
+                content.append({
+                    "type":      "image_url",
+                    "image_url": {"url": _tensor_to_b64(first_frame)},
+                    "role":      "first_frame",
+                })
+            if last_frame is not None:
+                content.append({
+                    "type":      "image_url",
+                    "image_url": {"url": _tensor_to_b64(last_frame)},
+                    "role":      "last_frame",
+                })
+            if reference_images is not None:
+                for img_tensor in reference_images:
                     content.append({
                         "type":      "image_url",
-                        "image_url": {"url": _tensor_to_b64(first_frame)},
-                        "role":      "first_frame",
+                        "image_url": {"url": _tensor_to_b64(img_tensor)},
+                        "role":      "reference_image",
                     })
-                if last_frame is not None:
-                    content.append({
-                        "type":      "image_url",
-                        "image_url": {"url": _tensor_to_b64(last_frame)},
-                        "role":      "last_frame",
-                    })
-                if reference_images is not None:
-                    for img_tensor in reference_images:
-                        content.append({
-                            "type":      "image_url",
-                            "image_url": {"url": _tensor_to_b64(img_tensor)},
-                            "role":      "reference_image",
-                        })
 
-            if reference_video and reference_video.strip():
-                content.append({
-                    "type":      "video_url",
-                    "video_url": {"url": reference_video.strip()},
-                    "role":      "reference_video",
-                })
-            if reference_audio and reference_audio.strip():
-                content.append({
-                    "type":      "audio_url",
-                    "audio_url": {"url": reference_audio.strip()},
-                    "role":      "reference_audio",
-                })
+        if reference_video and reference_video.strip():
+            content.append({
+                "type":      "video_url",
+                "video_url": {"url": reference_video.strip()},
+                "role":      "reference_video",
+            })
+        if reference_audio and reference_audio.strip():
+            content.append({
+                "type":      "audio_url",
+                "audio_url": {"url": reference_audio.strip()},
+                "role":      "reference_audio",
+            })
 
-            payload = {
-                "model":          self.MODEL_ID,
-                "content":        content,
-                "resolution":     resolution,
-                "ratio":          ratio,
-                "duration":       duration,
-                "generate_audio": generate_audio,
-                "watermark":      watermark,
-            }
-            if seed != -1:
-                payload["seed"] = seed
+        payload = {
+            "model":          self.MODEL_ID,
+            "content":        content,
+            "resolution":     resolution,
+            "ratio":          ratio,
+            "duration":       duration,
+            "generate_audio": generate_audio,
+            "watermark":      watermark,
+        }
+        if seed != -1:
+            payload["seed"] = seed
 
-            url, task_id, frame = _submit_and_poll(api, payload)
-
+        url, task_id, frame = _submit_and_poll(api, payload)
         return (url, task_id, frame)
 
 
@@ -1815,7 +1679,6 @@ class SeedanceTextInput:
 NODE_CLASS_MAPPINGS = {
     # Config
     "SeedanceApiKey":      SeedanceApiKey,
-    "SeedanceApiKeyV2":    SeedanceApiKeyV2,
     # 2.0 generation
     "Seedance2":           Seedance2,
     "Seedance2Fast":       Seedance2Fast,
@@ -1842,7 +1705,6 @@ NODE_CLASS_MAPPINGS = {
 NODE_DISPLAY_NAME_MAPPINGS = {
     # Config
     "SeedanceApiKey":      "Seedance AM - API Key",
-    "SeedanceApiKeyV2":    "Seedance AM - API Key V2 (Compatibility)",
     # 2.0 generation
     "Seedance2":           "Seedance AM 2.0 - Standard",
     "Seedance2Fast":       "Seedance AM 2.0 - Fast",
