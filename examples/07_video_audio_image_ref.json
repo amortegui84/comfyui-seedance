@@ -28,8 +28,7 @@
       "order": 1,
       "mode": 0,
       "outputs": [
-        {"name": "reference_video", "type": "STRING", "links": [2], "slot_index": 0},
-        {"name": "group_id",        "type": "STRING", "links": [],  "slot_index": 1}
+        {"name": "reference_video", "type": "STRING", "links": [2], "slot_index": 0}
       ],
       "inputs": [
         {"name": "video", "type": "VIDEO",        "link": null},
@@ -48,8 +47,7 @@
       "order": 2,
       "mode": 0,
       "outputs": [
-        {"name": "reference_audio", "type": "STRING", "links": [3], "slot_index": 0},
-        {"name": "group_id",        "type": "STRING", "links": [],  "slot_index": 1}
+        {"name": "reference_audio", "type": "STRING", "links": [3], "slot_index": 0}
       ],
       "inputs": [
         {"name": "audio", "type": "AUDIO",        "link": null},

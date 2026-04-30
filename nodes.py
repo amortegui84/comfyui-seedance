@@ -780,9 +780,10 @@ class SeedanceFaceRef:
             }
         }
 
-    RETURN_TYPES = ("ANYFAST_IMAGE_REFS", "STRING", "STRING")
-    RETURN_NAMES = ("anyfast_refs", "group_id", "asset_ids")
-    FUNCTION     = "upload"
+    RETURN_TYPES  = ("ANYFAST_IMAGE_REFS", "STRING", "STRING")
+    RETURN_NAMES  = ("anyfast_refs", "group_id", "asset_ids")
+    OUTPUT_NODE   = True
+    FUNCTION      = "upload"
 
     def upload(self, api, group_name, existing_group_id=None, force_reupload=False,
                first_frame=None, last_frame=None,
@@ -848,7 +849,8 @@ class SeedanceFaceRef:
 
         asset_ids_text = "\n".join(asset_id_list)
         print(f"[Seedance/AnyFast] {len(refs)} face ref(s) ready via asset://")
-        return (refs, group_id, asset_ids_text)
+        ui_text = f"group_id: {group_id}\n{asset_ids_text}" if group_id else asset_ids_text
+        return {"ui": {"text": [ui_text]}, "result": (refs, group_id, asset_ids_text)}
 
 
 class SeedanceAssetRef:
@@ -1058,8 +1060,8 @@ class SeedanceReferenceVideo:
             }
         }
 
-    RETURN_TYPES = ("STRING", "STRING")
-    RETURN_NAMES = ("reference_video", "group_id")
+    RETURN_TYPES = ("STRING",)
+    RETURN_NAMES = ("reference_video",)
     FUNCTION     = "upload"
 
     @classmethod
@@ -1091,7 +1093,7 @@ class SeedanceReferenceVideo:
             filename  = os.path.basename(file_path)
             video_url = _upload_to_temp_host(file_bytes, filename)
             print(f"[Seedance] Reference video → {video_url}")
-            return (video_url, "")
+            return (video_url,)
         finally:
             if cleanup and file_path and os.path.exists(file_path):
                 os.remove(file_path)
@@ -1121,8 +1123,8 @@ class SeedanceReferenceAudio:
             }
         }
 
-    RETURN_TYPES = ("STRING", "STRING")
-    RETURN_NAMES = ("reference_audio", "group_id")
+    RETURN_TYPES = ("STRING",)
+    RETURN_NAMES = ("reference_audio",)
     FUNCTION     = "upload"
 
     @classmethod
@@ -1162,7 +1164,7 @@ class SeedanceReferenceAudio:
             else:
                 audio_url = _upload_to_temp_host(file_bytes, os.path.basename(file_path))
                 print(f"[Seedance] Reference audio → {audio_url}")
-            return (audio_url, "")
+            return (audio_url,)
         finally:
             if cleanup and file_path and os.path.exists(file_path):
                 os.remove(file_path)
@@ -1308,7 +1310,7 @@ class _V2Base:
             if not has_other_ref:
                 raise ValueError(
                     "AnyFast requires at least one image (or video) reference alongside reference_audio.\n"
-                    "Connect a reference image via anyfast_refs (SeedanceAnyfastImageUpload or SeedanceFaceRef)\n"
+                    "Connect a reference image via anyfast_refs (SeedanceFaceRef)\n"
                     "or via reference_images (SeedanceRefImages), or add a reference_video as well."
                 )
 

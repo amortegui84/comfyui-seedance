@@ -28,8 +28,7 @@
       "order": 1,
       "mode": 0,
       "outputs": [
-        {"name": "reference_video", "type": "STRING", "links": [1], "slot_index": 0},
-        {"name": "group_id",        "type": "STRING", "links": [],  "slot_index": 1}
+        {"name": "reference_video", "type": "STRING", "links": [1], "slot_index": 0}
       ],
       "inputs": [
         {"name": "video", "type": "VIDEO",        "link": null},
