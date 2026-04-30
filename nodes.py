@@ -36,36 +36,17 @@ def _tensor_to_b64(tensor):
     return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
 
 
-_FAL_STORAGE_UPLOAD = "https://storage.fal.run/upload"
+def _tensor_to_jpeg_b64(tensor, quality=90):
+    """ComfyUI IMAGE tensor → JPEG data URI.
 
-def _tensor_to_png_bytes(tensor):
-    """ComfyUI IMAGE tensor → raw PNG bytes."""
+    JPEG at quality=90 is ~10x smaller than PNG, keeping payloads well under
+    fal.ai's request body limit without needing a separate storage upload.
+    """
     img_np = (tensor[0].numpy() * 255).clip(0, 255).astype(np.uint8)
     pil = Image.fromarray(img_np).convert("RGB")
     buf = io.BytesIO()
-    pil.save(buf, format="PNG")
-    return buf.getvalue()
-
-
-def _fal_upload_image(tensor, api_key):
-    """Upload a tensor as PNG to fal.ai storage and return the hosted URL.
-
-    Used instead of base64 data URIs to avoid 413 errors on large images.
-    """
-    png_bytes = _tensor_to_png_bytes(tensor)
-    r = requests.post(
-        _FAL_STORAGE_UPLOAD,
-        headers={"Authorization": f"Key {api_key}"},
-        files={"file": ("image.png", png_bytes, "image/png")},
-        timeout=60,
-    )
-    if not r.ok:
-        raise RuntimeError(f"fal.ai storage upload error {r.status_code}: {r.text}")
-    data = r.json()
-    url = data.get("url") or data.get("access_url")
-    if not url:
-        raise RuntimeError(f"fal.ai storage upload returned no URL: {data}")
-    return url
+    pil.save(buf, format="JPEG", quality=quality)
+    return "data:image/jpeg;base64," + base64.b64encode(buf.getvalue()).decode()
 
 
 def _find_ci(obj, *keys):
@@ -401,18 +382,15 @@ def _fal_generate(api, params):
     if params.get("seed", -1) != -1:
         payload["seed"] = params["seed"]
 
-    # I2V: start / end frames — upload to fal.ai storage to avoid 413 on large images
+    # I2V: start / end frames — use JPEG base64 to avoid 413 on large images
     if has_first_frame:
-        print("[Seedance/fal.ai] Uploading first_frame to fal.ai storage…")
-        payload["image_url"] = _fal_upload_image(first_frame, api_key)
+        payload["image_url"] = _tensor_to_jpeg_b64(first_frame)
     if last_frame is not None:
-        print("[Seedance/fal.ai] Uploading last_frame to fal.ai storage…")
-        payload["end_image_url"] = _fal_upload_image(last_frame, api_key)
+        payload["end_image_url"] = _tensor_to_jpeg_b64(last_frame)
 
-    # R2V: reference arrays — upload images to storage
+    # R2V: reference arrays
     if ref_images:
-        print(f"[Seedance/fal.ai] Uploading {len(ref_images)} reference image(s) to fal.ai storage…")
-        payload["image_urls"] = [_fal_upload_image(img, api_key) for img in ref_images]
+        payload["image_urls"] = [_tensor_to_jpeg_b64(img) for img in ref_images]
     if ref_video:
         payload["video_urls"] = [ref_video]
     if ref_audio:
