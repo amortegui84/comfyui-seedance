@@ -731,70 +731,6 @@ def _image_asset_cache_key(img_tensor, base_url):
     return f"{img_hash}_{url_hash}"
 
 
-class SeedanceAnyfastImageUpload:
-    """Prepare images for AnyFast generation as base64 data URIs.
-
-    Use this for images that do NOT contain real human faces or identifiable persons.
-    For images with real faces, use SeedanceFaceRef instead — it routes through
-    the AnyFast asset system to satisfy Volcano Engine's face-moderation policy."""
-
-    CATEGORY = "Seedance AM/AnyFast"
-
-    @classmethod
-    def INPUT_TYPES(cls):
-        return {
-            "required": {},
-            "optional": {
-                "api":         ("SEEDANCE_API",),  # kept for backwards compat, not used
-                "first_frame": ("IMAGE",),
-                "last_frame":  ("IMAGE",),
-                "ref_image_1": ("IMAGE",),
-                "ref_image_2": ("IMAGE",),
-                "ref_image_3": ("IMAGE",),
-                "ref_image_4": ("IMAGE",),
-                "ref_image_5": ("IMAGE",),
-                "ref_image_6": ("IMAGE",),
-                "ref_image_7": ("IMAGE",),
-                "ref_image_8": ("IMAGE",),
-                "ref_image_9": ("IMAGE",),
-            }
-        }
-
-    RETURN_TYPES = ("ANYFAST_IMAGE_REFS",)
-    RETURN_NAMES = ("anyfast_refs",)
-    FUNCTION     = "upload"
-
-    def upload(self, api=None,
-               first_frame=None, last_frame=None,
-               ref_image_1=None, ref_image_2=None, ref_image_3=None,
-               ref_image_4=None, ref_image_5=None, ref_image_6=None,
-               ref_image_7=None, ref_image_8=None, ref_image_9=None):
-        refs = []
-
-        if first_frame is not None:
-            refs.append({"type": "image_url", "image_url": {"url": _tensor_to_b64(first_frame)}, "role": "first_frame"})
-
-        if last_frame is not None:
-            refs.append({"type": "image_url", "image_url": {"url": _tensor_to_b64(last_frame)}, "role": "last_frame"})
-
-        ref_slots = [ref_image_1, ref_image_2, ref_image_3, ref_image_4, ref_image_5,
-                     ref_image_6, ref_image_7, ref_image_8, ref_image_9]
-        for img in (img for img in ref_slots if img is not None):
-            refs.append({"type": "image_url", "image_url": {"url": _tensor_to_b64(img)}, "role": "reference_image"})
-
-        if not refs:
-            raise ValueError(
-                "Connect at least one image (first_frame, last_frame, or ref_image_1 ... ref_image_9) "
-                "to SeedanceAnyfastImageUpload."
-            )
-
-        print(f"[Seedance/AnyFast] {len(refs)} image ref(s) prepared as base64:")
-        for entry in refs:
-            print(f"  role={entry['role']}  size={len(entry['image_url']['url'])} chars")
-
-        return (refs,)
-
-
 class SeedanceFaceRef:
     """Upload images containing real human faces as AnyFast assets to bypass face moderation.
 
@@ -1003,27 +939,8 @@ class SeedanceApiKey:
 
 
 # --------------------------------------------------------------------------- #
-# Image Batch node — collect multiple reference images
+# Reference Images node — collect multiple reference images
 # --------------------------------------------------------------------------- #
-
-class SeedanceImageBatch:
-    """Legacy — kept so existing workflows don't break. Use SeedanceRefImages instead."""
-    CATEGORY = "Seedance AM/Legacy"
-
-    @classmethod
-    def INPUT_TYPES(cls):
-        return {"required": {"image_1": ("IMAGE",)}, "optional": {"image_2": ("IMAGE",)}}
-
-    RETURN_TYPES = ("SEEDANCE_IMAGE_LIST",)
-    RETURN_NAMES = ("reference_images",)
-    FUNCTION     = "batch"
-
-    def batch(self, image_1, image_2=None):
-        images = [image_1]
-        if image_2 is not None:
-            images.append(image_2)
-        return (images,)
-
 
 class SeedanceRefImages:
     """Send up to 9 reference images to any Seedance 2.0 node.
@@ -1654,38 +1571,6 @@ class SeedanceShowText:
 
 
 # --------------------------------------------------------------------------- #
-# Text Input node — store and re-use string IDs inside the graph
-# --------------------------------------------------------------------------- #
-
-class SeedanceTextInput:
-    """Store any text value in the workflow and pass it downstream.
-
-    Useful for saving and reusing asset_id, group_id, verify_url, or any other
-    string value without relying on a previous node's preview panel."""
-
-    CATEGORY = "Seedance AM/Legacy"
-
-    @classmethod
-    def INPUT_TYPES(cls):
-        return {
-            "required": {
-                "text": ("STRING", {"default": "", "multiline": True}),
-            }
-        }
-
-    RETURN_TYPES = ("STRING",)
-    RETURN_NAMES = ("text",)
-    FUNCTION = "value"
-
-    def value(self, text):
-        return {"ui": {"text": [str(text)]}, "result": (str(text),)}
-
-
-# --------------------------------------------------------------------------- #
-# Identity Input node — keep asset_id and group_id together in one place
-# --------------------------------------------------------------------------- #
-
-# --------------------------------------------------------------------------- #
 # Registration
 # --------------------------------------------------------------------------- #
 
@@ -1696,23 +1581,19 @@ NODE_CLASS_MAPPINGS = {
     "Seedance2":           Seedance2,
     "Seedance2Fast":       Seedance2Fast,
     "Seedance2Ultra":      Seedance2Ultra,
-    # Assets
-    "SeedanceUploadAsset":      SeedanceUploadAsset,
+    # References
     "SeedanceReferenceVideo":   SeedanceReferenceVideo,
     "SeedanceReferenceAudio":   SeedanceReferenceAudio,
-    # AnyFast image preparation
-    "SeedanceAnyfastImageUpload": SeedanceAnyfastImageUpload,
-    "SeedanceFaceRef":            SeedanceFaceRef,
-    "SeedanceAssetRef":           SeedanceAssetRef,
-    # Utilities
-    "SeedanceImageBatch":  SeedanceImageBatch,
-    "SeedanceRefImages":   SeedanceRefImages,
+    "SeedanceRefImages":        SeedanceRefImages,
+    # Face / asset
+    "SeedanceFaceRef":          SeedanceFaceRef,
+    "SeedanceAssetRef":         SeedanceAssetRef,
+    "SeedanceUploadAsset":      SeedanceUploadAsset,
     # Extend
     "SeedanceExtend":      SeedanceExtend,
     # Output
     "SeedanceSaveVideo":   SeedanceSaveVideo,
     "SeedanceShowText":    SeedanceShowText,
-    "SeedanceTextInput":   SeedanceTextInput,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
@@ -1722,23 +1603,19 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "Seedance2":           "Seedance AM 2.0 - Standard",
     "Seedance2Fast":       "Seedance AM 2.0 - Fast",
     "Seedance2Ultra":      "Seedance AM 2.0 - Ultra",
-    # Assets
-    "SeedanceUploadAsset":      "Seedance AM - Upload Asset",
+    # References
     "SeedanceReferenceVideo":   "Seedance AM - Reference Video",
     "SeedanceReferenceAudio":   "Seedance AM - Reference Audio",
-    # AnyFast image preparation
-    "SeedanceAnyfastImageUpload": "Seedance AM - AnyFast Image Upload (base64, no faces)",
-    "SeedanceFaceRef":            "Seedance AM - Face / Person Reference (asset)",
-    "SeedanceAssetRef":           "Seedance AM - Asset Reference",
-    # Utilities
-    "SeedanceImageBatch":  "Seedance AM - Image Batch (Legacy)",
-    "SeedanceRefImages":   "Seedance AM - Reference Images (9 slots)",
+    "SeedanceRefImages":        "Seedance AM - Reference Images (9 slots)",
+    # Face / asset
+    "SeedanceFaceRef":          "Seedance AM - Face / Person Reference (asset)",
+    "SeedanceAssetRef":         "Seedance AM - Asset Reference",
+    "SeedanceUploadAsset":      "Seedance AM - Upload Asset",
     # Extend
     "SeedanceExtend":      "Seedance AM - Extend Video",
     # Output
     "SeedanceSaveVideo":   "Seedance AM - Save Video",
     "SeedanceShowText":    "Seedance AM - Show Text",
-    "SeedanceTextInput":   "Seedance AM - Text Input (Legacy)",
 }
 
 

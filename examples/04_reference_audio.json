@@ -6,7 +6,7 @@
       "id": 1,
       "type": "SeedanceApiKey",
       "title": "1. API Key",
-      "pos": [50, 500],
+      "pos": [50, 520],
       "size": [380, 120],
       "flags": {},
       "order": 0,
@@ -57,31 +57,28 @@
     },
     {
       "id": 4,
-      "type": "SeedanceAnyfastImageUpload",
-      "title": "4. Prepare image as base64 reference (@image1 in prompt)",
+      "type": "SeedanceRefImages",
+      "title": "4. Wrap image as reference (@image1 in prompt)",
       "pos": [450, 220],
-      "size": [340, 220],
+      "size": [340, 200],
       "flags": {},
       "order": 3,
       "mode": 0,
       "outputs": [
-        {"name": "anyfast_refs", "type": "ANYFAST_IMAGE_REFS", "links": [4], "slot_index": 0}
+        {"name": "reference_images", "type": "SEEDANCE_IMAGE_LIST", "links": [4], "slot_index": 0}
       ],
       "inputs": [
-        {"name": "api",         "type": "SEEDANCE_API", "link": null},
-        {"name": "first_frame", "type": "IMAGE",        "link": null},
-        {"name": "last_frame",  "type": "IMAGE",        "link": null},
-        {"name": "ref_image_1", "type": "IMAGE",        "link": 3},
-        {"name": "ref_image_2", "type": "IMAGE",        "link": null},
-        {"name": "ref_image_3", "type": "IMAGE",        "link": null},
-        {"name": "ref_image_4", "type": "IMAGE",        "link": null},
-        {"name": "ref_image_5", "type": "IMAGE",        "link": null},
-        {"name": "ref_image_6", "type": "IMAGE",        "link": null},
-        {"name": "ref_image_7", "type": "IMAGE",        "link": null},
-        {"name": "ref_image_8", "type": "IMAGE",        "link": null},
-        {"name": "ref_image_9", "type": "IMAGE",        "link": null}
+        {"name": "image_1", "type": "IMAGE", "link": 3},
+        {"name": "image_2", "type": "IMAGE", "link": null},
+        {"name": "image_3", "type": "IMAGE", "link": null},
+        {"name": "image_4", "type": "IMAGE", "link": null},
+        {"name": "image_5", "type": "IMAGE", "link": null},
+        {"name": "image_6", "type": "IMAGE", "link": null},
+        {"name": "image_7", "type": "IMAGE", "link": null},
+        {"name": "image_8", "type": "IMAGE", "link": null},
+        {"name": "image_9", "type": "IMAGE", "link": null}
       ],
-      "properties": {"Node name for S&R": "SeedanceAnyfastImageUpload"},
+      "properties": {"Node name for S&R": "SeedanceRefImages"},
       "widgets_values": []
     },
     {
@@ -102,10 +99,10 @@
         {"name": "api",              "type": "SEEDANCE_API",        "link": 1},
         {"name": "first_frame",      "type": "IMAGE",               "link": null},
         {"name": "last_frame",       "type": "IMAGE",               "link": null},
-        {"name": "reference_images", "type": "SEEDANCE_IMAGE_LIST", "link": null},
+        {"name": "reference_images", "type": "SEEDANCE_IMAGE_LIST", "link": 4},
         {"name": "reference_video",  "type": "STRING",              "link": null},
         {"name": "reference_audio",  "type": "STRING",              "link": 2},
-        {"name": "anyfast_refs",     "type": "ANYFAST_IMAGE_REFS",  "link": 4}
+        {"name": "anyfast_refs",     "type": "ANYFAST_IMAGE_REFS",  "link": null}
       ],
       "properties": {"Node name for S&R": "Seedance2"},
       "widgets_values": ["A dynamic music video scene, vibrant colors, rhythmic motion @image1 @audio1", "720p", "16:9", 5, false, false, -1]
@@ -132,8 +129,8 @@
   "links": [
     [1, 1, 0, 5, 0, "SEEDANCE_API"],
     [2, 2, 0, 5, 5, "STRING"],
-    [3, 3, 0, 4, 3, "IMAGE"],
-    [4, 4, 0, 5, 6, "ANYFAST_IMAGE_REFS"],
+    [3, 3, 0, 4, 0, "IMAGE"],
+    [4, 4, 0, 5, 3, "SEEDANCE_IMAGE_LIST"],
     [5, 5, 0, 6, 0, "STRING"]
   ],
   "groups": [],

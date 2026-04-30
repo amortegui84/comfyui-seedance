@@ -2,7 +2,6 @@ import { app } from "../../scripts/app.js";
 
 const PROVIDER_URLS = {
     "anyfast": "https://www.anyfast.ai",
-    "fal.ai": "https://fal.run",
 };
 
 function getWidget(node, name) {
