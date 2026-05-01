@@ -1533,13 +1533,8 @@ class SeedanceSaveVideo:
                 [comfy_ui.SavedResult(filename, subfolder, folder_type)]
             ).as_dict()
         else:
-            preview_ui = {
-                "videos": [{
-                    "filename": filename,
-                    "subfolder": subfolder,
-                    "type": save_to,
-                }]
-            }
+            entry = {"filename": filename, "subfolder": subfolder, "type": save_to}
+            preview_ui = {"gifs": [entry], "videos": [entry]}
 
         return {
             "ui": {
