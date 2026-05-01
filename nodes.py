@@ -142,6 +142,7 @@ def _poll_v2(base_url, api_key, task_id, timeout=1200, interval=5):
                 raise RuntimeError(f"Status=completed but no video_url in response: {body}")
             return video_url
         if status in ("failed", "error", "failure", "cancelled", "canceled", "rejected", "aborted") or "fail" in status:
+            print(f"[Seedance] Full failure response body: {body}")
             message = None
             if isinstance(body, dict):
                 data = _find_ci(body, "data", "result")
