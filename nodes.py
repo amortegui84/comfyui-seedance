@@ -1082,8 +1082,8 @@ class SeedanceReferenceVideo:
         if video is not None:
             file_path, cleanup = _video_input_to_path(video)
             print(f"[Seedance] Using Load Video node input: {file_path}")
-        elif video_path and video_path.strip():
-            file_path = video_path.strip().strip('"')
+        elif video_path and video_path.strip().strip('"').strip("'") not in ("", "none"):
+            file_path = video_path.strip().strip('"').strip("'")
             print(f"[Seedance] Using video_path: {file_path}")
         elif video_file and video_file != "none":
             file_path = os.path.join(folder_paths.get_input_directory(), video_file)
@@ -1149,8 +1149,8 @@ class SeedanceReferenceAudio:
             file_path = _audio_dict_to_wav(audio)
             cleanup   = True
             print(f"[Seedance] Using Load Audio node input (saved to temp WAV)")
-        elif audio_path and audio_path.strip():
-            file_path = audio_path.strip().strip('"')
+        elif audio_path and audio_path.strip().strip('"').strip("'") not in ("", "none"):
+            file_path = audio_path.strip().strip('"').strip("'")
             print(f"[Seedance] Using audio_path: {file_path}")
         elif audio_file and audio_file != "none":
             file_path = os.path.join(folder_paths.get_input_directory(), audio_file)
