@@ -860,8 +860,7 @@ class SeedanceAssetRef:
     ANYFAST_IMAGE_REFS entry that the generation node understands.
 
     Chain multiple SeedanceAssetRef nodes via existing_refs to build a list
-    of asset-based references, or plug SeedanceAnyfastImageUpload output into
-    existing_refs to mix asset:// and base64 refs in the same generation."""
+    of asset-based references."""
 
     CATEGORY = "Seedance AM/AnyFast"
 
@@ -1260,13 +1259,12 @@ class _V2Base:
                 "last_frame":       ("IMAGE",),
                 # Style / context references — connect SeedanceRefImages (up to 9 images)
                 "reference_images": ("SEEDANCE_IMAGE_LIST",),
-                # Asset references — use SeedanceUploadAsset to get Asset:// IDs
+                # Reference video/audio — connect SeedanceReferenceVideo / SeedanceReferenceAudio
                 "reference_video":  ("STRING", {"forceInput": True}),
                 "reference_audio":  ("STRING", {"forceInput": True}),
-                # AnyFast prepared image refs — connect SeedanceAnyfastImageUpload
-                # When connected, uses the node's inline image refs for first_frame/last_frame/reference_images on AnyFast
+                # Face/person refs — connect SeedanceFaceRef (routes through AnyFast asset system)
                 "anyfast_refs":     ("ANYFAST_IMAGE_REFS", {"forceInput": True,
-                                                             "tooltip": "AnyFast only — prepared image refs from SeedanceAnyfastImageUpload"}),
+                                                             "tooltip": "AnyFast only — prepared face/person refs from SeedanceFaceRef"}),
             }
         }
 
@@ -1282,25 +1280,30 @@ class _V2Base:
 
         # Seedance requires @image1, @video1, @audio1 tags in the prompt so the
         # model knows how to use each reference. Auto-append any missing tags.
+        prompt_lower = prompt.lower()
         img_start = 1
         if anyfast_refs:
             # Count only reference_image role entries; first/last frame don't use @image tags
             ref_img_count = sum(1 for e in anyfast_refs if e.get("role") == "reference_image")
             for i in range(img_start, img_start + ref_img_count):
                 tag = f"@image{i}"
-                if tag not in prompt:
+                if tag not in prompt_lower:
                     prompt = prompt + f" {tag}"
+                    prompt_lower = prompt.lower()
         elif reference_images:
             for i in range(img_start, img_start + len(reference_images)):
                 tag = f"@image{i}"
-                if tag not in prompt:
+                if tag not in prompt_lower:
                     prompt = prompt + f" {tag}"
+                    prompt_lower = prompt.lower()
         if reference_video and reference_video.strip():
-            if "@video1" not in prompt:
+            if "@video1" not in prompt_lower:
                 prompt = prompt + " @video1"
+                prompt_lower = prompt.lower()
         if reference_audio and reference_audio.strip():
-            if "@audio1" not in prompt:
+            if "@audio1" not in prompt_lower:
                 prompt = prompt + " @audio1"
+                prompt_lower = prompt.lower()
             # AnyFast requires at least one image or video reference alongside audio
             has_other_ref = (
                 anyfast_refs
@@ -1436,6 +1439,7 @@ class SeedanceExtend:
             "required": {
                 "api":        ("SEEDANCE_API",),
                 "task_id":    ("STRING", {"forceInput": True}),
+                "model":      (["seedance", "seedance-fast", "seedance-2.0-ultra"],),
                 "prompt":     ("STRING", {"multiline": True, "default": ""}),
                 "duration":   ("INT",    {"default": 5, "min": 4, "max": MAX_DURATION, "step": 1}),
                 "resolution": (RES_V2,),
@@ -1447,7 +1451,7 @@ class SeedanceExtend:
     FUNCTION     = "extend"
     OUTPUT_NODE  = True
 
-    def extend(self, api, task_id, prompt, duration, resolution):
+    def extend(self, api, task_id, model, prompt, duration, resolution):
         base_url = api["base_url"].rstrip("/")
         api_key  = api["api_key"].strip()
 
@@ -1459,7 +1463,7 @@ class SeedanceExtend:
             "Content-Type": "application/json",
         }
         payload = {
-            "model":      "seedance",
+            "model":      model,
             "request_id": task_id,
             "prompt":     prompt,
             "duration":   duration,
