@@ -1122,6 +1122,8 @@ class SeedanceReferenceVideo:
             print(f"[Seedance] Using Load Video node input: {file_path}")
         elif video_path and video_path.strip().strip('"').strip("'") not in ("", "none"):
             file_path = video_path.strip().strip('"').strip("'")
+            if not os.path.isabs(file_path) and os.sep not in file_path and "/" not in file_path:
+                file_path = os.path.join(folder_paths.get_input_directory(), file_path)
             print(f"[Seedance] Using video_path: {file_path}")
         elif video_file and video_file != "none":
             file_path = os.path.join(folder_paths.get_input_directory(), video_file)
@@ -1162,8 +1164,8 @@ class SeedanceReferenceAudio:
         return {
             "required": {},
             "optional": {
-                "audio_path": ("STRING", {"default": "", "placeholder": "C:\\Users\\...\\audio.mp3"}),
                 "audio_file": (files,),
+                "audio_path": ("STRING", {"default": "", "placeholder": "C:\\Users\\...\\audio.mp3"}),
                 "audio":      ("AUDIO", {"forceInput": True}),
             }
         }
@@ -1188,6 +1190,8 @@ class SeedanceReferenceAudio:
             print(f"[Seedance] Using Load Audio node input (saved to temp WAV)")
         elif audio_path and audio_path.strip().strip('"').strip("'") not in ("", "none"):
             file_path = audio_path.strip().strip('"').strip("'")
+            if not os.path.isabs(file_path) and os.sep not in file_path and "/" not in file_path:
+                file_path = os.path.join(folder_paths.get_input_directory(), file_path)
             print(f"[Seedance] Using audio_path: {file_path}")
         elif audio_file and audio_file != "none":
             file_path = os.path.join(folder_paths.get_input_directory(), audio_file)
