@@ -609,6 +609,19 @@ def _upload_asset(api, asset_type, name, group_id=None, image_tensor=None, file_
                 time.sleep(4)
                 continue
 
+        if "pixelcounttoosmall" in txt or "pixel count" in txt:
+            raise RuntimeError(
+                "Video resolution is too small for AnyFast.\n"
+                "Minimum: ~640×640 px (409,600 total pixels).\n"
+                "Maximum: ~1920×1088 px (2,086,876 total pixels).\n"
+                "Use a higher resolution video."
+            )
+        if "pixelcounttoobig" in txt or ("pixel count" in txt and "large" in txt):
+            raise RuntimeError(
+                "Video resolution is too large for AnyFast.\n"
+                "Maximum: ~1920×1088 px (2,086,876 total pixels).\n"
+                "Use a lower resolution video."
+            )
         raise RuntimeError(f"Asset upload failed {r.status_code}: {r.text}")
     if not r.ok:
         raise RuntimeError(f"Asset upload failed after retries: {r.status_code}: {r.text}")
