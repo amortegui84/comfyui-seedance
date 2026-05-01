@@ -1074,10 +1074,13 @@ def _audio_dict_to_wav(audio_dict):
 
 
 class SeedanceReferenceVideo:
-    """Prepare a reference video for Seedance generation.
+    """Upload a reference video to AnyFast assets and return an asset:// URI.
 
-    Uploads to a public host (catbox → litterbox → 0x0.st) so AnyFast can
-    fetch it. Connect one of:
+    Connect api + a video source. Optionally pass an existing_group_id to
+    reuse a group across runs (saves the CreateAssetGroup round-trip).
+    The group_id output shows the group used — save it for next time.
+
+    Video source — connect one of:
     - A ComfyUI Load Video node to the 'video' input, OR
     - Pick a file from the 'video_file' dropdown, OR
     - Paste an absolute path into 'video_path'."""
@@ -1088,17 +1091,21 @@ class SeedanceReferenceVideo:
     def INPUT_TYPES(cls):
         files = ["none"] + _list_files([".mp4", ".mov", ".avi", ".webm"])
         return {
-            "required": {},
+            "required": {
+                "api": ("SEEDANCE_API",),
+            },
             "optional": {
+                "existing_group_id": ("STRING", {"forceInput": True}),
                 "video_path": ("STRING", {"default": "", "placeholder": "C:\\Users\\...\\video.mp4"}),
                 "video_file": (files,),
                 "video":      ("VIDEO", {"forceInput": True}),
             }
         }
 
-    RETURN_TYPES = ("STRING",)
-    RETURN_NAMES = ("reference_video",)
+    RETURN_TYPES = ("STRING", "STRING")
+    RETURN_NAMES = ("reference_video", "group_id")
     FUNCTION     = "upload"
+    OUTPUT_NODE  = True
 
     @classmethod
     def IS_CHANGED(cls, **kwargs):
@@ -1106,7 +1113,7 @@ class SeedanceReferenceVideo:
             return float("nan")
         return kwargs.get("video_path", "") or kwargs.get("video_file", "")
 
-    def upload(self, video_path=None, video_file=None, video=None):
+    def upload(self, api, existing_group_id=None, video_path=None, video_file=None, video=None):
         cleanup   = False
         file_path = None
 
@@ -1125,12 +1132,12 @@ class SeedanceReferenceVideo:
             )
 
         try:
-            with open(file_path, "rb") as f:
-                file_bytes = f.read()
-            filename  = os.path.basename(file_path)
-            video_url = _upload_to_temp_host(file_bytes, filename)
-            print(f"[Seedance] Reference video → {video_url}")
-            return (video_url,)
+            filename = os.path.basename(file_path)
+            group_id = _ensure_group(api, "seedance-video-refs", existing_group_id)
+            asset_uri, _, _ = _upload_asset(api, "Video", filename,
+                                            group_id=group_id, file_path=file_path)
+            print(f"[Seedance] Reference video → {asset_uri}  group={group_id}")
+            return {"ui": {"text": [group_id]}, "result": (asset_uri, group_id)}
         finally:
             if cleanup and file_path and os.path.exists(file_path):
                 os.remove(file_path)
