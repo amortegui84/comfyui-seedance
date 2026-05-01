@@ -862,7 +862,7 @@ class SeedanceAssetRef:
     Chain multiple SeedanceAssetRef nodes via existing_refs to build a list
     of asset-based references."""
 
-    CATEGORY = "Seedance AM/AnyFast"
+    CATEGORY = "Seedance AM/Advanced"
 
     @classmethod
     def INPUT_TYPES(cls):
@@ -926,7 +926,6 @@ class SeedanceApiKey:
         return {
             "required": {
                 "api_key":  ("STRING", {"default": "", "multiline": False}),
-                "provider": (["anyfast"],),   # single option — kept so old saved workflows still load cleanly
                 "base_url": ("STRING", {"default": "https://www.anyfast.ai", "multiline": False}),
             }
         }
@@ -935,7 +934,7 @@ class SeedanceApiKey:
     RETURN_NAMES = ("api",)
     FUNCTION = "configure"
 
-    def configure(self, api_key, provider, base_url):
+    def configure(self, api_key, base_url):
         return ({"api_key": api_key, "provider": "anyfast", "base_url": base_url or "https://www.anyfast.ai"},)
 
 
@@ -1055,7 +1054,6 @@ class SeedanceReferenceVideo:
             "optional": {
                 "video_file": (files,),
                 "video":      ("VIDEO", {"forceInput": True}),
-                "api":        ("SEEDANCE_API",),   # kept for backwards compat, not used
             }
         }
 
@@ -1069,8 +1067,7 @@ class SeedanceReferenceVideo:
             return float("nan")
         return kwargs.get("video_file", "")
 
-    def upload(self, video_file=None, video=None, api=None,
-               name="ref_video", group_name="comfyui-assets", existing_group_id=None):
+    def upload(self, video_file=None, video=None):
         cleanup   = False
         file_path = None
 
@@ -1118,7 +1115,6 @@ class SeedanceReferenceAudio:
             "optional": {
                 "audio_file": (files,),
                 "audio":      ("AUDIO", {"forceInput": True}),
-                "api":        ("SEEDANCE_API",),   # kept for backwards compat, not used
             }
         }
 
@@ -1132,8 +1128,7 @@ class SeedanceReferenceAudio:
             return float("nan")
         return kwargs.get("audio_file", "")
 
-    def upload(self, audio_file=None, audio=None, api=None,
-               name="ref_audio", group_name="comfyui-assets", existing_group_id=None):
+    def upload(self, audio_file=None, audio=None):
         cleanup   = False
         file_path = None
 
@@ -1437,12 +1432,13 @@ class SeedanceExtend:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "api":        ("SEEDANCE_API",),
-                "task_id":    ("STRING", {"forceInput": True}),
-                "model":      (["seedance", "seedance-fast", "seedance-2.0-ultra"],),
-                "prompt":     ("STRING", {"multiline": True, "default": ""}),
-                "duration":   ("INT",    {"default": 5, "min": 4, "max": MAX_DURATION, "step": 1}),
-                "resolution": (RES_V2,),
+                "api":            ("SEEDANCE_API",),
+                "task_id":        ("STRING", {"forceInput": True}),
+                "model":          (["seedance", "seedance-fast", "seedance-2.0-ultra"],),
+                "prompt":         ("STRING", {"multiline": True, "default": ""}),
+                "duration":       ("INT",    {"default": 5, "min": 4, "max": MAX_DURATION, "step": 1}),
+                "resolution":     (["2k", "1080p", "720p", "480p"],),
+                "generate_audio": ("BOOLEAN", {"default": True}),
             }
         }
 
@@ -1451,7 +1447,7 @@ class SeedanceExtend:
     FUNCTION     = "extend"
     OUTPUT_NODE  = True
 
-    def extend(self, api, task_id, model, prompt, duration, resolution):
+    def extend(self, api, task_id, model, prompt, duration, resolution, generate_audio):
         base_url = api["base_url"].rstrip("/")
         api_key  = api["api_key"].strip()
 
@@ -1463,11 +1459,12 @@ class SeedanceExtend:
             "Content-Type": "application/json",
         }
         payload = {
-            "model":      model,
-            "request_id": task_id,
-            "prompt":     prompt,
-            "duration":   duration,
-            "resolution": resolution,
+            "model":          model,
+            "request_id":     task_id,
+            "prompt":         prompt,
+            "duration":       duration,
+            "resolution":     resolution,
+            "generate_audio": generate_audio,
         }
         r = requests.post(f"{base_url}/v1/video/extend", json=payload,
                           headers=headers, timeout=300)

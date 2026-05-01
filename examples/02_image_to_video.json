@@ -6,87 +6,238 @@
       "id": 1,
       "type": "SeedanceApiKey",
       "title": "1. API Key",
-      "pos": [50, 400],
-      "size": [380, 120],
+      "pos": [
+        50,
+        400
+      ],
+      "size": [
+        380,
+        120
+      ],
       "flags": {},
       "order": 0,
       "mode": 0,
       "outputs": [
-        {"name": "api", "type": "SEEDANCE_API", "links": [1], "slot_index": 0}
+        {
+          "name": "api",
+          "type": "SEEDANCE_API",
+          "links": [
+            1
+          ],
+          "slot_index": 0
+        }
       ],
       "inputs": [],
-      "properties": {"Node name for S&R": "SeedanceApiKey"},
-      "widgets_values": ["", "anyfast", "https://www.anyfast.ai"]
+      "properties": {
+        "Node name for S&R": "SeedanceApiKey"
+      },
+      "widgets_values": [
+        "",
+        "https://www.anyfast.ai"
+      ]
     },
     {
       "id": 2,
       "type": "LoadImage",
       "title": "2. Load image to animate",
-      "pos": [50, 100],
-      "size": [315, 255],
+      "pos": [
+        50,
+        100
+      ],
+      "size": [
+        315,
+        255
+      ],
       "flags": {},
       "order": 1,
       "mode": 0,
       "outputs": [
-        {"name": "IMAGE", "type": "IMAGE", "links": [2], "slot_index": 0},
-        {"name": "MASK",  "type": "MASK",  "links": [],  "slot_index": 1}
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            2
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": [],
+          "slot_index": 1
+        }
       ],
       "inputs": [],
-      "properties": {"Node name for S&R": "LoadImage"},
-      "widgets_values": ["scene.png", "image"]
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "scene.png",
+        "image"
+      ]
     },
     {
       "id": 3,
       "type": "Seedance2",
       "title": "3. Generate video from first frame",
-      "pos": [450, 150],
-      "size": [430, 340],
+      "pos": [
+        450,
+        150
+      ],
+      "size": [
+        430,
+        340
+      ],
       "flags": {},
       "order": 2,
       "mode": 0,
       "outputs": [
-        {"name": "video_url",   "type": "STRING", "links": [3], "slot_index": 0},
-        {"name": "task_id",     "type": "STRING", "links": [],  "slot_index": 1},
-        {"name": "first_frame", "type": "IMAGE",  "links": [],  "slot_index": 2}
+        {
+          "name": "video_url",
+          "type": "STRING",
+          "links": [
+            3
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "task_id",
+          "type": "STRING",
+          "links": [],
+          "slot_index": 1
+        },
+        {
+          "name": "first_frame",
+          "type": "IMAGE",
+          "links": [],
+          "slot_index": 2
+        }
       ],
       "inputs": [
-        {"name": "api",              "type": "SEEDANCE_API",        "link": 1},
-        {"name": "first_frame",      "type": "IMAGE",               "link": 2},
-        {"name": "last_frame",       "type": "IMAGE",               "link": null},
-        {"name": "reference_images", "type": "SEEDANCE_IMAGE_LIST", "link": null},
-        {"name": "reference_video",  "type": "STRING",              "link": null},
-        {"name": "reference_audio",  "type": "STRING",              "link": null},
-        {"name": "anyfast_refs",     "type": "ANYFAST_IMAGE_REFS",  "link": null}
+        {
+          "name": "api",
+          "type": "SEEDANCE_API",
+          "link": 1
+        },
+        {
+          "name": "first_frame",
+          "type": "IMAGE",
+          "link": 2
+        },
+        {
+          "name": "last_frame",
+          "type": "IMAGE",
+          "link": null
+        },
+        {
+          "name": "reference_images",
+          "type": "SEEDANCE_IMAGE_LIST",
+          "link": null
+        },
+        {
+          "name": "reference_video",
+          "type": "STRING",
+          "link": null
+        },
+        {
+          "name": "reference_audio",
+          "type": "STRING",
+          "link": null
+        },
+        {
+          "name": "anyfast_refs",
+          "type": "ANYFAST_IMAGE_REFS",
+          "link": null
+        }
       ],
-      "properties": {"Node name for S&R": "Seedance2"},
-      "widgets_values": ["A cinematic scene, smooth camera motion, vibrant colors", "720p", "16:9", 5, false, false, -1]
+      "properties": {
+        "Node name for S&R": "Seedance2"
+      },
+      "widgets_values": [
+        "A cinematic scene, smooth camera motion, vibrant colors",
+        "720p",
+        "16:9",
+        5,
+        false,
+        false,
+        -1
+      ]
     },
     {
       "id": 4,
       "type": "SeedanceSaveVideo",
       "title": "4. Save video",
-      "pos": [960, 300],
-      "size": [320, 100],
+      "pos": [
+        960,
+        300
+      ],
+      "size": [
+        320,
+        100
+      ],
       "flags": {},
       "order": 3,
       "mode": 0,
       "outputs": [
-        {"name": "saved_path", "type": "STRING", "links": [], "slot_index": 0}
+        {
+          "name": "saved_path",
+          "type": "STRING",
+          "links": [],
+          "slot_index": 0
+        }
       ],
       "inputs": [
-        {"name": "video_url", "type": "STRING", "link": 3}
+        {
+          "name": "video_url",
+          "type": "STRING",
+          "link": 3
+        }
       ],
-      "properties": {"Node name for S&R": "SeedanceSaveVideo"},
-      "widgets_values": ["seedance_i2v", "output"]
+      "properties": {
+        "Node name for S&R": "SeedanceSaveVideo"
+      },
+      "widgets_values": [
+        "seedance_i2v",
+        "output"
+      ]
     }
   ],
   "links": [
-    [1, 1, 0, 3, 0, "SEEDANCE_API"],
-    [2, 2, 0, 3, 1, "IMAGE"],
-    [3, 3, 0, 4, 0, "STRING"]
+    [
+      1,
+      1,
+      0,
+      3,
+      0,
+      "SEEDANCE_API"
+    ],
+    [
+      2,
+      2,
+      0,
+      3,
+      1,
+      "IMAGE"
+    ],
+    [
+      3,
+      3,
+      0,
+      4,
+      0,
+      "STRING"
+    ]
   ],
   "groups": [],
   "config": {},
-  "extra": {"ds": {"scale": 1, "offset": [0, 0]}},
+  "extra": {
+    "ds": {
+      "scale": 1,
+      "offset": [
+        0,
+        0
+      ]
+    }
+  },
   "version": 0.4
 }

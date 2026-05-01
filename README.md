@@ -23,7 +23,7 @@ Restart ComfyUI. `opencv-python` is optional — only needed for the `first_fram
 
 1. Sign up at [anyfast.ai](https://www.anyfast.ai) and copy your API key.
 2. In ComfyUI, add a **Seedance AM - API Key** node and paste the key in the `api_key` field.
-3. Leave `base_url` as `https://www.anyfast.ai` unless AnyFast gives you a different endpoint.
+3. The `base_url` defaults to `https://www.anyfast.ai` — leave it unless AnyFast gives you a custom endpoint.
 
 The API Key node output (`api`) must be connected to every generation node you use.
 
@@ -155,8 +155,10 @@ API Key → Seedance2 → SeedanceSaveVideo (original)
 ```
 
 - Wire `task_id` from any generation node (Standard, Fast, or Ultra) to `SeedanceExtend`.
-- Pick the same model used for the original generation in the `model` dropdown.
+- Pick the **same model** used for the original generation in the `model` dropdown (`seedance`, `seedance-fast`, or `seedance-2.0-ultra`).
+- Match the **same resolution** — Ultra supports `2k`; Standard and Fast go up to `1080p`.
 - Leave `prompt` blank to continue the clip naturally, or add text to steer the extension.
+- Disable `generate_audio` if the original clip had no generated audio.
 - The extended clip can itself be extended by chaining `task_id` outputs.
 - If AnyFast returns 404/405, the `/v1/video/extend` endpoint is not available on your plan yet.
 
@@ -299,6 +301,8 @@ You cannot combine I2V and R2V inputs in the same request.
 | `examples/06_video_image_ref.json` | R2V | Video reference + image reference combined |
 | `examples/07_video_audio_image_ref.json` | R2V | Full multimodal — video + audio + image references |
 | `examples/08_extend_video.json` | Extend | Continue a generated clip using its task_id |
+| `examples/09_first_last_frame.json` | I2V | Control both start and end frame of the video |
+| `examples/10_face_audio_ref.json` | R2V | Face identity reference + audio rhythm (dancing, lip-sync) |
 
 To use: in ComfyUI, go to **Load** → select the JSON file.
 
