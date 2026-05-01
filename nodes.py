@@ -1075,12 +1075,13 @@ def _audio_dict_to_wav(audio_dict):
 class SeedanceReferenceVideo:
     """Prepare a reference video for Seedance generation.
 
-    Uploads to catbox.moe and returns a public URL. No API connection required.
+    Connect the API key node to upload directly to AnyFast (recommended — no
+    third-party host needed). Without API, falls back to a public temp host.
 
     Connect one of:
-    - Paste an absolute path into 'video_path' (Windows: right-click file → Copy as path), OR
     - A ComfyUI Load Video node to the 'video' input, OR
-    - Pick a file from the 'video_file' dropdown (files in the ComfyUI input directory)."""
+    - Pick a file from the 'video_file' dropdown, OR
+    - Paste an absolute path into 'video_path'."""
 
     CATEGORY = "Seedance AM/References"
 
@@ -1090,6 +1091,7 @@ class SeedanceReferenceVideo:
         return {
             "required": {},
             "optional": {
+                "api":        ("SEEDANCE_API",),
                 "video_path": ("STRING", {"default": "", "placeholder": "C:\\Users\\...\\video.mp4"}),
                 "video_file": (files,),
                 "video":      ("VIDEO", {"forceInput": True}),
@@ -1106,7 +1108,7 @@ class SeedanceReferenceVideo:
             return float("nan")
         return kwargs.get("video_path", "") or kwargs.get("video_file", "")
 
-    def upload(self, video_path=None, video_file=None, video=None):
+    def upload(self, api=None, video_path=None, video_file=None, video=None):
         cleanup   = False
         file_path = None
 
@@ -1121,17 +1123,21 @@ class SeedanceReferenceVideo:
             print(f"[Seedance] Using video_file dropdown: {video_file}")
         else:
             raise ValueError(
-                "Provide a file path in 'video_path', connect a Load Video node, "
-                "or pick a file from the 'video_file' dropdown."
+                "Connect a Load Video node, pick from 'video_file', or paste a path in 'video_path'."
             )
 
         try:
-            with open(file_path, "rb") as f:
-                file_bytes = f.read()
-            filename  = os.path.basename(file_path)
-            video_url = _upload_to_temp_host(file_bytes, filename)
-            print(f"[Seedance] Reference video → {video_url}")
-            return (video_url,)
+            filename = os.path.basename(file_path)
+            if api is not None:
+                asset_uri, _, _ = _upload_asset(api, "Video", filename, file_path=file_path)
+                print(f"[Seedance] Reference video → AnyFast asset: {asset_uri}")
+                return (asset_uri,)
+            else:
+                with open(file_path, "rb") as f:
+                    file_bytes = f.read()
+                video_url = _upload_to_temp_host(file_bytes, filename)
+                print(f"[Seedance] Reference video → temp host: {video_url}")
+                return (video_url,)
         finally:
             if cleanup and file_path and os.path.exists(file_path):
                 os.remove(file_path)
