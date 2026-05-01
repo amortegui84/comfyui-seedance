@@ -227,6 +227,9 @@ def _is_anyfast_asset_not_ready_error(response_text):
     # Generation endpoint: "The specified asset <id> is not found"
     if "specified asset" in txt and "not found" in txt:
         return True
+    # Video/audio asset still uploading: "asset is still processing and is not available yet"
+    if "still processing" in txt or "not available yet" in txt:
+        return True
     return False
 
 
