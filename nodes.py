@@ -1046,7 +1046,8 @@ class SeedanceReferenceVideo:
 
     Uploads to catbox.moe and returns a public URL. No API connection required.
 
-    Connect either:
+    Connect one of:
+    - Paste an absolute path into 'video_path' (Windows: right-click file → Copy as path), OR
     - A ComfyUI Load Video node to the 'video' input, OR
     - Pick a file from the 'video_file' dropdown (files in the ComfyUI input directory)."""
 
@@ -1058,6 +1059,7 @@ class SeedanceReferenceVideo:
         return {
             "required": {},
             "optional": {
+                "video_path": ("STRING", {"default": "", "placeholder": "C:\\Users\\...\\video.mp4"}),
                 "video_file": (files,),
                 "video":      ("VIDEO", {"forceInput": True}),
             }
@@ -1071,21 +1073,24 @@ class SeedanceReferenceVideo:
     def IS_CHANGED(cls, **kwargs):
         if kwargs.get("video") is not None:
             return float("nan")
-        return kwargs.get("video_file", "")
+        return kwargs.get("video_path", "") or kwargs.get("video_file", "")
 
-    def upload(self, video_file=None, video=None):
+    def upload(self, video_path=None, video_file=None, video=None):
         cleanup   = False
         file_path = None
 
         if video is not None:
             file_path, cleanup = _video_input_to_path(video)
             print(f"[Seedance] Using Load Video node input: {file_path}")
+        elif video_path and video_path.strip():
+            file_path = video_path.strip().strip('"')
+            print(f"[Seedance] Using video_path: {file_path}")
         elif video_file and video_file != "none":
             file_path = os.path.join(folder_paths.get_input_directory(), video_file)
             print(f"[Seedance] Using video_file dropdown: {video_file}")
         else:
             raise ValueError(
-                "Connect a Load Video node to the 'video' input, "
+                "Provide a file path in 'video_path', connect a Load Video node, "
                 "or pick a file from the 'video_file' dropdown."
             )
 
@@ -1107,7 +1112,8 @@ class SeedanceReferenceAudio:
     Encodes as base64 data URI (<10 MB) or uploads to catbox (>10 MB).
     No API connection required.
 
-    Connect either:
+    Connect one of:
+    - Paste an absolute path into 'audio_path' (Windows: right-click file → Copy as path), OR
     - A ComfyUI Load Audio node to the 'audio' input, OR
     - Pick a file from the 'audio_file' dropdown (files in the ComfyUI input directory)."""
 
@@ -1119,6 +1125,7 @@ class SeedanceReferenceAudio:
         return {
             "required": {},
             "optional": {
+                "audio_path": ("STRING", {"default": "", "placeholder": "C:\\Users\\...\\audio.mp3"}),
                 "audio_file": (files,),
                 "audio":      ("AUDIO", {"forceInput": True}),
             }
@@ -1132,9 +1139,9 @@ class SeedanceReferenceAudio:
     def IS_CHANGED(cls, **kwargs):
         if kwargs.get("audio") is not None:
             return float("nan")
-        return kwargs.get("audio_file", "")
+        return kwargs.get("audio_path", "") or kwargs.get("audio_file", "")
 
-    def upload(self, audio_file=None, audio=None):
+    def upload(self, audio_path=None, audio_file=None, audio=None):
         cleanup   = False
         file_path = None
 
@@ -1142,12 +1149,15 @@ class SeedanceReferenceAudio:
             file_path = _audio_dict_to_wav(audio)
             cleanup   = True
             print(f"[Seedance] Using Load Audio node input (saved to temp WAV)")
+        elif audio_path and audio_path.strip():
+            file_path = audio_path.strip().strip('"')
+            print(f"[Seedance] Using audio_path: {file_path}")
         elif audio_file and audio_file != "none":
             file_path = os.path.join(folder_paths.get_input_directory(), audio_file)
             print(f"[Seedance] Using audio_file dropdown: {audio_file}")
         else:
             raise ValueError(
-                "Connect a Load Audio node to the 'audio' input, "
+                "Provide a file path in 'audio_path', connect a Load Audio node, "
                 "or pick a file from the 'audio_file' dropdown."
             )
 
