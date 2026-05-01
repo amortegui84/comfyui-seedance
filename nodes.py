@@ -295,6 +295,12 @@ def _submit_and_poll(api, payload):
                 )
                 time.sleep(delay)
                 continue
+        if r.status_code == 400 and ("PrivacyInformation" in r.text or "SensitiveContent" in r.text or "real person" in r.text.lower()):
+            raise RuntimeError(
+                "AnyFast rejected the image: real-person face detected.\n"
+                "Connect the face image to SeedanceFaceRef → anyfast_refs input.\n"
+                "Do NOT use SeedanceRefImages (reference_images) for faces — that sends base64 which AnyFast blocks."
+            )
         raise RuntimeError(f"Seedance API error {r.status_code}: {r.text}")
     if not r.ok:
         raise RuntimeError(f"Seedance API error {r.status_code}: {r.text}")
