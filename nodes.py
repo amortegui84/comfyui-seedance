@@ -450,34 +450,65 @@ def _ensure_group(api, group_name, existing_group_id=None):
 
 
 def _upload_to_temp_host(file_bytes, filename):
-    """Upload bytes to Catbox and return a public URL for AnyFast to fetch."""
+    """Upload bytes to a public host and return a URL for AnyFast to fetch.
+    Tries Catbox → Litterbox → 0x0.st in order."""
     errors = []
-    endpoints = [
-        "https://catbox.moe/user/api.php",
-        "https://catbox.moe/user.php",
-    ]
 
-    for endpoint in endpoints:
-        try:
-            r = requests.post(
-                endpoint,
-                data={"reqtype": "fileupload"},
-                files={"fileToUpload": (filename, file_bytes)},
-                headers={"User-Agent": "comfyui-seedance/1.0"},
-                timeout=60,
-            )
-            r.raise_for_status()
-            url = r.text.strip()
-            if not url.startswith("http"):
-                raise RuntimeError(f"Temp host upload failed: {url}")
-            print(f"[Seedance Assets] Temp host URL: {url}")
+    # Catbox (permanent)
+    try:
+        r = requests.post(
+            "https://catbox.moe/user/api.php",
+            data={"reqtype": "fileupload"},
+            files={"fileToUpload": (filename, file_bytes)},
+            headers={"User-Agent": "comfyui-seedance/1.0"},
+            timeout=60,
+        )
+        r.raise_for_status()
+        url = r.text.strip()
+        if url.startswith("http"):
+            print(f"[Seedance] Uploaded to catbox: {url}")
             return url
-        except Exception as e:
-            errors.append(f"{endpoint}: {e}")
+        errors.append(f"catbox.moe: unexpected response: {url[:120]}")
+    except Exception as e:
+        errors.append(f"catbox.moe: {e}")
+
+    # Litterbox (catbox temp service, 24h, different infra)
+    try:
+        r = requests.post(
+            "https://litterbox.catbox.moe/resources/internals/api.php",
+            data={"reqtype": "fileupload", "time": "24h"},
+            files={"fileToUpload": (filename, file_bytes)},
+            headers={"User-Agent": "comfyui-seedance/1.0"},
+            timeout=60,
+        )
+        r.raise_for_status()
+        url = r.text.strip()
+        if url.startswith("http"):
+            print(f"[Seedance] Uploaded to litterbox: {url}")
+            return url
+        errors.append(f"litterbox: unexpected response: {url[:120]}")
+    except Exception as e:
+        errors.append(f"litterbox: {e}")
+
+    # 0x0.st (temp, no expiry for small files)
+    try:
+        r = requests.post(
+            "https://0x0.st",
+            files={"file": (filename, file_bytes)},
+            headers={"User-Agent": "comfyui-seedance/1.0"},
+            timeout=60,
+        )
+        r.raise_for_status()
+        url = r.text.strip()
+        if url.startswith("http"):
+            print(f"[Seedance] Uploaded to 0x0.st: {url}")
+            return url
+        errors.append(f"0x0.st: unexpected response: {url[:120]}")
+    except Exception as e:
+        errors.append(f"0x0.st: {e}")
 
     raise RuntimeError(
-        "Temp host upload failed on all Catbox endpoints. "
-        + " | ".join(errors)
+        "Temp host upload failed on all endpoints.\n" + "\n".join(errors)
     )
 
 
