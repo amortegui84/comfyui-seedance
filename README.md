@@ -99,7 +99,7 @@ LoadImage → SeedanceFaceRef(ref_image_1) → anyfast_refs → Seedance2 → Sa
 
 - Connect the face image to `ref_image_1` (or any `ref_image_N` slot).
 - Use `@image1` in the prompt to tell the model where to apply the identity/style.
-- **Save the `group_id`** output — paste it into `existing_group_id` on the next run to skip re-upload.
+- **`group_id` and `asset_ids` are shown directly on the node** after upload — copy the `group_id` and paste it into `existing_group_id` on the next run to skip re-upload.
 - Assets are also cached locally by image hash: repeated runs with the same image are instant.
 - Up to 9 reference images supported (`ref_image_1` … `ref_image_9`).
 - Can be combined with `reference_audio` and `reference_video`.
@@ -142,7 +142,27 @@ LoadImage → SeedanceFaceRef(first_frame) → anyfast_refs → Seedance2 → Sa
 
 ---
 
-### 5. Reference Audio
+### 5. Extend a Video
+
+Continue a previously generated clip by wiring its `task_id` into `SeedanceExtend`.
+
+**Example:** `examples/08_extend_video.json`
+
+```
+API Key → Seedance2 → SeedanceSaveVideo (original)
+               ↓ task_id
+          SeedanceExtend → SeedanceSaveVideo (extended)
+```
+
+- Wire `task_id` from any generation node (Standard, Fast, or Ultra) to `SeedanceExtend`.
+- Pick the same model used for the original generation in the `model` dropdown.
+- Leave `prompt` blank to continue the clip naturally, or add text to steer the extension.
+- The extended clip can itself be extended by chaining `task_id` outputs.
+- If AnyFast returns 404/405, the `/v1/video/extend` endpoint is not available on your plan yet.
+
+---
+
+### 6. Reference Audio
 
 Make the video match a soundtrack — motion and energy follow the audio.
 
@@ -163,7 +183,7 @@ LoadImage   → SeedanceRefImages(image_1) → reference_images ─────�
 
 ---
 
-### 6. Reference Video (style transfer)
+### 7. Reference Video (style transfer)
 
 Replicate the motion style or cinematic look of an existing video.
 
@@ -190,7 +210,7 @@ Or pick a file from the `video_file` dropdown.
 | `Seedance AM 2.0 - Standard` | Main generation node (`seedance` model). |
 | `Seedance AM 2.0 - Fast` | Same as Standard but faster (`seedance-fast` model). |
 | `Seedance AM 2.0 - Ultra` | Highest quality (`seedance-2.0-ultra` model, supports 2k). |
-| `Seedance AM - Extend Video` | Continue a previous generation by wiring its `task_id`. Returns the extended clip. |
+| `Seedance AM - Extend Video` | Continue a previous generation by wiring its `task_id`. Pick the same model used for the original. Returns the extended clip. |
 | `Seedance AM - Save Video` | Download and save the generated mp4 to the ComfyUI output folder. Shows a preview in the UI. |
 
 ### References
@@ -278,6 +298,7 @@ You cannot combine I2V and R2V inputs in the same request.
 | `examples/05_reference_video.json` | R2V | Video reference for style/motion transfer |
 | `examples/06_video_image_ref.json` | R2V | Video reference + image reference combined |
 | `examples/07_video_audio_image_ref.json` | R2V | Full multimodal — video + audio + image references |
+| `examples/08_extend_video.json` | Extend | Continue a generated clip using its task_id |
 
 To use: in ComfyUI, go to **Load** → select the JSON file.
 
