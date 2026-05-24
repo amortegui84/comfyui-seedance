@@ -1192,15 +1192,28 @@ class SeedanceReferenceVideo:
 
 
 class SeedanceReferenceAudio:
-    """Prepare a reference audio track for Seedance generation.
+    """Prepare a reference audio clip for Seedance generation.
 
-    Encodes as base64 data URI (<10 MB) or uploads to catbox (>10 MB).
-    No API connection required.
+    reference_audio is a VOICE / RHYTHM STYLE reference — it tells the model
+    what the voice should sound like (timbre, delivery) or what rhythm to follow.
+    It does NOT become the audio track of the output video automatically.
 
-    Connect one of:
-    - Paste an absolute path into 'audio_path' (Windows: right-click file → Copy as path), OR
+    TWO USE CASES:
+    1. Lip-sync with cloned voice  →  keep generate_audio=True, write dialogue in
+       double quotes in the prompt:  @audio1. "Say this out loud."
+       Seedance generates speech in the voice style of your clip and syncs the lips.
+
+    2. Embed exact audio in video  →  set generate_audio=False and also connect
+       this node's output to SaveVideo's reference_audio input.
+       SaveVideo will mux the file in after generation.
+
+    Audio source — connect one of:
     - A ComfyUI Load Audio node to the 'audio' input, OR
-    - Pick a file from the 'audio_file' dropdown (files in the ComfyUI input directory)."""
+    - Paste an absolute path into 'audio_path', OR
+    - Pick a file from the 'audio_file' dropdown.
+
+    Files ≤ 10 MB are sent as base64; larger files are uploaded to a temp host.
+    Audio is auto-trimmed to 15 s if it exceeds the API limit."""
 
     CATEGORY = "Seedance AM/References"
 
@@ -1359,7 +1372,9 @@ class _V2Base:
                 "last_frame":       ("IMAGE",),
                 # Style / context references — connect SeedanceRefImages (up to 9 images)
                 "reference_images": ("SEEDANCE_IMAGE_LIST",),
-                # Reference video/audio — connect SeedanceReferenceVideo / SeedanceReferenceAudio
+                # reference_audio: voice/rhythm style reference — does NOT become the audio track.
+                # For lip-sync: keep generate_audio=True, write dialogue in double quotes in prompt.
+                # To embed exact audio: set generate_audio=False + connect to SaveVideo too.
                 "reference_video":  ("STRING", {"forceInput": True}),
                 "reference_audio":  ("STRING", {"forceInput": True}),
                 # Face/person refs — connect SeedanceFaceRef (routes through AnyFast asset system)
@@ -1595,8 +1610,10 @@ class SeedanceExtend:
 class SeedanceSaveVideo:
     """Download and save the generated video to the ComfyUI output folder.
 
-    Saves the generated video and returns a local preview when supported by
-    the current ComfyUI UI helpers."""
+    Optional reference_audio input: connect the same SeedanceReferenceAudio
+    output here (alongside the generation node) to auto-mux your audio into
+    the final mp4. Requires ffmpeg (included in most ComfyUI portable installs).
+    Only needed when generate_audio=False and you want exact audio in the video."""
 
     CATEGORY = "Seedance AM/Core"
 
@@ -1771,11 +1788,14 @@ def _find_ffmpeg():
 
 
 class SeedanceMuxAudio:
-    """Mux an audio file into a generated video.
+    """Merge an audio file into a saved video using ffmpeg.
 
-    The Seedance API uses reference_audio only to drive motion — it never
-    embeds the audio in the output. Connect this node after SeedanceSaveVideo
-    to merge your original audio track into the final mp4.
+    Use this when you want an audio file embedded in the video but the audio
+    is NOT going through SeedanceReferenceAudio (e.g. background music, a
+    separately recorded voiceover, or a second audio pass).
+
+    For the common case of embedding reference audio, use SaveVideo's built-in
+    reference_audio input instead — it handles it automatically on save.
 
     Requires ffmpeg (included in most ComfyUI portable installs via imageio_ffmpeg).
 

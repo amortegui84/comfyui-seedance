@@ -71,10 +71,8 @@ Seedance AM - API Key  →  Seedance AM 2.0 - Standard  →  Seedance AM - Save 
 |---|---|---|
 | `examples/01_text_to_video.json` | T2V | Minimal baseline — prompt only |
 | `examples/02_image_to_video.json` | I2V | Animate an image from its first frame |
-| `examples/03_first_last_frame.json` | I2V | Control both start and end frame |
-| `examples/04_face_reference.json` | R2V | Face/person as style reference (`@image1` in prompt) |
-| `examples/05_face_audio.json` | R2V | Face + audio — identity driven by face, motion by soundtrack |
-| `examples/06_face_audio_video.json` | R2V | Full multimodal — face + audio + video style reference |
+| `examples/04_face_reference.json` | R2V | Face/person as identity reference (`@image1` in prompt) |
+| `examples/05_face_audio.json` | R2V | **Lip-sync with cloned voice** — face + voice sample + quoted dialogue |
 | `examples/07_extend_video.json` | Extend | Continue a generated clip using its `task_id` |
 
 To load: in ComfyUI go to **Load** → select the JSON file.
@@ -106,18 +104,7 @@ LoadImage → Seedance2(first_frame) → SaveVideo
 
 ---
 
-### 3. First + Last Frame
-
-```
-LoadImage(start) → Seedance2(first_frame) → SaveVideo
-LoadImage(end)   → Seedance2(last_frame)  ↑
-```
-
-The model generates a smooth transition between the two frames.
-
----
-
-### 4. Face / Person Reference
+### 3. Face / Person Reference
 
 For real human faces, use `SeedanceFaceRef` instead of the regular image node. AnyFast routes them through the asset system to satisfy Volcano Engine's face-moderation policy. Requires **Direct** plan.
 
@@ -151,7 +138,7 @@ Open the link within 30 seconds. This is a one-time step per asset group.
 
 ---
 
-### 5. Face + Audio Reference
+### 4. Face + Audio Reference (Lip-Sync / Cloned Voice)
 
 Drive a character's motion and voice from a reference audio clip. Requires **Direct** plan.
 
@@ -197,24 +184,7 @@ SaveVideo muxes the audio automatically on save.
 
 ---
 
-### 6. Face + Audio + Video (Full Multimodal)
-
-Combine face identity, audio rhythm, and video motion style in one generation. Requires **Direct** plan.
-
-```
-LoadImage           → SeedanceFaceRef(ref_image_1)  → Seedance2(anyfast_refs)    → SaveVideo
-API Key             → SeedanceFaceRef               ↑
-SeedanceRefAudio    → Seedance2(reference_audio)    ↑
-API Key             → SeedanceRefVideo              → Seedance2(reference_video) ↑
-```
-
-- `@image1`, `@audio1`, `@video1` are auto-appended when not present.
-- The reference video must be between **~640×640 px** (409,600 px total) and **~1920×1088 px** (2,086,876 px total). Videos outside this range will fail with a `PixelCountTooSmall` or `PixelCountTooLarge` error.
-- Turn off `generate_audio` when using reference audio.
-
----
-
-### 7. Extend a Video
+### 5. Extend a Video
 
 Continue a previously generated clip by wiring its `task_id` into `SeedanceExtend`.
 
