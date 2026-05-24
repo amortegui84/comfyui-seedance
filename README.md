@@ -161,10 +161,22 @@ API Key   → SeedanceFaceRef              ↑
 SeedanceReferenceAudio                  → Seedance2(reference_audio)   ↑
 ```
 
-- **Set `generate_audio = False`** in the generation node. If left on, the model still synchronizes motion to the audio but the final video's audio track will be AI-generated, not your file. Turning it off embeds your actual audio in the output.
+- `reference_audio` drives the **motion** of the video (rhythm sync, lip-sync, dancing) — it does **not** automatically become the audio track of the output.
+- The output audio track is always controlled by `generate_audio`: `True` = AI-generated audio, `False` = no audio.
+- To embed your actual audio file in the final video, use `generate_audio = False` on the generation node and then pass the result through **Seedance AM - Mux Audio into Video** (see workflow below).
 - `@image1` and `@audio1` are auto-appended to the prompt if not present.
 - Audio must be **≤ 15 seconds** (API hard limit 15.2 s). Files longer than that are automatically trimmed to 15 s with a console warning.
 - Files ≤ 10 MB are encoded as base64; larger files are uploaded to a temporary host.
+
+#### Embedding your audio in the final video
+
+```
+SeedanceFaceRef  → Seedance2(anyfast_refs)   → SaveVideo(saved_path) → MuxAudio → (video with audio)
+SeedanceRefAudio → Seedance2(reference_audio) ↑    [generate_audio=False]
+SeedanceRefAudio → MuxAudio(audio_file / audio) ↑
+```
+
+Or more simply, connect the same audio source to both `SeedanceReferenceAudio` and `SeedanceMuxAudio`.
 
 ---
 
@@ -237,6 +249,7 @@ API Key → Seedance2 → SeedanceSaveVideo (original)
 | Node | What it does |
 |---|---|
 | `Seedance AM - Show Text` | Display any string value (asset_id, group_id, video_url…) inside the node body for easy copy-paste. |
+| `Seedance AM - Mux Audio into Video` | Merge an audio file into a saved video using ffmpeg. Use after SaveVideo when you want your reference audio embedded in the final mp4. |
 
 ---
 
@@ -317,8 +330,8 @@ Make sure the API Key node's `api_key` field is filled and its output is connect
 **`first_frame` IMAGE output is blank / black**
 Install `opencv-python` (`pip install opencv-python`). Without it the first frame extraction falls back to a 64×64 black image.
 
-**Reference audio accepted but the output video has wrong/AI-generated audio**
-You left `generate_audio = True`. With it on, the model uses your audio to drive motion but generates its own audio track. Set `generate_audio = False` to have your actual audio file embedded in the final video.
+**Reference audio accepted but the output video has AI-generated audio or no audio**
+`reference_audio` only drives the motion (rhythm, lip-sync) — it never becomes the audio track automatically. Use `generate_audio = False` on the generation node and wire the output through `SeedanceMuxAudio` to embed your audio file into the final video.
 
 **"reference_audio cannot be the only reference input"**
 AnyFast requires at least one image or video reference when using audio. Connect an image via `SeedanceRefImages` or `SeedanceFaceRef` alongside the audio.

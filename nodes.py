@@ -1676,6 +1676,127 @@ class SeedanceShowText:
 
 
 # --------------------------------------------------------------------------- #
+# Mux Audio — embed an audio file into a saved video using ffmpeg
+# --------------------------------------------------------------------------- #
+
+def _find_ffmpeg():
+    """Return path to an ffmpeg executable, or None if not found."""
+    import shutil
+    exe = shutil.which("ffmpeg") or shutil.which("ffmpeg.exe")
+    if exe:
+        return exe
+    try:
+        import imageio_ffmpeg
+        return imageio_ffmpeg.get_ffmpeg_exe()
+    except Exception:
+        pass
+    return None
+
+
+class SeedanceMuxAudio:
+    """Mux an audio file into a generated video.
+
+    The Seedance API uses reference_audio only to drive motion — it never
+    embeds the audio in the output. Connect this node after SeedanceSaveVideo
+    to merge your original audio track into the final mp4.
+
+    Requires ffmpeg (included in most ComfyUI portable installs via imageio_ffmpeg).
+
+    Audio source — connect one of:
+    - A ComfyUI Load Audio node to the 'audio' input, OR
+    - Pick a file from the 'audio_file' dropdown, OR
+    - Paste an absolute path into 'audio_path'."""
+
+    CATEGORY = "Seedance AM/Utilities"
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        files = ["none"] + _list_files([".mp3", ".wav", ".ogg", ".flac", ".m4a"])
+        return {
+            "required": {
+                "video_path": ("STRING", {"forceInput": True}),
+            },
+            "optional": {
+                "audio_file": (files,),
+                "audio_path": ("STRING", {"default": "", "placeholder": "C:\\Users\\...\\audio.mp3"}),
+                "audio":      ("AUDIO", {"forceInput": True}),
+            },
+        }
+
+    RETURN_TYPES = ("STRING",)
+    RETURN_NAMES = ("video_path",)
+    OUTPUT_NODE  = True
+    FUNCTION     = "mux"
+
+    def mux(self, video_path, audio_file=None, audio_path=None, audio=None):
+        import subprocess, tempfile, shutil
+
+        # --- resolve audio to a local file ---
+        audio_tmp   = None
+        audio_src   = None
+
+        if audio is not None:
+            audio_src = _audio_dict_to_wav(audio)
+            audio_tmp = audio_src
+            print(f"[Seedance Mux] Using Load Audio node input")
+        elif audio_path and audio_path.strip().strip('"').strip("'") not in ("", "none"):
+            audio_src = audio_path.strip().strip('"').strip("'")
+            print(f"[Seedance Mux] Using audio_path: {audio_src}")
+        elif audio_file and audio_file != "none":
+            audio_src = os.path.join(folder_paths.get_input_directory(), audio_file)
+            print(f"[Seedance Mux] Using audio_file: {audio_src}")
+        else:
+            raise ValueError(
+                "Connect an audio source: Load Audio node, audio_path, or audio_file dropdown."
+            )
+
+        ffmpeg = _find_ffmpeg()
+        if not ffmpeg:
+            raise RuntimeError(
+                "ffmpeg not found. Install it (pip install imageio-ffmpeg) or add it to PATH."
+            )
+
+        video_path = video_path.strip().strip('"')
+        if not os.path.isfile(video_path):
+            raise FileNotFoundError(f"Video file not found: {video_path}")
+
+        out_path = video_path.replace(".mp4", "_audio.mp4")
+        # avoid clobbering an existing file
+        if os.path.exists(out_path):
+            base, ext = os.path.splitext(out_path)
+            out_path = f"{base}_{int(time.time())}{ext}"
+
+        try:
+            cmd = [
+                ffmpeg,
+                "-y",
+                "-i", video_path,
+                "-i", audio_src,
+                "-c:v", "copy",
+                "-c:a", "aac",
+                "-map", "0:v:0",
+                "-map", "1:a:0",
+                "-shortest",
+                out_path,
+            ]
+            result = subprocess.run(cmd, capture_output=True, text=True)
+            if result.returncode != 0:
+                raise RuntimeError(f"ffmpeg error:\n{result.stderr[-1000:]}")
+            print(f"[Seedance Mux] Saved: {os.path.basename(out_path)}")
+        finally:
+            if audio_tmp and os.path.exists(audio_tmp):
+                os.remove(audio_tmp)
+
+        filename  = os.path.basename(out_path)
+        subfolder = ""
+        entry     = {"filename": filename, "subfolder": subfolder, "type": "output"}
+        return {
+            "ui":     {"text": [out_path], "gifs": [entry], "videos": [entry]},
+            "result": (out_path,),
+        }
+
+
+# --------------------------------------------------------------------------- #
 # Registration
 # --------------------------------------------------------------------------- #
 
@@ -1696,8 +1817,9 @@ NODE_CLASS_MAPPINGS = {
     "SeedanceUploadAsset":      SeedanceUploadAsset,
     # Extend
     "SeedanceExtend":      SeedanceExtend,
-    # Output
+    # Output / utilities
     "SeedanceSaveVideo":   SeedanceSaveVideo,
+    "SeedanceMuxAudio":    SeedanceMuxAudio,
     "SeedanceShowText":    SeedanceShowText,
 }
 
@@ -1718,8 +1840,9 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "SeedanceUploadAsset":      "Seedance AM - Upload Asset",
     # Extend
     "SeedanceExtend":      "Seedance AM - Extend Video",
-    # Output
+    # Output / utilities
     "SeedanceSaveVideo":   "Seedance AM - Save Video",
+    "SeedanceMuxAudio":    "Seedance AM - Mux Audio into Video",
     "SeedanceShowText":    "Seedance AM - Show Text",
 }
 
