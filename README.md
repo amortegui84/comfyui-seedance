@@ -153,7 +153,7 @@ Open the link within 30 seconds. This is a one-time step per asset group.
 
 ### 5. Face + Audio Reference
 
-Make a person move to a soundtrack — motion and rhythm driven by audio. Requires **Direct** plan.
+Drive a character's motion and voice from a reference audio clip. Requires **Direct** plan.
 
 ```
 LoadImage → SeedanceFaceRef(ref_image_1) → Seedance2(anyfast_refs)     → SaveVideo
@@ -161,21 +161,39 @@ API Key   → SeedanceFaceRef              ↑
 SeedanceReferenceAudio                  → Seedance2(reference_audio)   ↑
 ```
 
-- `reference_audio` drives the **motion** of the video (rhythm sync, lip-sync, dancing) — it does **not** automatically become the audio track of the output.
-- The output audio track is always controlled by `generate_audio`: `True` = AI-generated audio, `False` = no audio.
-- To embed your actual audio in the final video, set `generate_audio = False` and connect the **same `SeedanceReferenceAudio` output** to both the generation node and to `SaveVideo`'s `reference_audio` input — the save node will mux the audio automatically.
-- `@image1` and `@audio1` are auto-appended to the prompt if not present.
-- Audio must be **≤ 15 seconds** (API hard limit 15.2 s). Files longer than that are automatically trimmed to 15 s with a console warning.
-- Files ≤ 10 MB are encoded as base64; larger files are uploaded to a temporary host.
+#### How reference_audio actually works
 
-#### Embedding your audio in the final video
+`reference_audio` is a **voice/rhythm style reference** — it tells the model what the voice should *sound like* (timbre, delivery, tempo). It does **not** become the audio track of the output by itself.
+
+| What you want | How to do it |
+|---|---|
+| Character dances / moves to a music track | `reference_audio` = music clip, `generate_audio = True` |
+| Character speaks in a cloned voice | `reference_audio` = voice sample, `generate_audio = True`, write dialogue in **double quotes** in the prompt |
+| Embed an external audio file in the video | `generate_audio = False`, connect `SeedanceReferenceAudio` → `SaveVideo(reference_audio)` to mux it in |
+
+#### Lip-sync with a cloned voice
+
+Leave `generate_audio = True`. Write what the character should say in **double quotes** in the prompt. Reference the audio with `@audio1` for voice style:
+
+```
+A person speaking to camera @image1 @audio1. "Hello, welcome to my channel."
+```
+
+Seedance generates the speech in the voice style of your reference audio and syncs the lips to the words. The `@audio1` tag is auto-appended if missing, but you need the quoted dialogue for actual speech.
+
+#### Embedding an external audio track (music, pre-recorded voice)
+
+If you have a finished audio file you want in the video exactly as-is:
 
 ```
 SeedanceReferenceAudio → Seedance2(reference_audio)   [generate_audio = False]
-                       → SaveVideo(reference_audio)
+                       → SaveVideo(reference_audio)   ← splits the same wire
 ```
 
-Split the wire from `SeedanceReferenceAudio` to both nodes — no extra steps needed.
+SaveVideo muxes the audio automatically on save.
+
+- Audio must be **≤ 15 seconds** (API hard limit 15.2 s). Files longer than that are automatically trimmed to 15 s with a console warning.
+- Files ≤ 10 MB are encoded as base64; larger files are uploaded to a temporary host.
 
 ---
 
@@ -329,8 +347,8 @@ Make sure the API Key node's `api_key` field is filled and its output is connect
 **`first_frame` IMAGE output is blank / black**
 Install `opencv-python` (`pip install opencv-python`). Without it the first frame extraction falls back to a 64×64 black image.
 
-**Reference audio accepted but the output video has AI-generated audio or no audio**
-`reference_audio` only drives the motion (rhythm, lip-sync) — it never becomes the audio track automatically. Set `generate_audio = False` and connect the same `SeedanceReferenceAudio` output to `SaveVideo`'s `reference_audio` input. The save node will mux your audio into the final video.
+**Reference audio accepted but lip-sync is wrong or there's no audio**
+`reference_audio` is a voice *style* reference, not a playback track. For lip-sync: keep `generate_audio = True` and write the dialogue in **double quotes** in the prompt — `"Hello, say this."`. Use `@audio1` to apply the voice style from your reference. If you want the raw audio file embedded instead, set `generate_audio = False` and connect `SeedanceReferenceAudio` → `SaveVideo(reference_audio)`.
 
 **"reference_audio cannot be the only reference input"**
 AnyFast requires at least one image or video reference when using audio. Connect an image via `SeedanceRefImages` or `SeedanceFaceRef` alongside the audio.
