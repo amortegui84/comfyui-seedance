@@ -161,7 +161,7 @@ API Key   → SeedanceFaceRef              ↑
 SeedanceReferenceAudio                  → Seedance2(reference_audio)   ↑
 ```
 
-- Turn off `generate_audio` in the generation node when using a reference audio track.
+- **Set `generate_audio = False`** in the generation node. If left on, the model still synchronizes motion to the audio but the final video's audio track will be AI-generated, not your file. Turning it off embeds your actual audio in the output.
 - `@image1` and `@audio1` are auto-appended to the prompt if not present.
 - Audio must be **≤ 15 seconds** (API hard limit 15.2 s). Files longer than that are automatically trimmed to 15 s with a console warning.
 - Files ≤ 10 MB are encoded as base64; larger files are uploaded to a temporary host.
@@ -316,6 +316,9 @@ Make sure the API Key node's `api_key` field is filled and its output is connect
 
 **`first_frame` IMAGE output is blank / black**
 Install `opencv-python` (`pip install opencv-python`). Without it the first frame extraction falls back to a 64×64 black image.
+
+**Reference audio accepted but the output video has wrong/AI-generated audio**
+You left `generate_audio = True`. With it on, the model uses your audio to drive motion but generates its own audio track. Set `generate_audio = False` to have your actual audio file embedded in the final video.
 
 **"reference_audio cannot be the only reference input"**
 AnyFast requires at least one image or video reference when using audio. Connect an image via `SeedanceRefImages` or `SeedanceFaceRef` alongside the audio.
