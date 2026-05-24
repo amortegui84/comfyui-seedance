@@ -1,0 +1,188 @@
+{
+  "last_node_id": 8,
+  "last_link_id": 9,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "SeedanceApiKey",
+      "title": "1. API Key",
+      "pos": [50, 640],
+      "size": [380, 100],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "outputs": [
+        {"name": "api", "type": "SEEDANCE_API", "links": [1, 3, 4], "slot_index": 0}
+      ],
+      "inputs": [],
+      "properties": {"Node name for S&R": "SeedanceApiKey"},
+      "widgets_values": ["", "https://www.anyfast.ai"]
+    },
+    {
+      "id": 2,
+      "type": "LoadImage",
+      "title": "2. Face / person image (identity reference)",
+      "pos": [50, 100],
+      "size": [315, 280],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "outputs": [
+        {"name": "IMAGE", "type": "IMAGE", "links": [2], "slot_index": 0},
+        {"name": "MASK",  "type": "MASK",  "links": [],  "slot_index": 1}
+      ],
+      "inputs": [],
+      "properties": {"Node name for S&R": "LoadImage"},
+      "widgets_values": ["portrait.png", "image"]
+    },
+    {
+      "id": 3,
+      "type": "SeedanceFaceRef",
+      "title": "3. Upload face — group_id shown below after first run; paste into existing_group_id to skip re-upload",
+      "pos": [450, 100],
+      "size": [360, 480],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "outputs": [
+        {"name": "anyfast_refs", "type": "ANYFAST_IMAGE_REFS", "links": [5], "slot_index": 0},
+        {"name": "group_id",     "type": "STRING",             "links": [9], "slot_index": 1},
+        {"name": "asset_ids",    "type": "STRING",             "links": [],  "slot_index": 2}
+      ],
+      "inputs": [
+        {"name": "api",               "type": "SEEDANCE_API",       "link": 1},
+        {"name": "existing_group_id", "type": "STRING",             "link": null},
+        {"name": "first_frame",       "type": "IMAGE",              "link": null},
+        {"name": "last_frame",        "type": "IMAGE",              "link": null},
+        {"name": "ref_image_1",       "type": "IMAGE",              "link": 2},
+        {"name": "ref_image_2",       "type": "IMAGE",              "link": null},
+        {"name": "ref_image_3",       "type": "IMAGE",              "link": null},
+        {"name": "ref_image_4",       "type": "IMAGE",              "link": null},
+        {"name": "ref_image_5",       "type": "IMAGE",              "link": null},
+        {"name": "ref_image_6",       "type": "IMAGE",              "link": null},
+        {"name": "ref_image_7",       "type": "IMAGE",              "link": null},
+        {"name": "ref_image_8",       "type": "IMAGE",              "link": null},
+        {"name": "ref_image_9",       "type": "IMAGE",              "link": null},
+        {"name": "existing_refs",     "type": "ANYFAST_IMAGE_REFS", "link": null}
+      ],
+      "properties": {"Node name for S&R": "SeedanceFaceRef"},
+      "widgets_values": ["comfyui-assets", false]
+    },
+    {
+      "id": 4,
+      "type": "SeedanceReferenceAudio",
+      "title": "4. Reference audio — pick from dropdown or paste path; turn off generate_audio in node 6",
+      "pos": [50, 540],
+      "size": [380, 80],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "outputs": [
+        {"name": "reference_audio", "type": "STRING", "links": [6], "slot_index": 0}
+      ],
+      "inputs": [
+        {"name": "audio", "type": "AUDIO", "link": null}
+      ],
+      "properties": {"Node name for S&R": "SeedanceReferenceAudio"},
+      "widgets_values": ["none", ""]
+    },
+    {
+      "id": 5,
+      "type": "SeedanceReferenceVideo",
+      "title": "5. Reference video (min ~640×640 px, max ~1920×1088 px) — pick from dropdown or paste path",
+      "pos": [50, 420],
+      "size": [380, 100],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "outputs": [
+        {"name": "reference_video", "type": "STRING", "links": [7], "slot_index": 0},
+        {"name": "group_id",        "type": "STRING", "links": [],  "slot_index": 1}
+      ],
+      "inputs": [
+        {"name": "api",               "type": "SEEDANCE_API", "link": 3},
+        {"name": "existing_group_id", "type": "STRING",       "link": null},
+        {"name": "video",             "type": "VIDEO",        "link": null}
+      ],
+      "properties": {"Node name for S&R": "SeedanceReferenceVideo"},
+      "widgets_values": ["", "none"]
+    },
+    {
+      "id": 6,
+      "type": "Seedance2",
+      "title": "6. Generate — @image1 = face identity, @audio1 = rhythm, @video1 = motion style",
+      "pos": [920, 180],
+      "size": [430, 340],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "outputs": [
+        {"name": "video_url",   "type": "STRING", "links": [8], "slot_index": 0},
+        {"name": "task_id",     "type": "STRING", "links": [],  "slot_index": 1},
+        {"name": "first_frame", "type": "IMAGE",  "links": [],  "slot_index": 2}
+      ],
+      "inputs": [
+        {"name": "api",              "type": "SEEDANCE_API",        "link": 4},
+        {"name": "first_frame",      "type": "IMAGE",               "link": null},
+        {"name": "last_frame",       "type": "IMAGE",               "link": null},
+        {"name": "reference_images", "type": "SEEDANCE_IMAGE_LIST", "link": null},
+        {"name": "reference_video",  "type": "STRING",              "link": 7},
+        {"name": "reference_audio",  "type": "STRING",              "link": 6},
+        {"name": "anyfast_refs",     "type": "ANYFAST_IMAGE_REFS",  "link": 5}
+      ],
+      "properties": {"Node name for S&R": "Seedance2"},
+      "widgets_values": ["The person dances to the music in the video style @image1 @audio1 @video1", "720p", "16:9", 5, false, false, -1]
+    },
+    {
+      "id": 7,
+      "type": "SeedanceSaveVideo",
+      "title": "7. Save video",
+      "pos": [1430, 310],
+      "size": [320, 100],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "outputs": [
+        {"name": "saved_path", "type": "STRING", "links": [], "slot_index": 0}
+      ],
+      "inputs": [
+        {"name": "video_url", "type": "STRING", "link": 8}
+      ],
+      "properties": {"Node name for S&R": "SeedanceSaveVideo"},
+      "widgets_values": ["seedance_face_audio_video", "output"]
+    },
+    {
+      "id": 8,
+      "type": "SeedanceShowText",
+      "title": "SAVE group_id — paste into existing_group_id on node 3 next run to skip re-upload",
+      "pos": [920, 560],
+      "size": [430, 80],
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "outputs": [
+        {"name": "text", "type": "STRING", "links": [], "slot_index": 0}
+      ],
+      "inputs": [
+        {"name": "text", "type": "STRING", "link": 9}
+      ],
+      "properties": {"Node name for S&R": "SeedanceShowText"},
+      "widgets_values": []
+    }
+  ],
+  "links": [
+    [1, 1, 0, 3, 0, "SEEDANCE_API"],
+    [2, 2, 0, 3, 4, "IMAGE"],
+    [3, 1, 0, 5, 0, "SEEDANCE_API"],
+    [4, 1, 0, 6, 0, "SEEDANCE_API"],
+    [5, 3, 0, 6, 6, "ANYFAST_IMAGE_REFS"],
+    [6, 4, 0, 6, 5, "STRING"],
+    [7, 5, 0, 6, 4, "STRING"],
+    [8, 6, 0, 7, 0, "STRING"],
+    [9, 3, 1, 8, 0, "STRING"]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {"ds": {"scale": 1, "offset": [0, 0]}},
+  "version": 0.4
+}

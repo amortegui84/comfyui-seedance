@@ -2,7 +2,7 @@
 
 Generate videos with **ByteDance Seedance 2.0** inside ComfyUI, powered by [AnyFast](https://www.anyfast.ai).
 
-Supports text-to-video, image-to-video, face/person references (with automatic moderation bypass), reference images, reference video, and reference audio — all wired directly to ComfyUI's built-in nodes.
+Supports text-to-video, image-to-video, face/person references (with automatic moderation bypass), reference images, reference video, and reference audio.
 
 ---
 
@@ -10,8 +10,8 @@ Supports text-to-video, image-to-video, face/person references (with automatic m
 
 ```bash
 cd ComfyUI/custom_nodes
-git clone https://github.com/amortegui84/comfyui-anyfast-seedance
-cd comfyui-anyfast-seedance
+git clone https://github.com/amortegui84/comfyui-seedance
+cd comfyui-seedance
 pip install -r requirements.txt
 ```
 
@@ -19,13 +19,24 @@ Restart ComfyUI. `opencv-python` is optional — only needed for the `first_fram
 
 ---
 
-## API Key
+## API Key & Plans
 
 1. Sign up at [anyfast.ai](https://www.anyfast.ai) and copy your API key.
 2. In ComfyUI, add a **Seedance AM - API Key** node and paste the key in the `api_key` field.
 3. The `base_url` defaults to `https://www.anyfast.ai` — leave it unless AnyFast gives you a custom endpoint.
 
-The API Key node output (`api`) must be connected to every generation node you use.
+Connect the API Key node output (`api`) to every generation node you use.
+
+### AnyFast plan requirements
+
+| Feature | Plan needed |
+|---|---|
+| Text-to-video, Image-to-video | Any plan |
+| `reference_audio`, `reference_video` | **Direct** plan or higher |
+| `seedance-2.0-ultra` model | **Direct** plan or higher |
+| Face/person references (`SeedanceFaceRef`) | **Direct** plan or higher |
+
+> If you get a 404 or "endpoint not available" error on reference inputs or Ultra, your account needs to be upgraded to Direct. Contact AnyFast support to activate it.
 
 ---
 
@@ -37,7 +48,7 @@ The API Key node output (`api`) must be connected to every generation node you u
 | `Seedance AM 2.0 - Fast` | `seedance-fast` | 480p / 720p / 1080p | Quick iterations |
 | `Seedance AM 2.0 - Ultra` | `seedance-2.0-ultra` | 720p / 1080p / 2k | Highest quality |
 
-All three nodes share the same inputs and work identically — only the underlying model differs.
+All three nodes share the same inputs — only the underlying model differs.
 
 ---
 
@@ -48,9 +59,25 @@ Seedance AM - API Key  →  Seedance AM 2.0 - Standard  →  Seedance AM - Save 
 ```
 
 1. Add **Seedance AM - API Key** and paste your key.
-2. Add **Seedance AM 2.0 - Standard**, write a prompt.
+2. Add **Seedance AM 2.0 - Standard** and write a prompt.
 3. Connect `video_url` → **Seedance AM - Save Video**.
 4. Queue. The node submits the job and polls until the video is ready.
+
+---
+
+## Example Workflows
+
+| File | Mode | Description |
+|---|---|---|
+| `examples/01_text_to_video.json` | T2V | Minimal baseline — prompt only |
+| `examples/02_image_to_video.json` | I2V | Animate an image from its first frame |
+| `examples/03_first_last_frame.json` | I2V | Control both start and end frame |
+| `examples/04_face_reference.json` | R2V | Face/person as style reference (`@image1` in prompt) |
+| `examples/05_face_audio.json` | R2V | Face + audio — identity driven by face, motion by soundtrack |
+| `examples/06_face_audio_video.json` | R2V | Full multimodal — face + audio + video style reference |
+| `examples/07_extend_video.json` | Extend | Continue a generated clip using its `task_id` |
+
+To load: in ComfyUI go to **Load** → select the JSON file.
 
 ---
 
@@ -60,8 +87,6 @@ Seedance AM - API Key  →  Seedance AM 2.0 - Standard  →  Seedance AM - Save 
 
 No image needed. Just a prompt.
 
-**Example:** `examples/01_text_to_video.json`
-
 ```
 API Key → Seedance2 → SaveVideo
 ```
@@ -70,47 +95,47 @@ API Key → Seedance2 → SaveVideo
 
 ### 2. Image to Video
 
-Connect any image directly to the `first_frame` input on the generation node. No intermediate node required.
-
-**Example:** `examples/02_image_to_video.json`
+Connect any image to `first_frame`. No intermediate node required.
 
 ```
 LoadImage → Seedance2(first_frame) → SaveVideo
 ```
 
-- Do not add `@image1` to the prompt — `first_frame` uses I2V mode, not reference tags.
+- Do **not** add `@image1` to the prompt — `first_frame` uses I2V mode, not reference tags.
 - Connect a second image to `last_frame` to control both start and end frames.
-- Do not mix `first_frame` with `reference_images`, `reference_video`, or `reference_audio`.
 
 ---
 
-### 3. Face / Person Reference (style reference)
-
-For images with **real human faces**. AnyFast routes them through the asset system to satisfy Volcano Engine's face-moderation policy.
-
-**Example:** `examples/03_face_reference.json`
+### 3. First + Last Frame
 
 ```
-LoadImage → SeedanceFaceRef(ref_image_1) → anyfast_refs → Seedance2 → SaveVideo
-                         ↓
-                    ShowText (group_id)
-                    ShowText (asset_ids)
+LoadImage(start) → Seedance2(first_frame) → SaveVideo
+LoadImage(end)   → Seedance2(last_frame)  ↑
 ```
 
-- Connect the face image to `ref_image_1` (or any `ref_image_N` slot).
-- Use `@image1` in the prompt to tell the model where to apply the identity/style.
+The model generates a smooth transition between the two frames.
+
+---
+
+### 4. Face / Person Reference
+
+For real human faces, use `SeedanceFaceRef` instead of the regular image node. AnyFast routes them through the asset system to satisfy Volcano Engine's face-moderation policy. Requires **Direct** plan.
+
+```
+LoadImage → SeedanceFaceRef(ref_image_1) → Seedance2(anyfast_refs) → SaveVideo
+API Key   → SeedanceFaceRef              ↑
+```
+
+- Use `@image1` in the prompt to tell the model where to apply the identity.
 - **`group_id` and `asset_ids` are shown directly on the node** after upload — copy the `group_id` and paste it into `existing_group_id` on the next run to skip re-upload.
-- Assets are also cached locally by image hash: repeated runs with the same image are instant.
-- Up to 9 reference images supported (`ref_image_1` … `ref_image_9`).
-- Can be combined with `reference_audio` and `reference_video`.
+- Assets are cached locally by image hash: repeated runs with the same image are instant.
 
 #### First run vs. repeat runs
 
 | Situation | What to do |
 |---|---|
-| First run | Leave `existing_group_id` empty. The node creates a new group and uploads. |
-| Repeat run, same images | Paste the saved `group_id` into `existing_group_id`. Upload is skipped via local cache. |
-| Same `group_id`, different image | Connect the new image; the node uploads it into the same group. |
+| First run | Leave `existing_group_id` empty. A new group is created. |
+| Repeat run, same images | Paste the saved `group_id` into `existing_group_id`. Upload is skipped. |
 | Force re-upload | Enable `force_reupload` to bypass the local cache. |
 
 #### Liveness verification (first upload only)
@@ -122,31 +147,47 @@ On first use, AnyFast may print a verification link in the ComfyUI console:
 [Seedance Assets] Open this link on your phone or browser (< 30 s): https://...
 ```
 
-Open the link and complete the check within 30 seconds. This is a one-time step per asset group.
+Open the link within 30 seconds. This is a one-time step per asset group.
 
 ---
 
-### 4. Face / Person as First Frame (I2V)
+### 5. Face + Audio Reference
 
-Start the video **from** a face image. The video animates out from that exact frame.
-
-**Example:** `examples/03b_face_first_frame.json`
+Make a person move to a soundtrack — motion and rhythm driven by audio. Requires **Direct** plan.
 
 ```
-LoadImage → SeedanceFaceRef(first_frame) → anyfast_refs → Seedance2 → SaveVideo
+LoadImage → SeedanceFaceRef(ref_image_1) → Seedance2(anyfast_refs)     → SaveVideo
+API Key   → SeedanceFaceRef              ↑
+SeedanceReferenceAudio                  → Seedance2(reference_audio)   ↑
 ```
 
-- Connect to the `first_frame` slot, not `ref_image_N`.
-- No `@image` tags in the prompt.
-- Cannot be combined with reference images, audio, or video in the same request.
+- Turn off `generate_audio` in the generation node when using a reference audio track.
+- `@image1` and `@audio1` are auto-appended to the prompt if not present.
+- Audio must be **≤ 15 seconds** (API hard limit 15.2 s). Files longer than that are automatically trimmed to 15 s with a console warning.
+- Files ≤ 10 MB are encoded as base64; larger files are uploaded to a temporary host.
 
 ---
 
-### 5. Extend a Video
+### 6. Face + Audio + Video (Full Multimodal)
+
+Combine face identity, audio rhythm, and video motion style in one generation. Requires **Direct** plan.
+
+```
+LoadImage           → SeedanceFaceRef(ref_image_1)  → Seedance2(anyfast_refs)    → SaveVideo
+API Key             → SeedanceFaceRef               ↑
+SeedanceRefAudio    → Seedance2(reference_audio)    ↑
+API Key             → SeedanceRefVideo              → Seedance2(reference_video) ↑
+```
+
+- `@image1`, `@audio1`, `@video1` are auto-appended when not present.
+- The reference video must be between **~640×640 px** (409,600 px total) and **~1920×1088 px** (2,086,876 px total). Videos outside this range will fail with a `PixelCountTooSmall` or `PixelCountTooLarge` error.
+- Turn off `generate_audio` when using reference audio.
+
+---
+
+### 7. Extend a Video
 
 Continue a previously generated clip by wiring its `task_id` into `SeedanceExtend`.
-
-**Example:** `examples/08_extend_video.json`
 
 ```
 API Key → Seedance2 → SeedanceSaveVideo (original)
@@ -154,51 +195,11 @@ API Key → Seedance2 → SeedanceSaveVideo (original)
           SeedanceExtend → SeedanceSaveVideo (extended)
 ```
 
-- Wire `task_id` from any generation node (Standard, Fast, or Ultra) to `SeedanceExtend`.
-- Pick the **same model** used for the original generation in the `model` dropdown (`seedance`, `seedance-fast`, or `seedance-2.0-ultra`).
-- Match the **same resolution** — Ultra supports `2k`; Standard and Fast go up to `1080p`.
-- Leave `prompt` blank to continue the clip naturally, or add text to steer the extension.
-- Disable `generate_audio` if the original clip had no generated audio.
+- Pick the **same model** used for the original generation in the `model` dropdown.
+- Match the **same resolution** as the original.
+- Leave `prompt` blank to continue naturally, or add text to steer the extension.
+- Disable `generate_audio` if the original had no generated audio.
 - The extended clip can itself be extended by chaining `task_id` outputs.
-- If AnyFast returns 404/405, the `/v1/video/extend` endpoint is not available on your plan yet.
-
----
-
-### 6. Reference Audio
-
-Make the video match a soundtrack — motion and energy follow the audio.
-
-**Example:** `examples/04_reference_audio.json`
-
-```
-Load Audio  → SeedanceReferenceAudio → reference_audio ──────────────────→ Seedance2 → SaveVideo
-LoadImage   → SeedanceRefImages(image_1) → reference_images ──────────────→ ↑
-```
-
-> **Important:** AnyFast requires at least one image reference alongside `reference_audio`.
-> Connecting audio alone returns a 400 error. Always pair it with an image via
-> `SeedanceRefImages` (for non-face images) or `SeedanceFaceRef` (for real people).
-
-- `@audio1` and `@image1` are auto-appended to the prompt if not present.
-- Turn off `generate_audio` in the generation node when using a reference audio track.
-- Files ≤ 10 MB are sent as base64; larger files are uploaded to a temporary host.
-
----
-
-### 7. Reference Video (style transfer)
-
-Replicate the motion style or cinematic look of an existing video.
-
-**Example:** `examples/05_reference_video.json`
-
-```
-Load Video → SeedanceReferenceVideo → reference_video → Seedance2 → SaveVideo
-```
-
-Or pick a file from the `video_file` dropdown.
-
-- `@video1` is auto-appended to the prompt if not already present.
-- The video is uploaded to a temporary public host (catbox.moe) and the URL is passed to AnyFast.
 
 ---
 
@@ -208,34 +209,34 @@ Or pick a file from the `video_file` dropdown.
 
 | Node | What it does |
 |---|---|
-| `Seedance AM - API Key` | Stores your AnyFast API key and base URL. Connect its output to every generation node. |
+| `Seedance AM - API Key` | Stores your AnyFast API key and base URL. Connect its output to every generation and reference-video node. |
 | `Seedance AM 2.0 - Standard` | Main generation node (`seedance` model). |
 | `Seedance AM 2.0 - Fast` | Same as Standard but faster (`seedance-fast` model). |
-| `Seedance AM 2.0 - Ultra` | Highest quality (`seedance-2.0-ultra` model, supports 2k). |
-| `Seedance AM - Extend Video` | Continue a previous generation by wiring its `task_id`. Pick the same model used for the original. Returns the extended clip. |
+| `Seedance AM 2.0 - Ultra` | Highest quality (`seedance-2.0-ultra` model, supports 2k). Requires Direct plan. |
+| `Seedance AM - Extend Video` | Continue a previous generation by wiring its `task_id`. Pick the same model and resolution as the original. |
 | `Seedance AM - Save Video` | Download and save the generated mp4 to the ComfyUI output folder. Shows a preview in the UI. |
 
 ### References
 
 | Node | What it does |
 |---|---|
-| `Seedance AM - Reference Images (9 slots)` | Collect up to 9 images as a `SEEDANCE_IMAGE_LIST` for the `reference_images` input on generation nodes. |
-| `Seedance AM - Reference Video` | Upload a video file (or connect Load Video) and return a public URL. No API key required. |
-| `Seedance AM - Reference Audio` | Upload an audio file (or connect Load Audio) and return a data URI or public URL. No API key required. |
+| `Seedance AM - Reference Images (9 slots)` | Collect up to 9 non-face images as a `SEEDANCE_IMAGE_LIST` for `reference_images`. Do not use for real people — use `SeedanceFaceRef` instead. |
+| `Seedance AM - Reference Video` | Upload a video file to AnyFast assets and return an `asset://` URI. Requires `api` connection. Minimum ~640×640 px, maximum ~1920×1088 px. |
+| `Seedance AM - Reference Audio` | Encode or upload an audio file and return a data URI or public URL. No API key required. |
 
 ### Face / Asset (real people)
 
 | Node | What it does |
 |---|---|
-| `Seedance AM - Face / Person Reference (asset)` | Upload real-person images through the AnyFast asset system to bypass face moderation. Caches asset IDs locally. Outputs `anyfast_refs`, `group_id`, and `asset_ids`. |
-| `Seedance AM - Asset Reference` | Wrap a raw `asset://` ID string into an `ANYFAST_IMAGE_REFS` entry. Useful for manual asset management. |
+| `Seedance AM - Face / Person Reference (asset)` | Upload real-person images through the AnyFast asset system to bypass face moderation. Caches asset IDs locally. Outputs `anyfast_refs`, `group_id`, and `asset_ids`. Requires Direct plan. |
+| `Seedance AM - Asset Reference` | Wrap a raw `asset://` ID string into an `ANYFAST_IMAGE_REFS` entry. For manual asset management. |
 | `Seedance AM - Upload Asset` | Manually upload a single image to AnyFast Asset Management. For bulk face uploads use `SeedanceFaceRef` instead. |
 
 ### Utilities
 
 | Node | What it does |
 |---|---|
-| `Seedance AM - Show Text` | Display any string value (asset_id, group_id, video_url…) directly inside the node body for easy copy-paste. |
+| `Seedance AM - Show Text` | Display any string value (asset_id, group_id, video_url…) inside the node body for easy copy-paste. |
 
 ---
 
@@ -247,7 +248,7 @@ Or pick a file from the `video_file` dropdown.
 | `resolution` | `480p` / `720p` / `1080p` (Standard/Fast); `720p` / `1080p` / `2k` (Ultra) | |
 | `ratio` | `16:9` `9:16` `4:3` `3:4` `1:1` `21:9` `adaptive` | |
 | `duration` | 4 – 15 seconds | |
-| `generate_audio` | true / false | Auto-generates synced voice, sound effects, and music |
+| `generate_audio` | true / false | Auto-generates synced voice, sound effects, and music. Turn off when using `reference_audio`. |
 | `watermark` | true / false | ByteDance watermark |
 | `seed` | -1 or integer | `-1` = random; any positive integer = reproducible |
 
@@ -255,81 +256,81 @@ Or pick a file from the `video_file` dropdown.
 
 ## Mixing References
 
-There are two **mutually exclusive** modes. You must pick one:
+Two **mutually exclusive** modes:
 
 | Mode | Inputs used | What it does |
 |---|---|---|
-| **I2V** (Image-to-Video) | `first_frame` and/or `last_frame` | Video starts and/or ends on an exact frame |
-| **R2V** (Reference-to-Video) | `reference_images`, `reference_video`, `reference_audio` | Style, motion, and rhythm transfer |
+| **I2V** | `first_frame` and/or `last_frame` | Video starts/ends on an exact frame |
+| **R2V** | `reference_images`, `reference_video`, `reference_audio`, `anyfast_refs` | Style, motion, and rhythm transfer |
 
 You cannot combine I2V and R2V inputs in the same request.
 
 ### Valid combinations
 
-| Combination | Mode | Example |
-|---|---|---|
-| prompt only | T2V | `01_text_to_video.json` |
-| `first_frame` | I2V | `02_image_to_video.json` |
-| `first_frame` + `last_frame` | I2V | — |
-| `reference_images` | R2V | `03_face_reference.json` |
-| `reference_video` | R2V | `05_reference_video.json` |
-| `reference_audio` + `reference_images` | R2V | `04_reference_audio.json` |
-| `reference_video` + `reference_images` | R2V | `06_video_image_ref.json` |
-| `reference_video` + `reference_audio` + `reference_images` | R2V | `07_video_audio_image_ref.json` |
+| Combination | Mode |
+|---|---|
+| prompt only | T2V |
+| `first_frame` | I2V |
+| `first_frame` + `last_frame` | I2V |
+| `anyfast_refs` (face) | R2V |
+| `anyfast_refs` + `reference_audio` | R2V |
+| `anyfast_refs` + `reference_audio` + `reference_video` | R2V |
+| `reference_video` | R2V |
+| `reference_images` | R2V |
 
 ### Invalid combinations
 
 | Combination | Why |
 |---|---|
 | `reference_audio` alone | AnyFast requires at least one image or video ref alongside audio |
-| `first_frame` + `reference_images` | Cannot mix I2V frame control with R2V references |
-| `first_frame` + `reference_video` | Cannot mix I2V frame control with R2V references |
-| `first_frame` + `reference_audio` | Cannot mix I2V frame control with R2V references |
+| `first_frame` + any R2V input | Cannot mix I2V frame control with R2V references |
 
 ---
 
-## Example Workflows
+## Video Resolution Requirements
 
-| File | Mode | Description |
+The `SeedanceReferenceVideo` node uploads your video to the AnyFast asset system. The video must meet these pixel count constraints:
+
+| Limit | Pixels | Equivalent resolution |
 |---|---|---|
-| `examples/01_text_to_video.json` | T2V | Minimal baseline — prompt only |
-| `examples/02_image_to_video.json` | I2V | Animate an image from its first frame |
-| `examples/03_face_reference.json` | R2V | Face/person as style reference (`@image1` in prompt) |
-| `examples/03b_face_first_frame.json` | I2V | Face/person image as the literal first frame |
-| `examples/04_reference_audio.json` | R2V | Audio + image reference — motion driven by soundtrack |
-| `examples/05_reference_video.json` | R2V | Video reference for style/motion transfer |
-| `examples/06_video_image_ref.json` | R2V | Video reference + image reference combined |
-| `examples/07_video_audio_image_ref.json` | R2V | Full multimodal — video + audio + image references |
-| `examples/08_extend_video.json` | Extend | Continue a generated clip using its task_id |
-| `examples/09_first_last_frame.json` | I2V | Control both start and end frame of the video |
-| `examples/10_face_audio_ref.json` | R2V | Face identity reference + audio rhythm (dancing, lip-sync) |
+| Minimum | 409,600 px | ~640 × 640 |
+| Maximum | 2,086,876 px | ~1920 × 1088 |
 
-To use: in ComfyUI, go to **Load** → select the JSON file.
+If your video falls outside this range you will get a `PixelCountTooSmall` or `PixelCountTooLarge` error. Re-export at a compatible resolution before uploading.
 
 ---
 
 ## Troubleshooting
 
 **"real-person face detected" or PrivacyInformation error**
-Use `SeedanceFaceRef` instead of connecting the image directly to `reference_images`. The face node routes images through the asset system which bypasses this check.
-
-**Asset not found / asset not visible**
-The node waits for `Active` status automatically. If it times out, AnyFast may be under load — retry in a few minutes. You can also paste the saved `group_id` into `existing_group_id` and re-run.
+Use `SeedanceFaceRef` instead of connecting the face image to `reference_images` or `anyfast_refs` directly. The face node routes images through the asset system which bypasses this check.
 
 **Liveness verification link in console**
-Open the printed URL on your phone within 30 seconds. This only happens on first upload per group.
+Open the printed URL on your phone within 30 seconds. This only happens on the first upload per group.
+
+**"endpoint not available" or 404 on reference inputs / Ultra**
+These features require a **Direct** plan. Contact AnyFast support to activate it on your account.
 
 **"API key is empty"**
-Make sure the API Key node's `api_key` field is filled and connected to the generation node.
+Make sure the API Key node's `api_key` field is filled and its output is connected to the generation node.
 
 **`first_frame` IMAGE output is blank / black**
 Install `opencv-python` (`pip install opencv-python`). Without it the first frame extraction falls back to a 64×64 black image.
 
-**Generation times out after 1200 s**
-Seedance Ultra at 2k can take longer than other variants. The timeout is 20 minutes — if you hit it regularly, check AnyFast's status page.
-
 **"reference_audio cannot be the only reference input"**
 AnyFast requires at least one image or video reference when using audio. Connect an image via `SeedanceRefImages` or `SeedanceFaceRef` alongside the audio.
+
+**Audio duration error (InvalidParameter content[2])**
+The API rejects audio longer than 15.2 seconds. The node auto-trims to 15 s and prints a warning in the console — just re-queue after the trim.
+
+**PixelCountTooSmall on reference video**
+Re-export the video at a higher resolution (minimum ~640×640 px / 409,600 total pixels).
+
+**Generation times out after 1200 s**
+Seedance Ultra at 2k can take longer than other variants. If you hit the 20-minute timeout regularly, check AnyFast's status page.
+
+**Asset not found / asset not visible**
+The node waits for `Active` status automatically. If it times out, AnyFast may be under load — retry in a few minutes. You can paste the saved `group_id` into `existing_group_id` and re-run without re-uploading.
 
 ---
 

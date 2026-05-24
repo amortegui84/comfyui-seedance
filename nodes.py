@@ -1068,10 +1068,13 @@ def _video_input_to_path(video_input):
     return tmp.name, True
 
 
+_AUDIO_MAX_SECONDS = 15.0   # API hard limit is 15.2s; use 15.0 as safe target
+
+
 def _audio_dict_to_wav(audio_dict):
     """Save a ComfyUI AUDIO dict {waveform, sample_rate} to a temp WAV file.
 
-    Returns the temp path — caller is responsible for deleting it."""
+    Trims to _AUDIO_MAX_SECONDS if needed. Returns temp path — caller deletes it."""
     import tempfile
     try:
         import torchaudio
@@ -1083,10 +1086,37 @@ def _audio_dict_to_wav(audio_dict):
     sample_rate = audio_dict["sample_rate"]
     if waveform.dim() == 3:
         waveform = waveform[0]
+    duration = waveform.shape[-1] / sample_rate
+    if duration > _AUDIO_MAX_SECONDS:
+        print(f"[Seedance] Audio {duration:.2f}s exceeds 15.2s API limit — trimming to {_AUDIO_MAX_SECONDS}s")
+        waveform = waveform[..., :int(_AUDIO_MAX_SECONDS * sample_rate)]
     tmp = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
     tmp.close()
     torchaudio.save(tmp.name, waveform.cpu(), sample_rate)
     return tmp.name
+
+
+def _trim_audio_file_if_needed(file_path):
+    """Check audio duration via torchaudio; trim to _AUDIO_MAX_SECONDS if over limit.
+
+    Returns (path, needs_cleanup). path may be the original or a new temp WAV."""
+    try:
+        import torchaudio
+        info = torchaudio.info(file_path)
+        duration = info.num_frames / info.sample_rate
+        if duration <= 15.2:
+            return file_path, False
+        print(f"[Seedance] Audio {duration:.2f}s exceeds 15.2s API limit — trimming to {_AUDIO_MAX_SECONDS}s")
+        waveform, sr = torchaudio.load(file_path)
+        waveform = waveform[..., :int(_AUDIO_MAX_SECONDS * sr)]
+        import tempfile
+        tmp = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
+        tmp.close()
+        torchaudio.save(tmp.name, waveform.cpu(), sr)
+        return tmp.name, True
+    except Exception as e:
+        print(f"[Seedance] Could not check audio duration: {e}")
+        return file_path, False
 
 
 class SeedanceReferenceVideo:
@@ -1209,9 +1239,11 @@ class SeedanceReferenceAudio:
             if not os.path.isabs(file_path) and os.sep not in file_path and "/" not in file_path:
                 file_path = os.path.join(folder_paths.get_input_directory(), file_path)
             print(f"[Seedance] Using audio_path: {file_path}")
+            file_path, cleanup = _trim_audio_file_if_needed(file_path)
         elif audio_file and audio_file != "none":
             file_path = os.path.join(folder_paths.get_input_directory(), audio_file)
             print(f"[Seedance] Using audio_file dropdown: {audio_file}")
+            file_path, cleanup = _trim_audio_file_if_needed(file_path)
         else:
             raise ValueError(
                 "Provide a file path in 'audio_path', connect a Load Audio node, "

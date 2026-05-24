@@ -45,9 +45,9 @@
       "order": 2,
       "mode": 0,
       "outputs": [
-        {"name": "anyfast_refs", "type": "ANYFAST_IMAGE_REFS", "links": [4],  "slot_index": 0},
-        {"name": "group_id",     "type": "STRING",             "links": [6],  "slot_index": 1},
-        {"name": "asset_ids",    "type": "STRING",             "links": [],   "slot_index": 2}
+        {"name": "anyfast_refs", "type": "ANYFAST_IMAGE_REFS", "links": [4], "slot_index": 0},
+        {"name": "group_id",     "type": "STRING",             "links": [6], "slot_index": 1},
+        {"name": "asset_ids",    "type": "STRING",             "links": [],  "slot_index": 2}
       ],
       "inputs": [
         {"name": "api",               "type": "SEEDANCE_API",       "link": 1},
@@ -84,7 +84,7 @@
         {"name": "audio", "type": "AUDIO", "link": null}
       ],
       "properties": {"Node name for S&R": "SeedanceReferenceAudio"},
-      "widgets_values": ["none"]
+      "widgets_values": ["none", ""]
     },
     {
       "id": 5,
