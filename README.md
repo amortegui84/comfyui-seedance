@@ -163,7 +163,7 @@ SeedanceReferenceAudio                  → Seedance2(reference_audio)   ↑
 
 - `reference_audio` drives the **motion** of the video (rhythm sync, lip-sync, dancing) — it does **not** automatically become the audio track of the output.
 - The output audio track is always controlled by `generate_audio`: `True` = AI-generated audio, `False` = no audio.
-- To embed your actual audio file in the final video, use `generate_audio = False` on the generation node and then pass the result through **Seedance AM - Mux Audio into Video** (see workflow below).
+- To embed your actual audio in the final video, set `generate_audio = False` and connect the **same `SeedanceReferenceAudio` output** to both the generation node and to `SaveVideo`'s `reference_audio` input — the save node will mux the audio automatically.
 - `@image1` and `@audio1` are auto-appended to the prompt if not present.
 - Audio must be **≤ 15 seconds** (API hard limit 15.2 s). Files longer than that are automatically trimmed to 15 s with a console warning.
 - Files ≤ 10 MB are encoded as base64; larger files are uploaded to a temporary host.
@@ -171,12 +171,11 @@ SeedanceReferenceAudio                  → Seedance2(reference_audio)   ↑
 #### Embedding your audio in the final video
 
 ```
-SeedanceFaceRef  → Seedance2(anyfast_refs)   → SaveVideo(saved_path) → MuxAudio → (video with audio)
-SeedanceRefAudio → Seedance2(reference_audio) ↑    [generate_audio=False]
-SeedanceRefAudio → MuxAudio(audio_file / audio) ↑
+SeedanceReferenceAudio → Seedance2(reference_audio)   [generate_audio = False]
+                       → SaveVideo(reference_audio)
 ```
 
-Or more simply, connect the same audio source to both `SeedanceReferenceAudio` and `SeedanceMuxAudio`.
+Split the wire from `SeedanceReferenceAudio` to both nodes — no extra steps needed.
 
 ---
 
@@ -226,7 +225,7 @@ API Key → Seedance2 → SeedanceSaveVideo (original)
 | `Seedance AM 2.0 - Fast` | Same as Standard but faster (`seedance-fast` model). |
 | `Seedance AM 2.0 - Ultra` | Highest quality (`seedance-2.0-ultra` model, supports 2k). Requires Direct plan. |
 | `Seedance AM - Extend Video` | Continue a previous generation by wiring its `task_id`. Pick the same model and resolution as the original. |
-| `Seedance AM - Save Video` | Download and save the generated mp4 to the ComfyUI output folder. Shows a preview in the UI. |
+| `Seedance AM - Save Video` | Download and save the generated mp4. Optional `reference_audio` input: connect the same `SeedanceReferenceAudio` output here to auto-mux your audio into the final video (requires ffmpeg). |
 
 ### References
 
@@ -331,7 +330,7 @@ Make sure the API Key node's `api_key` field is filled and its output is connect
 Install `opencv-python` (`pip install opencv-python`). Without it the first frame extraction falls back to a 64×64 black image.
 
 **Reference audio accepted but the output video has AI-generated audio or no audio**
-`reference_audio` only drives the motion (rhythm, lip-sync) — it never becomes the audio track automatically. Use `generate_audio = False` on the generation node and wire the output through `SeedanceMuxAudio` to embed your audio file into the final video.
+`reference_audio` only drives the motion (rhythm, lip-sync) — it never becomes the audio track automatically. Set `generate_audio = False` and connect the same `SeedanceReferenceAudio` output to `SaveVideo`'s `reference_audio` input. The save node will mux your audio into the final video.
 
 **"reference_audio cannot be the only reference input"**
 AnyFast requires at least one image or video reference when using audio. Connect an image via `SeedanceRefImages` or `SeedanceFaceRef` alongside the audio.

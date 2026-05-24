@@ -1607,7 +1607,13 @@ class SeedanceSaveVideo:
                 "video_url":       ("STRING", {"forceInput": True}),
                 "filename_prefix": ("STRING", {"default": "seedance"}),
                 "save_to":         (["output", "input"], {"default": "output"}),
-            }
+            },
+            "optional": {
+                # Connect the same SeedanceReferenceAudio output here to embed
+                # the audio in the saved video (reference_audio only drives motion,
+                # it is never automatically included in the generated video).
+                "reference_audio": ("STRING", {"forceInput": True}),
+            },
         }
 
     RETURN_TYPES = ("STRING",)
@@ -1615,7 +1621,7 @@ class SeedanceSaveVideo:
     OUTPUT_NODE  = True
     FUNCTION     = "save"
 
-    def save(self, video_url, filename_prefix, save_to):
+    def save(self, video_url, filename_prefix, save_to, reference_audio=None):
         output_dir = folder_paths.get_output_directory() if save_to == "output" else folder_paths.get_input_directory()
         timestamp  = int(time.time())
         filename   = f"{filename_prefix}_{timestamp}.mp4"
@@ -1632,6 +1638,12 @@ class SeedanceSaveVideo:
                 f.write(chunk)
 
         print(f"[Seedance] Saved: {filename}")
+
+        # Mux reference audio into the video if provided
+        if reference_audio and reference_audio.strip():
+            filepath = self._mux_audio(filepath, reference_audio.strip(), output_dir, filename_prefix, timestamp)
+            filename = os.path.basename(filepath)
+
         entry = {"filename": filename, "subfolder": subfolder, "type": save_to}
         preview_ui = {"gifs": [entry], "videos": [entry]}
         if comfy_ui is not None and comfy_io is not None:
@@ -1650,6 +1662,71 @@ class SeedanceSaveVideo:
             },
             "result": (filepath,),
         }
+
+    def _mux_audio(self, video_path, audio_url, output_dir, prefix, timestamp):
+        """Decode or download audio_url to a temp file, mux into video, return new path."""
+        import subprocess, tempfile, base64
+
+        ffmpeg = _find_ffmpeg()
+        if not ffmpeg:
+            print("[Seedance] ffmpeg not found — skipping audio mux. Install imageio-ffmpeg to enable.")
+            return video_path
+
+        audio_tmp = None
+        try:
+            if audio_url.startswith("data:"):
+                # base64 data URI — decode to temp file
+                header, b64data = audio_url.split(",", 1)
+                ext = ".wav"
+                for fmt in ("mpeg", "mp3", "wav", "ogg", "flac", "mp4"):
+                    if fmt in header:
+                        ext = ".mp3" if fmt in ("mpeg", "mp3") else f".{fmt}"
+                        break
+                audio_tmp = tempfile.NamedTemporaryFile(suffix=ext, delete=False)
+                audio_tmp.write(base64.b64decode(b64data))
+                audio_tmp.close()
+                audio_src = audio_tmp.name
+                print(f"[Seedance] Muxing base64 audio into video")
+            else:
+                # public URL — download to temp file
+                ext = os.path.splitext(audio_url.split("?")[0])[1] or ".mp3"
+                audio_tmp = tempfile.NamedTemporaryFile(suffix=ext, delete=False)
+                audio_tmp.close()
+                resp = requests.get(audio_url, timeout=60)
+                resp.raise_for_status()
+                with open(audio_tmp.name, "wb") as f:
+                    f.write(resp.content)
+                audio_src = audio_tmp.name
+                print(f"[Seedance] Muxing downloaded audio into video")
+
+            out_path = os.path.join(output_dir, f"{prefix}_{timestamp}_audio.mp4")
+            cmd = [
+                ffmpeg, "-y",
+                "-i", video_path,
+                "-i", audio_src,
+                "-c:v", "copy",
+                "-c:a", "aac",
+                "-map", "0:v:0",
+                "-map", "1:a:0",
+                "-shortest",
+                out_path,
+            ]
+            result = subprocess.run(cmd, capture_output=True, text=True)
+            if result.returncode != 0:
+                print(f"[Seedance] ffmpeg mux failed:\n{result.stderr[-500:]}")
+                return video_path
+
+            # replace the silent video with the muxed one
+            os.remove(video_path)
+            print(f"[Seedance] Audio muxed: {os.path.basename(out_path)}")
+            return out_path
+
+        except Exception as e:
+            print(f"[Seedance] Audio mux error: {e}")
+            return video_path
+        finally:
+            if audio_tmp and os.path.exists(audio_tmp.name):
+                os.remove(audio_tmp.name)
 
 
 # --------------------------------------------------------------------------- #
