@@ -1632,14 +1632,16 @@ class SeedanceSaveVideo:
                 f.write(chunk)
 
         print(f"[Seedance] Saved: {filename}")
+        entry = {"filename": filename, "subfolder": subfolder, "type": save_to}
+        preview_ui = {"gifs": [entry], "videos": [entry]}
         if comfy_ui is not None and comfy_io is not None:
-            folder_type = comfy_io.FolderType.output if save_to == "output" else comfy_io.FolderType.input
-            preview_ui = comfy_ui.PreviewVideo(
-                [comfy_ui.SavedResult(filename, subfolder, folder_type)]
-            ).as_dict()
-        else:
-            entry = {"filename": filename, "subfolder": subfolder, "type": save_to}
-            preview_ui = {"gifs": [entry], "videos": [entry]}
+            try:
+                folder_type = comfy_io.FolderType.output if save_to == "output" else comfy_io.FolderType.input
+                preview_ui = comfy_ui.PreviewVideo(
+                    [comfy_ui.SavedResult(filename, subfolder, folder_type)]
+                ).as_dict()
+            except Exception:
+                pass  # fall back to legacy format already set above
 
         return {
             "ui": {
