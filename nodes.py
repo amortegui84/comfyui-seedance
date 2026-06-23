@@ -1011,11 +1011,15 @@ class SeedanceAssetRef:
 
 RES_V2       = ["1080p", "720p", "480p"]
 RES_V2_ULTRA = ["2k", "1080p", "720p"]
-# Seedance 2.5 (announced 2026-06-23, public launch early July 2026).
-# Confirmed specs: up to 30s single-pass clips, up to 50 multimodal references.
-# 4K is reported but NOT yet officially confirmed for 2.5 (it IS confirmed for 2.0),
-# so 4K is offered only on the higher-res "Pro" placeholder variant. Model IDs are
-# not yet published — update RES_V25*/MODEL_ID/MAX_DURATION_V25 when AnyFast ships 2.5.
+# Seedance 2.5 — AnyFast docs (docs.anyfast.ai) state it is "Coming soon to Anyfast"
+# (announced 2026-06-23, public launch early July 2026), so the model is NOT on
+# AnyFast yet and these IDs return model_not_found until it ships.
+# Naming: AnyFast's canonical 2.0 id is "seedance-2.0" (dotted), so "seedance-2.5"
+# below follows the documented convention. The "-pro" variant is SPECULATIVE — the
+# 2.0 schema exposes only one id (no Standard/Fast/Ultra split), so a 2.5 "Pro" may
+# not exist. Confirmed (press, not yet AnyFast): up to 30s single-pass, up to 50 refs.
+# AnyFast's seedance-2.0 schema already lists 4k, so 4k for 2.5 is likely too.
+# Update RES_V25*/MODEL_ID/MAX_DURATION_V25 when AnyFast publishes the real 2.5 specs.
 RES_V25      = ["1080p", "720p", "480p"]        # standard tier (conservative until specs land)
 RES_V25_PRO  = ["4k", "2k", "1080p", "720p"]    # higher-res variant; 4k = reported, unconfirmed
 RATIO_V2     = ["16:9", "9:16", "4:3", "3:4", "1:1", "21:9", "adaptive"]

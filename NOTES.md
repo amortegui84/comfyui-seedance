@@ -23,9 +23,23 @@
 
 Sources: the-decoder.com, explainx.ai, digitalapplied.com (Seedance 2.5 launch coverage).
 
+### AnyFast official docs check (docs.anyfast.ai, 2026-06-23)
+- **2.5 status:** the AnyFast docs index (`docs.anyfast.ai/llms.txt`) states
+  *"Seedance 2.5 … Coming soon to Anyfast."* → confirms the `model_not_found` on
+  `seedance-2.5*` is expected; the model is simply not enabled yet.
+- **Model-ID convention:** AnyFast's `seedance-2.0` API reference uses the dotted
+  id `seedance-2.0` (its schema enum lists only that one id — no separate Standard/
+  Fast/Ultra ids). So `seedance-2.5` here matches the convention, but `seedance-2.5-pro`
+  is speculative (a 2.5 "Pro" tier may not exist).
+- **2.0 resolutions per AnyFast schema:** `480p / 720p / 1080p / 4k` (default 720p),
+  duration 4–15s default 5. NOTE: the plugin's 2.0 nodes currently expose `2k`
+  (works via Direct channel) and do NOT list `4k` — a separate 2.0 accuracy gap,
+  left unchanged here to avoid altering working 2.0 workflows without sign-off.
+
 ### Placeholders / things to confirm when AnyFast ships 2.5
-- **Model IDs** `seedance-2.5` / `seedance-2.5-pro` — ByteDance has not published
-  real IDs; the Pro/tier structure is unconfirmed (may be `-ultra`, or not exist).
+- **Model IDs** `seedance-2.5` / `seedance-2.5-pro` — ByteDance/AnyFast have not
+  published real IDs; the Pro/tier structure is unconfirmed (may be `-ultra`, or
+  not exist as a separate model — AnyFast's 2.0 schema has a single id).
 - **Resolution lists** `RES_V25` (mirrors 2.0) and `RES_V25_PRO` (adds `4k`) —
   confirm exact supported tiers; remove `4k` if 2.5 does not actually support it.
 - **`MAX_DURATION_V25 = 30`** — confirm 30 is the real cap and the min (assumed 4).
