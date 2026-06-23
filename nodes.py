@@ -305,6 +305,19 @@ def _submit_and_poll(api, payload):
                 "Connect the face image to SeedanceFaceRef → anyfast_refs input.\n"
                 "Do NOT use SeedanceRefImages (reference_images) for faces — that sends base64 which AnyFast blocks."
             )
+        if "model_not_found" in r.text.lower() or "no available channel" in r.text.lower():
+            model_name = payload.get("model", "?")
+            if str(model_name).startswith("seedance-2.5"):
+                raise RuntimeError(
+                    f"AnyFast has no channel for '{model_name}' yet.\n"
+                    "Seedance 2.5 is not generally available on AnyFast (public launch ~early July 2026),\n"
+                    "so the 2.5 nodes will fail until AnyFast enables the models. Use a Seedance 2.0\n"
+                    "node for now, and update the 2.5 model IDs in nodes.py once AnyFast publishes them."
+                )
+            raise RuntimeError(
+                f"AnyFast has no available channel for model '{model_name}'.\n"
+                "Enable the model's channel in the AnyFast Console (some models require the Direct plan)."
+            )
         raise RuntimeError(f"Seedance API error {r.status_code}: {r.text}")
     if not r.ok:
         raise RuntimeError(f"Seedance API error {r.status_code}: {r.text}")
@@ -369,8 +382,18 @@ def _extract_verify_url(resp_json):
             resp_json.get("data", {}).get("verify_url"))
 
 
+# Cache of resolved asset-group GroupType, keyed by (base_url, group_id).
+# ListAssets on the current AnyFast channel requires Filter.GroupType (groups
+# resolve to "AIGC"); caching it lets repeated asset waits include GroupType on
+# the first call and avoid the guaranteed "GroupType is missing" 400.
+_GROUP_TYPE_CACHE = {}
+
+
 def _list_asset_group_type(base_url, headers, group_id):
-    """Resolve GroupType for an AnyFast asset group if ListAssets requires it."""
+    """Resolve GroupType for an AnyFast asset group if ListAssets requires it.
+
+    Returns the GroupType string (e.g. "AIGC") or None if the group has no type.
+    Caches successful lookups in _GROUP_TYPE_CACHE. Raises on API errors."""
     r = requests.post(
         f"{base_url}/volc/asset/ListAssetGroups",
         json={
@@ -395,8 +418,26 @@ def _list_asset_group_type(base_url, headers, group_id):
             continue
         group_type = _find_ci(item, "GroupType", "group_type")
         if group_type:
-            return str(group_type).strip()
+            resolved = str(group_type).strip()
+            _GROUP_TYPE_CACHE[(base_url, group_id)] = resolved
+            return resolved
     return None
+
+
+def _resolve_group_type(base_url, headers, group_id):
+    """Best-effort GroupType lookup used before the first ListAssets call.
+
+    Reads the cache first, then falls back to ListAssetGroups. Returns None
+    (so callers omit GroupType, the older typeless-group behavior) if the type
+    cannot be resolved — never raises, so it can't break a working flow."""
+    cached = _GROUP_TYPE_CACHE.get((base_url, group_id))
+    if cached:
+        return cached
+    try:
+        return _list_asset_group_type(base_url, headers, group_id)
+    except Exception as e:
+        print(f"[Seedance Assets] Could not pre-resolve GroupType for {group_id}: {e}")
+        return None
 
 
 def _validate_anyfast_image_bytes(file_bytes, filename):
@@ -659,7 +700,13 @@ def _wait_for_asset_active(api, asset_id, group_id, timeout=300, interval=5):
     api_key = api["api_key"].strip()
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
     deadline = time.time() + timeout
-    resolved_group_type = None
+    # Resolve GroupType up front (cached) so the first ListAssets call already
+    # includes it and we avoid the guaranteed "GroupType is missing" 400 that the
+    # current AnyFast channel returns. Falls back to None (omit) for older
+    # typeless-group channels; the in-loop fallback below is kept as a safety net.
+    resolved_group_type = _resolve_group_type(base_url, headers, group_id)
+    if resolved_group_type:
+        print(f"[Seedance Assets] Using GroupType={resolved_group_type} for group {group_id}")
 
     print(f"[Seedance Assets] Waiting for asset {raw_asset_id} to become Active (timeout={timeout}s)...")
     while time.time() < deadline:

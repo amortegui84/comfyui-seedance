@@ -38,6 +38,27 @@ Sources: the-decoder.com, explainx.ai, digitalapplied.com (Seedance 2.5 launch c
   since 2.5's 30s single-pass output reduces the need for extend, and 2.5 extend
   support is undocumented.
 
+## Runtime fixes (from live testing 2026-06-23)
+
+### Asset GroupType — pre-resolve + cache
+The current AnyFast channel **requires** `Filter.GroupType` on `ListAssets`
+(groups resolve to `GroupType=AIGC`), contradicting the older "omit GroupType"
+note. The code already recovered via an in-loop fallback, but every asset wait
+first fired a guaranteed `400 GroupType is missing`, polluting the AnyFast error
+dashboard. Now `_wait_for_asset_active` calls `_resolve_group_type` (cached via
+`_GROUP_TYPE_CACHE`, best-effort, never raises) **before** the first ListAssets
+call, so GroupType is included up front and the 400 no longer happens. The
+in-loop fallback is kept as a safety net for older typeless-group channels.
+
+### Friendly `model_not_found` error for 2.5
+Running a 2.5 node before AnyFast ships the model returns
+`503 model_not_found / "No available channel for model seedance-2.5-pro"`.
+`_submit_and_poll` now detects this and, for `seedance-2.5*` models, raises a
+clear "2.5 not generally available yet — use 2.0 / update the model ID" message
+instead of the raw 503. **Confirmed via live test: the full 2.5 pipeline (asset
+upload, GroupType resolve, 30s prompt, 4k payload) works end to end; only the
+model itself is missing on AnyFast until ~early July 2026.**
+
 ## §5 analysis findings
 
 ### a) I2V vs R2V validation — FIXED
