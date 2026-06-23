@@ -964,8 +964,16 @@ class SeedanceAssetRef:
 
 RES_V2       = ["1080p", "720p", "480p"]
 RES_V2_ULTRA = ["2k", "1080p", "720p"]
+# Seedance 2.5 (announced 2026-06-23, public launch early July 2026).
+# Confirmed specs: up to 30s single-pass clips, up to 50 multimodal references.
+# 4K is reported but NOT yet officially confirmed for 2.5 (it IS confirmed for 2.0),
+# so 4K is offered only on the higher-res "Pro" placeholder variant. Model IDs are
+# not yet published — update RES_V25*/MODEL_ID/MAX_DURATION_V25 when AnyFast ships 2.5.
+RES_V25      = ["1080p", "720p", "480p"]        # standard tier (conservative until specs land)
+RES_V25_PRO  = ["4k", "2k", "1080p", "720p"]    # higher-res variant; 4k = reported, unconfirmed
 RATIO_V2     = ["16:9", "9:16", "4:3", "3:4", "1:1", "21:9", "adaptive"]
-MAX_DURATION = 15
+MAX_DURATION     = 15   # Seedance 2.0
+MAX_DURATION_V25 = 30   # Seedance 2.5 — confirmed 30s single-pass max
 
 
 # --------------------------------------------------------------------------- #
@@ -1349,9 +1357,11 @@ class SeedanceUploadAsset:
 # --------------------------------------------------------------------------- #
 
 class _V2Base:
-    CATEGORY    = "Seedance AM/Core"
-    RESOLUTIONS = RES_V2
-    MODEL_ID    = "seedance"
+    CATEGORY         = "Seedance AM/Core"
+    RESOLUTIONS      = RES_V2
+    MODEL_ID         = "seedance"
+    DURATION_DEFAULT = 5          # 2.5 subclasses raise this — longer durations supported
+    DURATION_MAX     = MAX_DURATION
 
     @classmethod
     def INPUT_TYPES(cls):
@@ -1361,7 +1371,7 @@ class _V2Base:
                 "prompt":         ("STRING", {"multiline": True, "default": ""}),
                 "resolution":     (cls.RESOLUTIONS,),
                 "ratio":          (RATIO_V2,),
-                "duration":       ("INT", {"default": 5, "min": 4, "max": MAX_DURATION, "step": 1}),
+                "duration":       ("INT", {"default": cls.DURATION_DEFAULT, "min": 4, "max": cls.DURATION_MAX, "step": 1}),
                 "generate_audio": ("BOOLEAN", {"default": True}),
                 "watermark":      ("BOOLEAN", {"default": False}),
                 "seed":           ("INT", {"default": -1, "min": -1, "max": 2147483647}),
@@ -1392,6 +1402,18 @@ class _V2Base:
                  watermark, seed, first_frame=None, last_frame=None,
                  reference_images=None, reference_video=None, reference_audio=None,
                  anyfast_refs=None):
+
+        # I2V (start the video from a literal first_frame) and R2V (style/identity,
+        # video or audio references) are mutually exclusive — they cannot be mixed in
+        # one request. The anyfast_refs path enforces this internally for asset-based
+        # refs; this guard covers the direct first_frame IMAGE input as well.
+        if first_frame is not None and (
+            reference_images or anyfast_refs or reference_video or reference_audio
+        ):
+            raise ValueError(
+                "Cannot mix I2V (first_frame) with R2V references (reference_images, "
+                "anyfast_refs, reference_video, reference_audio). Use one mode at a time."
+            )
 
         # Seedance requires @image1, @video1, @audio1 tags in the prompt so the
         # model knows how to use each reference. Auto-append any missing tags.
@@ -1531,6 +1553,50 @@ class Seedance2Ultra(_V2Base):
     """Seedance 2.0 Ultra — Highest quality (720p / 1080p / 2k, up to 15s, with audio)."""
     RESOLUTIONS = RES_V2_ULTRA
     MODEL_ID    = "seedance-2.0-ultra"
+
+
+# --------------------------------------------------------------------------- #
+# Seedance 2.5 generation nodes
+# — Announced 2026-06-23; public launch early July 2026. NOT on AnyFast yet.
+# — Confirmed specs: up to 30s single-pass clips (no stitching) and up to 50
+#   multimodal references (images + audio + video + style/3D refs).
+# — Model IDs (seedance-2.5 / seedance-2.5-pro) and the Pro/tier structure are
+#   PLACEHOLDERS — ByteDance has not published them. Confirm with AnyFast when live.
+# — Same workflow as 2.0 (T2V / I2V / R2V) and same reference + asset system, so
+#   these subclass _V2Base and reuse all payload/polling/reference logic with zero
+#   duplication — only model ID, resolutions, duration range and category differ.
+# --------------------------------------------------------------------------- #
+
+class SeedanceV25Standard(_V2Base):
+    """Seedance 2.5 Standard — 30s single-pass clips, up to 50 references.
+
+    Not yet on AnyFast (public launch early July 2026). Model ID: seedance-2.5
+    (PLACEHOLDER — ByteDance has not published the real ID).
+    Same workflow as 2.0: T2V, I2V, R2V — same reference modes apply.
+    Confirmed improvements vs 2.0: up to 30s in one pass and up to 50 multimodal
+    references. (4K is reported but unconfirmed for 2.5 — see the Pro variant.)"""
+
+    CATEGORY         = "Seedance AM/2.5"
+    RESOLUTIONS      = RES_V25
+    MODEL_ID         = "seedance-2.5"
+    DURATION_DEFAULT = 10
+    DURATION_MAX     = MAX_DURATION_V25
+
+
+class SeedanceV25Pro(_V2Base):
+    """Seedance 2.5 Pro — higher-resolution 2.5 variant (PLACEHOLDER).
+
+    Not yet on AnyFast. Model ID: seedance-2.5-pro (PLACEHOLDER — ByteDance has
+    not confirmed any 2.5 tier structure; the real higher-res variant may be
+    named differently, e.g. '-ultra', or may not exist as a separate model).
+    Offers 4K as a resolution option (reported for 2.5, not officially confirmed).
+    Same 30s / 50-reference workflow and asset system as 2.5 Standard."""
+
+    CATEGORY         = "Seedance AM/2.5"
+    RESOLUTIONS      = RES_V25_PRO
+    MODEL_ID         = "seedance-2.5-pro"
+    DURATION_DEFAULT = 10
+    DURATION_MAX     = MAX_DURATION_V25
 
 
 # --------------------------------------------------------------------------- #
@@ -1904,6 +1970,9 @@ NODE_CLASS_MAPPINGS = {
     "Seedance2":           Seedance2,
     "Seedance2Fast":       Seedance2Fast,
     "Seedance2Ultra":      Seedance2Ultra,
+    # 2.5 generation (placeholder model IDs — coming soon on AnyFast)
+    "SeedanceV25Standard": SeedanceV25Standard,
+    "SeedanceV25Pro":      SeedanceV25Pro,
     # References
     "SeedanceReferenceVideo":   SeedanceReferenceVideo,
     "SeedanceReferenceAudio":   SeedanceReferenceAudio,
@@ -1927,6 +1996,9 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "Seedance2":           "Seedance AM 2.0 - Standard",
     "Seedance2Fast":       "Seedance AM 2.0 - Fast",
     "Seedance2Ultra":      "Seedance AM 2.0 - Ultra",
+    # 2.5 generation
+    "SeedanceV25Standard": "Seedance AM 2.5 - Standard",
+    "SeedanceV25Pro":      "Seedance AM 2.5 - Pro",
     # References
     "SeedanceReferenceVideo":   "Seedance AM - Reference Video",
     "SeedanceReferenceAudio":   "Seedance AM - Reference Audio",

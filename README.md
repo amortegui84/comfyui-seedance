@@ -1,6 +1,6 @@
 # ComfyUI AnyFast Seedance
 
-Generate videos with **ByteDance Seedance 2.0** inside ComfyUI, powered by [AnyFast](https://www.anyfast.ai).
+Generate videos with **ByteDance Seedance 2.0** (and preview nodes for **Seedance 2.5**) inside ComfyUI, powered by [AnyFast](https://www.anyfast.ai).
 
 Supports text-to-video, image-to-video, face/person references (with automatic moderation bypass), reference images, reference video, and reference audio.
 
@@ -42,13 +42,23 @@ Connect the API Key node output (`api`) to every generation node you use.
 
 ## Model Variants
 
-| Node | Model ID | Resolutions | Best for |
-|---|---|---|---|
-| `Seedance AM 2.0 - Standard` | `seedance` | 480p / 720p / 1080p | General use |
-| `Seedance AM 2.0 - Fast` | `seedance-fast` | 480p / 720p / 1080p | Quick iterations |
-| `Seedance AM 2.0 - Ultra` | `seedance-2.0-ultra` | 720p / 1080p / 2k | Highest quality |
+| Node | Model ID | Resolutions | Max duration | Best for |
+|---|---|---|---|---|
+| `Seedance AM 2.0 - Standard` | `seedance` | 480p / 720p / 1080p | 15s | General use |
+| `Seedance AM 2.0 - Fast` | `seedance-fast` | 480p / 720p / 1080p | 15s | Quick iterations |
+| `Seedance AM 2.0 - Ultra` | `seedance-2.0-ultra` | 720p / 1080p / 2k | 15s | Highest quality |
+| `Seedance AM 2.5 - Standard` | `seedance-2.5` ⚠️ | 480p / 720p / 1080p | 30s | Long single-pass clips |
+| `Seedance AM 2.5 - Pro` | `seedance-2.5-pro` ⚠️ | 720p / 1080p / 2k / 4k ⚠️ | 30s | Highest-res 2.5 |
 
-All three nodes share the same inputs — only the underlying model differs.
+All nodes share the same inputs — only the underlying model differs.
+
+> ⚠️ **Seedance 2.5 is not generally available yet.** It was announced 2026-06-23
+> (public launch targeted for early July 2026) and is **not on AnyFast yet**. The
+> model IDs (`seedance-2.5`, `seedance-2.5-pro`), the Pro tier, and 4K support are
+> **placeholders based on launch coverage** — confirmed: up to **30s** single-pass
+> clips and up to **50** multimodal references. Update the model IDs / resolutions
+> in `nodes.py` once AnyFast publishes the real values. The 2.5 nodes are additive;
+> all 2.0 workflows keep working unchanged.
 
 ---
 
@@ -212,6 +222,8 @@ API Key → Seedance2 → SeedanceSaveVideo (original)
 | `Seedance AM 2.0 - Standard` | Main generation node (`seedance` model). |
 | `Seedance AM 2.0 - Fast` | Same as Standard but faster (`seedance-fast` model). |
 | `Seedance AM 2.0 - Ultra` | Highest quality (`seedance-2.0-ultra` model, supports 2k). Requires Direct plan. |
+| `Seedance AM 2.5 - Standard` | Seedance 2.5 generation up to 30s (`seedance-2.5` ⚠️ placeholder). Not on AnyFast yet — see Model Variants note. |
+| `Seedance AM 2.5 - Pro` | Higher-res 2.5 variant up to 30s, offers 4k (`seedance-2.5-pro` ⚠️ placeholder). Not on AnyFast yet. |
 | `Seedance AM - Extend Video` | Continue a previous generation by wiring its `task_id`. Pick the same model and resolution as the original. |
 | `Seedance AM - Save Video` | Download and save the generated mp4. Optional `reference_audio` input: connect the same `SeedanceReferenceAudio` output here to auto-mux your audio into the final video (requires ffmpeg). |
 
@@ -245,9 +257,9 @@ API Key → Seedance2 → SeedanceSaveVideo (original)
 | Parameter | Values | Notes |
 |---|---|---|
 | `prompt` | text | `@image1`…`@image9`, `@video1`, `@audio1` are auto-appended when needed |
-| `resolution` | `480p` / `720p` / `1080p` (Standard/Fast); `720p` / `1080p` / `2k` (Ultra) | |
+| `resolution` | `480p` / `720p` / `1080p` (Standard/Fast); `720p` / `1080p` / `2k` (Ultra); 2.5 Pro adds `4k` ⚠️ | |
 | `ratio` | `16:9` `9:16` `4:3` `3:4` `1:1` `21:9` `adaptive` | |
-| `duration` | 4 – 15 seconds | |
+| `duration` | 4 – 15 seconds (2.0); 4 – 30 seconds (2.5) | |
 | `generate_audio` | true / false | Auto-generates synced voice, sound effects, and music. Turn off when using `reference_audio`. |
 | `watermark` | true / false | ByteDance watermark |
 | `seed` | -1 or integer | `-1` = random; any positive integer = reproducible |
