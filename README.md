@@ -131,22 +131,38 @@ Each one demonstrates exactly one capability.
 | `11_v25_web_search.json` | Seedance 2.5 — `web_search` grounding |
 | `12_cast_and_references.json` | **Ready to use** — one or more faces *plus* several object/style references |
 | `13_style_journey_v25.json` | Seedance 2.5 at full stretch — 30s, 13 references, one subject morphing through 8 art styles across 5 locations |
-| `14_style_journey_reuse.json` | **The same video, re-run from a saved identity** — 10 nodes instead of 19, no uploads |
+| `15_two_people.json` | Two different people in one shot, one `FaceRef` per person |
 
-### 13 and 14 are a pair
+### Example 13 carries both halves in one file
 
-Read them together, because they show the point of identities. `13` is the first
-run: eight subject images go up through the asset system, which takes a few
-minutes and is unavoidable — you cannot reuse what does not exist yet. It also
-saves them under one name.
+It is laid out in labelled groups. **PART 1** is where you put your images:
+`LoadImage` nodes into `FaceRef`, which uploads them and saves them under a name
+you choose. **PART 2** is those same images pulled back by that name with no
+upload — it ships **muted**, so the workflow runs correctly the very first time,
+before the identity exists.
 
-`14` is every run after that. The eight subject images arrive from a single
-`Identity` node picked off a dropdown: no `LoadImage` nodes for the subject, no
-uploads, no waiting. Nineteen nodes become ten, and the slow part disappears.
+Once PART 1 has run and you have restarted ComfyUI, select the two PART 2 nodes,
+press `Ctrl+M` to unmute them, and drag `Identity → anyfast_refs` onto the
+generation node. That replaces the link coming from `FaceRef`.
 
-The five locations stay on the direct route in both. They contain no real faces,
+**You never have to switch.** `FaceRef` caches by image hash, so re-running PART 1
+with the same pictures uploads nothing and makes no API call — it is exactly as
+fast, and you keep every image visible on screen. PART 2 only buys a smaller
+graph, which matters when you have eight references and not before.
+
+The five locations stay on the direct route either way. They carry no real faces,
 so turning them into assets would buy nothing — encoding them from disk is
 instant and costs no API call. Only the expensive half is worth naming.
+
+### Seeing and choosing what an identity sends
+
+Wire `Identity → preview` into a **Preview Image** node. It shows every image the
+identity holds, in order, and that order is what `select` counts in — type
+`1,4,8` or `1-3,8` to attach only some of them, or leave it empty for all.
+
+To add another photo to an existing identity later, run `FaceRef` again with the
+same identity name and the new image connected. It is appended rather than
+replacing anything, and nothing already uploaded is sent twice.
 
 `12_cast_and_references.json` is the one to start from for casting work. It comes
 pre-wired: drop a face into `FACE 1`, up to three objects/styles into `REF A/B/C`,

@@ -71,6 +71,12 @@
           "type": "STRING",
           "links": [],
           "slot_index": 2
+        },
+        {
+          "name": "preview",
+          "type": "IMAGE",
+          "links": [],
+          "slot_index": 3
         }
       ],
       "inputs": [
@@ -86,7 +92,8 @@
       "widgets_values": [
         "my-subject",
         "reference_image",
-        0
+        0,
+        ""
       ]
     },
     {

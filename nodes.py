@@ -917,7 +917,126 @@ def _save_identity(record):
     return path
 
 
-def _record_identity_asset(identity, asset_uri, role, group_id, image_hash=None):
+THUMB_SIZE = 320   # px, longest side — big enough to recognise a face in a preview
+
+
+def _identity_thumbs_dir(identity, create=False):
+    path = os.path.join(_identities_dir(), f"{_identity_slug(identity)}.thumbs")
+    if create:
+        try:
+            os.makedirs(path, exist_ok=True)
+        except Exception as e:
+            print(f"[Seedance Identity] Warning: could not create {path}: {e}")
+    return path
+
+
+def _save_identity_thumb(identity, asset_uri, image_tensor):
+    """Keep a small local copy of an uploaded image so the Identity node can show
+    what it is about to send. AnyFast only ever returns an asset:// id, so without
+    this the node is blind — you would be picking references you cannot see."""
+    if image_tensor is None:
+        return None
+    try:
+        arr = (image_tensor[0].numpy() * 255).clip(0, 255).astype(np.uint8)
+        pil = Image.fromarray(arr).convert("RGB")
+        pil.thumbnail((THUMB_SIZE, THUMB_SIZE))
+        name = f"{asset_uri.split('://')[-1]}.png"
+        path = os.path.join(_identity_thumbs_dir(identity, create=True), name)
+        pil.save(path, format="PNG")
+        return name
+    except Exception as e:
+        print(f"[Seedance Identity] Warning: could not save thumbnail: {e}")
+        return None
+
+
+def _load_identity_thumbs(identity, assets):
+    """Stack the saved thumbnails into one IMAGE batch, in reference order.
+
+    Entries with no thumbnail (identities imported from the old hash cache, which
+    only ever stored ids) become grey placeholders so the batch still lines up
+    one-to-one with the references."""
+    thumbs_dir = _identity_thumbs_dir(identity)
+    frames = []
+    for asset in assets:
+        arr = None
+        thumb = asset.get("thumb")
+        if thumb:
+            path = os.path.join(thumbs_dir, thumb)
+            if os.path.exists(path):
+                try:
+                    pil = Image.open(path).convert("RGB")
+                    arr = np.asarray(pil, dtype=np.float32) / 255.0
+                except Exception as e:
+                    print(f"[Seedance Identity] Could not read {path}: {e}")
+        if arr is None:
+            arr = np.full((THUMB_SIZE, THUMB_SIZE, 3), 0.25, dtype=np.float32)
+        frames.append(arr)
+
+    if not frames:
+        return _blank_frame()
+
+    # A ComfyUI IMAGE batch needs identical dimensions, and references are rarely
+    # the same shape — letterbox each onto a common square canvas.
+    canvas = np.zeros((len(frames), THUMB_SIZE, THUMB_SIZE, 3), dtype=np.float32)
+    for i, arr in enumerate(frames):
+        h, w = arr.shape[:2]
+        scale = min(THUMB_SIZE / max(h, 1), THUMB_SIZE / max(w, 1), 1.0)
+        nh, nw = max(1, int(h * scale)), max(1, int(w * scale))
+        if (nh, nw) != (h, w):
+            arr = np.asarray(
+                Image.fromarray((arr * 255).astype(np.uint8)).resize((nw, nh)),
+                dtype=np.float32,
+            ) / 255.0
+        top, left = (THUMB_SIZE - nh) // 2, (THUMB_SIZE - nw) // 2
+        canvas[i, top:top + nh, left:left + nw] = arr
+
+    if torch is not None:
+        return torch.from_numpy(canvas)
+    return canvas
+
+
+def _parse_selection(select, count):
+    """Turn '1,3,5' or '1-3,8' into zero-based indices. Empty selects everything.
+
+    One-based on purpose: the preview shows the references as @image1, @image2 …
+    so the numbers you type are the numbers you read off the screen."""
+    text = (select or "").strip()
+    if not text:
+        return list(range(count))
+
+    chosen = []
+    for part in re.split(r"[,\s]+", text):
+        if not part:
+            continue
+        match = re.fullmatch(r"(\d+)\s*-\s*(\d+)", part)
+        if match:
+            lo, hi = int(match.group(1)), int(match.group(2))
+            if lo > hi:
+                lo, hi = hi, lo
+            chosen.extend(range(lo, hi + 1))
+        elif part.isdigit():
+            chosen.append(int(part))
+        else:
+            raise ValueError(
+                f"Could not read '{part}' in select. Use numbers, ranges and commas, "
+                f"like '1,3,5' or '1-3,8'."
+            )
+
+    out, seen = [], set()
+    for number in chosen:
+        if not (1 <= number <= count):
+            raise ValueError(
+                f"select asks for image {number}, but this identity has {count}. "
+                f"Valid range is 1-{count}."
+            )
+        if number not in seen:
+            seen.add(number)
+            out.append(number - 1)
+    return out
+
+
+def _record_identity_asset(identity, asset_uri, role, group_id, image_hash=None,
+                           image_tensor=None):
     """Add or refresh one asset inside an identity's record, keeping the file
     stable so it stays readable and diffable."""
     record = _load_identity(identity) or {
@@ -933,8 +1052,15 @@ def _record_identity_asset(identity, asset_uri, role, group_id, image_hash=None)
         "asset_id":    asset_uri,
         "role":        role,
         "image_sha":   image_hash,
+        "thumb":       _save_identity_thumb(identity, asset_uri, image_tensor),
         "uploaded_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
     }
+    # A cache hit re-records without the tensor; keep the thumbnail already on disk.
+    if entry["thumb"] is None:
+        previous = next((a for a in record.get("assets", [])
+                         if a.get("asset_id") == asset_uri), None)
+        if previous:
+            entry["thumb"] = previous.get("thumb")
     # Update in place rather than remove-and-append: the list order decides which
     # asset becomes @image1, @image2 ... so re-recording one image of an identity
     # must not silently reshuffle the prompt tags of every workflow using it.
@@ -1097,7 +1223,8 @@ class SeedanceFaceRef:
                 _save_asset_cache(cache)
 
             if identity:
-                _record_identity_asset(identity, asset_uri, role, group_id, image_hash=cache_key)
+                _record_identity_asset(identity, asset_uri, role, group_id,
+                                       image_hash=cache_key, image_tensor=img_tensor)
 
             asset_id_list.append(asset_uri)
             entry = {
@@ -1123,6 +1250,15 @@ class SeedanceIdentity:
 
     Pick an identity that SeedanceFaceRef saved earlier and this emits the same
     anyfast_refs a fresh upload would, instantly. Nothing is sent to AnyFast.
+
+    Seeing what you are sending: wire the `preview` output to a Preview Image
+    node. It shows every image the identity holds, in order, so the numbers you
+    type into `select` are the numbers you can see. `select` takes '1,4,8' or
+    '1-3,8'; leave it empty to send all of them.
+
+    Adding another photo later: run SeedanceFaceRef again with the SAME identity
+    name and the new image connected. It is appended to the identity rather than
+    replacing it, and existing images are not re-uploaded.
 
     Identities live as one JSON file each in
     $SEEDANCE_IDENTITIES_DIR (default: ComfyUI/user/seedance/identities).
@@ -1153,12 +1289,19 @@ class SeedanceIdentity:
                 "existing_refs": ("ANYFAST_IMAGE_REFS", {"forceInput": True,
                                                          "tooltip": "Chain another Identity or FaceRef node here."}),
                 "limit": ("INT", {"default": 0, "min": 0, "max": 30,
-                                  "tooltip": "Use at most this many of the identity's images. 0 = all."}),
+                                  "tooltip": "Use at most the first N images. 0 = all. "
+                                             "Ignored when 'select' is filled in."}),
+                # Declared last: ComfyUI serialises widget values positionally.
+                "select": ("STRING", {"default": "",
+                                      "tooltip": "Which images to attach, 1-based, e.g. '1,4,8' or "
+                                                 "'1-3,8'. Empty = all of them. Wire the preview "
+                                                 "output to a Preview Image node to see which is "
+                                                 "which — they are shown in this same order."}),
             }
         }
 
-    RETURN_TYPES = ("ANYFAST_IMAGE_REFS", "STRING", "STRING")
-    RETURN_NAMES = ("anyfast_refs", "group_id", "asset_ids")
+    RETURN_TYPES = ("ANYFAST_IMAGE_REFS", "STRING", "STRING", "IMAGE")
+    RETURN_NAMES = ("anyfast_refs", "group_id", "asset_ids", "preview")
     OUTPUT_NODE  = True
     FUNCTION     = "load"
 
@@ -1172,7 +1315,7 @@ class SeedanceIdentity:
         except Exception:
             return identity
 
-    def load(self, identity, role, existing_refs=None, limit=0):
+    def load(self, identity, role, existing_refs=None, limit=0, select=""):
         record = _load_identity(identity)
         if not record:
             known = _list_identities()
@@ -1183,11 +1326,21 @@ class SeedanceIdentity:
                    "Nothing saved yet — run SeedanceFaceRef once with an identity name set.")
             )
 
-        assets = record.get("assets", [])
-        if not assets:
+        all_assets = record.get("assets", [])
+        if not all_assets:
             raise ValueError(f"Identity '{identity}' has no assets recorded in its file.")
-        if limit:
-            assets = assets[:limit]
+
+        # The preview always shows every image the identity holds, numbered the way
+        # `select` expects — otherwise you would be choosing indices blind.
+        preview = _load_identity_thumbs(identity, all_assets)
+
+        if select and select.strip():
+            picked = _parse_selection(select, len(all_assets))
+        elif limit:
+            picked = list(range(min(limit, len(all_assets))))
+        else:
+            picked = list(range(len(all_assets)))
+        assets = [all_assets[i] for i in picked]
 
         refs = list(existing_refs) if existing_refs else []
         asset_id_list = []
@@ -1206,9 +1359,13 @@ class SeedanceIdentity:
 
         group_id = record.get("group_id") or ""
         asset_ids_text = "\n".join(asset_id_list)
-        print(f"[Seedance Identity] '{identity}' → {len(asset_id_list)} asset(s), role={role} (no upload)")
-        ui_text = f"{identity}\ngroup_id: {group_id}\n{asset_ids_text}"
-        return {"ui": {"text": [ui_text]}, "result": (refs, group_id, asset_ids_text)}
+        chosen = ", ".join(str(i + 1) for i in picked)
+        print(f"[Seedance Identity] '{identity}' → {len(asset_id_list)} of {len(all_assets)} "
+              f"asset(s) [{chosen}], role={role} (no upload)")
+        ui_text = (f"{identity}: using {len(asset_id_list)}/{len(all_assets)} → {chosen}\n"
+                   f"group_id: {group_id}\n{asset_ids_text}")
+        return {"ui": {"text": [ui_text]},
+                "result": (refs, group_id, asset_ids_text, preview)}
 
 
 class SeedanceAssetRef:

@@ -1,6 +1,6 @@
 {
-  "last_node_id": 19,
-  "last_link_id": 19,
+  "last_node_id": 21,
+  "last_link_id": 20,
   "nodes": [
     {
       "id": 1,
@@ -360,7 +360,7 @@
     {
       "id": 10,
       "type": "SeedanceFaceRef",
-      "title": "All 8 subject images -> asset:// (needed: the real photo would be rejected as base64). Named once, reloadable from the Identity node.",
+      "title": "Uploads once and SAVES the identity. Rename 'my-journey' to whatever you like - that name is what PART 2 will ask for.",
       "pos": [
         430,
         40
@@ -377,7 +377,7 @@
           "name": "anyfast_refs",
           "type": "ANYFAST_IMAGE_REFS",
           "links": [
-            16
+            18
           ],
           "slot_index": 0
         },
@@ -385,7 +385,7 @@
           "name": "group_id",
           "type": "STRING",
           "links": [
-            19
+            11
           ],
           "slot_index": 1
         },
@@ -474,103 +474,146 @@
       "widgets_values": [
         "style-journey",
         false,
-        "style-journey-subject"
+        "my-journey"
       ]
     },
     {
       "id": 11,
-      "type": "LoadImage",
-      "title": "@image9 - paramo, frailejones",
+      "type": "SeedanceShowText",
+      "title": "group_id - keep it to skip liveness next time",
       "pos": [
-        40,
-        2960
+        430,
+        620
       ],
       "size": [
-        315,
-        315
+        420,
+        90
       ],
       "flags": {},
       "order": 10,
       "mode": 0,
       "outputs": [
         {
-          "name": "IMAGE",
-          "type": "IMAGE",
-          "links": [
-            11
-          ],
-          "slot_index": 0
-        },
-        {
-          "name": "MASK",
-          "type": "MASK",
+          "name": "text",
+          "type": "STRING",
           "links": [],
-          "slot_index": 1
+          "slot_index": 0
         }
       ],
-      "inputs": [],
+      "inputs": [
+        {
+          "name": "text",
+          "type": "STRING",
+          "link": 11
+        }
+      ],
       "properties": {
-        "Node name for S&R": "LoadImage"
+        "Node name for S&R": "SeedanceShowText"
       },
-      "widgets_values": [
-        "loc_paramo.png",
-        "image"
-      ]
+      "widgets_values": []
     },
     {
       "id": 12,
-      "type": "LoadImage",
-      "title": "@image10 - andean condor",
+      "type": "SeedanceIdentity",
+      "title": "Same 8 images, no upload. 'select' empty = all; '1,4,8' = only those.",
       "pos": [
         40,
-        3320
+        3080
       ],
       "size": [
-        315,
-        315
+        420,
+        200
       ],
       "flags": {},
       "order": 11,
-      "mode": 0,
+      "mode": 2,
       "outputs": [
         {
-          "name": "IMAGE",
+          "name": "anyfast_refs",
+          "type": "ANYFAST_IMAGE_REFS",
+          "links": [],
+          "slot_index": 0
+        },
+        {
+          "name": "group_id",
+          "type": "STRING",
+          "links": [],
+          "slot_index": 1
+        },
+        {
+          "name": "asset_ids",
+          "type": "STRING",
+          "links": [],
+          "slot_index": 2
+        },
+        {
+          "name": "preview",
           "type": "IMAGE",
           "links": [
             12
           ],
-          "slot_index": 0
-        },
-        {
-          "name": "MASK",
-          "type": "MASK",
-          "links": [],
-          "slot_index": 1
+          "slot_index": 3
         }
       ],
-      "inputs": [],
+      "inputs": [
+        {
+          "name": "existing_refs",
+          "type": "ANYFAST_IMAGE_REFS",
+          "link": null
+        }
+      ],
       "properties": {
-        "Node name for S&R": "LoadImage"
+        "Node name for S&R": "SeedanceIdentity"
       },
       "widgets_values": [
-        "loc_condor.png",
-        "image"
+        "my-journey",
+        "reference_image",
+        0,
+        ""
       ]
     },
     {
       "id": 13,
+      "type": "PreviewImage",
+      "title": "SEE what it holds - the order shown IS the numbering 'select' uses",
+      "pos": [
+        500,
+        3080
+      ],
+      "size": [
+        380,
+        340
+      ],
+      "flags": {},
+      "order": 12,
+      "mode": 2,
+      "outputs": [],
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 12
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "PreviewImage"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 14,
       "type": "LoadImage",
-      "title": "@image11 - Cano Cristales",
+      "title": "@image9 - paramo, frailejones",
       "pos": [
         40,
-        3680
+        3720
       ],
       "size": [
         315,
         315
       ],
       "flags": {},
-      "order": 12,
+      "order": 13,
       "mode": 0,
       "outputs": [
         {
@@ -593,24 +636,24 @@
         "Node name for S&R": "LoadImage"
       },
       "widgets_values": [
-        "loc_canocristales.png",
+        "loc_paramo.png",
         "image"
       ]
     },
     {
-      "id": 14,
+      "id": 15,
       "type": "LoadImage",
-      "title": "@image12 - jaguar in the river",
+      "title": "@image10 - andean condor",
       "pos": [
         40,
-        4040
+        4080
       ],
       "size": [
         315,
         315
       ],
       "flags": {},
-      "order": 13,
+      "order": 14,
       "mode": 0,
       "outputs": [
         {
@@ -633,24 +676,24 @@
         "Node name for S&R": "LoadImage"
       },
       "widgets_values": [
-        "loc_jaguar.png",
+        "loc_condor.png",
         "image"
       ]
     },
     {
-      "id": 15,
+      "id": 16,
       "type": "LoadImage",
-      "title": "@image13 - Ciudad Perdida",
+      "title": "@image11 - Cano Cristales",
       "pos": [
         40,
-        4400
+        4440
       ],
       "size": [
         315,
         315
       ],
       "flags": {},
-      "order": 14,
+      "order": 15,
       "mode": 0,
       "outputs": [
         {
@@ -673,31 +716,111 @@
         "Node name for S&R": "LoadImage"
       },
       "widgets_values": [
+        "loc_canocristales.png",
+        "image"
+      ]
+    },
+    {
+      "id": 17,
+      "type": "LoadImage",
+      "title": "@image12 - jaguar in the river",
+      "pos": [
+        40,
+        4800
+      ],
+      "size": [
+        315,
+        315
+      ],
+      "flags": {},
+      "order": 16,
+      "mode": 0,
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            16
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": [],
+          "slot_index": 1
+        }
+      ],
+      "inputs": [],
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "loc_jaguar.png",
+        "image"
+      ]
+    },
+    {
+      "id": 18,
+      "type": "LoadImage",
+      "title": "@image13 - Ciudad Perdida",
+      "pos": [
+        40,
+        5160
+      ],
+      "size": [
+        315,
+        315
+      ],
+      "flags": {},
+      "order": 17,
+      "mode": 0,
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            17
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": [],
+          "slot_index": 1
+        }
+      ],
+      "inputs": [],
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
         "loc_ciudadperdida.png",
         "image"
       ]
     },
     {
-      "id": 16,
+      "id": 19,
       "type": "SeedanceRefImages",
-      "title": "Places -> base64 (no real faces here, so the fast route is fine)",
+      "title": "Places -> base64. No real faces here, so the fast route is correct.",
       "pos": [
         430,
-        2960
+        3720
       ],
       "size": [
         420,
         340
       ],
       "flags": {},
-      "order": 15,
+      "order": 18,
       "mode": 0,
       "outputs": [
         {
           "name": "reference_images",
           "type": "SEEDANCE_IMAGE_LIST",
           "links": [
-            17
+            19
           ],
           "slot_index": 0
         }
@@ -706,7 +829,7 @@
         {
           "name": "image_1",
           "type": "IMAGE",
-          "link": 11
+          "link": 13
         },
         {
           "name": "existing_images",
@@ -716,22 +839,22 @@
         {
           "name": "image_2",
           "type": "IMAGE",
-          "link": 12
+          "link": 14
         },
         {
           "name": "image_3",
           "type": "IMAGE",
-          "link": 13
+          "link": 15
         },
         {
           "name": "image_4",
           "type": "IMAGE",
-          "link": 14
+          "link": 16
         },
         {
           "name": "image_5",
           "type": "IMAGE",
-          "link": 15
+          "link": 17
         },
         {
           "name": "image_6",
@@ -760,26 +883,26 @@
       "widgets_values": []
     },
     {
-      "id": 17,
+      "id": 20,
       "type": "SeedanceVideo",
-      "title": "Seedance 2.5 - 30s is the single-pass maximum; 720p is its ceiling",
+      "title": "Seedance 2.5 - 30s is the single-pass maximum, 720p its ceiling",
       "pos": [
         910,
-        40
+        3720
       ],
       "size": [
         440,
         360
       ],
       "flags": {},
-      "order": 16,
+      "order": 19,
       "mode": 0,
       "outputs": [
         {
           "name": "video_url",
           "type": "STRING",
           "links": [
-            18
+            20
           ],
           "slot_index": 0
         },
@@ -815,7 +938,7 @@
         {
           "name": "reference_images",
           "type": "SEEDANCE_IMAGE_LIST",
-          "link": 17
+          "link": 19
         },
         {
           "name": "reference_video",
@@ -830,7 +953,7 @@
         {
           "name": "anyfast_refs",
           "type": "ANYFAST_IMAGE_REFS",
-          "link": 16
+          "link": 18
         }
       ],
       "properties": {
@@ -849,19 +972,19 @@
       ]
     },
     {
-      "id": 18,
+      "id": 21,
       "type": "SeedanceSaveVideo",
       "title": "Save video",
       "pos": [
         1400,
-        40
+        3720
       ],
       "size": [
         320,
         100
       ],
       "flags": {},
-      "order": 17,
+      "order": 20,
       "mode": 0,
       "outputs": [
         {
@@ -875,7 +998,7 @@
         {
           "name": "video_url",
           "type": "STRING",
-          "link": 18
+          "link": 20
         },
         {
           "name": "reference_audio",
@@ -890,41 +1013,6 @@
         "style_journey",
         "output"
       ]
-    },
-    {
-      "id": 19,
-      "type": "SeedanceShowText",
-      "title": "group_id - save it, then wire it to existing_group_id to skip liveness",
-      "pos": [
-        910,
-        460
-      ],
-      "size": [
-        440,
-        90
-      ],
-      "flags": {},
-      "order": 18,
-      "mode": 0,
-      "outputs": [
-        {
-          "name": "text",
-          "type": "STRING",
-          "links": [],
-          "slot_index": 0
-        }
-      ],
-      "inputs": [
-        {
-          "name": "text",
-          "type": "STRING",
-          "link": 19
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "SeedanceShowText"
-      },
-      "widgets_values": []
     }
   ],
   "links": [
@@ -940,7 +1028,7 @@
       2,
       1,
       0,
-      17,
+      20,
       0,
       "SEEDANCE_API"
     ],
@@ -1010,78 +1098,123 @@
     ],
     [
       11,
+      10,
+      1,
       11,
       0,
-      16,
-      0,
-      "IMAGE"
+      "STRING"
     ],
     [
       12,
       12,
+      3,
+      13,
       0,
-      16,
+      "IMAGE"
+    ],
+    [
+      13,
+      14,
+      0,
+      19,
+      0,
+      "IMAGE"
+    ],
+    [
+      14,
+      15,
+      0,
+      19,
       2,
       "IMAGE"
     ],
     [
-      13,
-      13,
-      0,
+      15,
       16,
+      0,
+      19,
       3,
       "IMAGE"
     ],
     [
-      14,
-      14,
-      0,
       16,
+      17,
+      0,
+      19,
       4,
       "IMAGE"
     ],
     [
-      15,
-      15,
+      17,
+      18,
       0,
-      16,
+      19,
       5,
       "IMAGE"
     ],
     [
-      16,
+      18,
       10,
       0,
-      17,
+      20,
       6,
       "ANYFAST_IMAGE_REFS"
     ],
     [
-      17,
-      16,
+      19,
+      19,
       0,
-      17,
+      20,
       3,
       "SEEDANCE_IMAGE_LIST"
     ],
     [
-      18,
-      17,
+      20,
+      20,
       0,
-      18,
-      0,
-      "STRING"
-    ],
-    [
-      19,
-      10,
-      1,
-      19,
+      21,
       0,
       "STRING"
     ]
   ],
-  "groups": [],
+  "groups": [
+    {
+      "title": "PART 1 - FIRST TIME: put your images here. Already-uploaded ones are cached, so this stays fast on later runs.",
+      "bounding": [
+        10,
+        -60,
+        880,
+        3020
+      ],
+      "color": "#3f789e",
+      "font_size": 24,
+      "flags": {}
+    },
+    {
+      "title": "PART 2 - ONCE PART 1 HAS RUN: same images, by name. Muted - press Ctrl+M on these two and connect Identity to anyfast_refs.",
+      "bounding": [
+        10,
+        3010,
+        880,
+        620
+      ],
+      "color": "#88639e",
+      "font_size": 24,
+      "flags": {}
+    },
+    {
+      "title": "THE PLACES + GENERATE",
+      "bounding": [
+        10,
+        3660,
+        1900,
+        2100
+      ],
+      "color": "#597d3f",
+      "font_size": 24,
+      "flags": {}
+    }
+  ],
   "config": {},
   "extra": {
     "ds": {

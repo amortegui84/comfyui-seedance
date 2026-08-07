@@ -319,7 +319,8 @@ GOLDEN_WIDGETS = {
     # pre-identity widgets keep their historical positions.
     "SeedanceFaceRef": ["group_name", "force_reupload", "identity"],
     "SeedanceAssetRef": ["role"],
-    "SeedanceIdentity": ["identity", "role", "limit"],
+    # `select` appended after `limit`, never inserted before it.
+    "SeedanceIdentity": ["identity", "role", "limit", "select"],
     "SeedanceSaveVideo": ["filename_prefix", "save_to"],
 }
 for node_key, expected in GOLDEN_WIDGETS.items():
@@ -383,7 +384,7 @@ try:
     nodes._record_identity_asset("my-subject", "asset://a1", "reference_image", "group-1", image_hash="h1")
 
     ident = nodes.SeedanceIdentity()
-    refs, gid, ids = ident.load("my-subject", "reference_image")["result"]
+    refs, gid, ids, _prev = ident.load("my-subject", "reference_image")["result"]
     check("Identity node emits one ref per asset", len(refs) == 2, refs)
     check("Identity node applies the chosen role",
           all(r["role"] == "reference_image" for r in refs), refs)
@@ -391,17 +392,17 @@ try:
           [r["image_url"]["url"] for r in refs] == ["asset://a1", "asset://a2"], refs)
     check("Identity node returns the group", gid == "group-1", gid)
 
-    refs_ff, _, _ = ident.load("my-subject", "first_frame")["result"]
+    refs_ff, _, _, _ = ident.load("my-subject", "first_frame")["result"]
     check("frame roles are inserted at the front",
           refs_ff[0]["role"] == "first_frame", refs_ff)
 
-    chained, _, _ = ident.load("my-subject", "reference_image",
+    chained, _, _, _ = ident.load("my-subject", "reference_image",
                                existing_refs=[{"type": "image_url",
                                                "image_url": {"url": "asset://z"},
                                                "role": "reference_image"}])["result"]
     check("Identity node chains existing_refs", len(chained) == 3, chained)
 
-    limited, _, _ = ident.load("my-subject", "reference_image", limit=1)["result"]
+    limited, _, _, _ = ident.load("my-subject", "reference_image", limit=1)["result"]
     check("limit caps the number of refs", len(limited) == 1, limited)
 
     try:
@@ -531,7 +532,7 @@ check("non-image types still never wait", _elapsed_video < 1, f"{_elapsed_video:
 print("\n=== example workflows on disk ===")
 # Checks the generated files, not the generator's spec — so a hand-edit that
 # breaks a workflow is caught too.
-CORE_WIDGET_COUNTS = {"LoadImage": 2}
+CORE_WIDGET_COUNTS = {"LoadImage": 2, "PreviewImage": 0}
 _examples = sorted(f for f in os.listdir(os.path.join(REPO, "examples")) if f.endswith(".json"))
 check("examples exist", len(_examples) >= 10, _examples)
 

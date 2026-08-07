@@ -61,6 +61,12 @@ CORE_NODES = {
         "widgets": ["image", "upload"],
         "size":    [315, 315],
     },
+    "PreviewImage": {
+        "inputs":  [("images", "IMAGE")],
+        "outputs": [],
+        "widgets": [],
+        "size":    [400, 340],
+    },
 }
 
 
@@ -186,7 +192,10 @@ def build(workflow):
             "size":  node.get("size", CORE_NODES.get(node["type"], {}).get("size", [400, 300])),
             "flags": {},
             "order": order,
-            "mode":  0,
+            # 0 = runs, 2 = muted (present but skipped). Muting lets a workflow
+            # ship an alternative path the user can switch on with Ctrl+M instead
+            # of having to wire it themselves.
+            "mode":  node.get("mode", 0),
             "outputs": [
                 {"name": name, "type": kind,
                  "links": out_links.get((node["id"], slot), []), "slot_index": slot}
@@ -205,7 +214,16 @@ def build(workflow):
         "last_link_id": len(links),
         "nodes":  out_nodes,
         "links":  links,
-        "groups": [],
+        "groups": [
+            {
+                "title":     group["title"],
+                "bounding":  group["bounding"],
+                "color":     group.get("color", "#3f789e"),
+                "font_size": group.get("font_size", 24),
+                "flags":     {},
+            }
+            for group in workflow.get("groups", [])
+        ],
         "config": {},
         "extra":  {"ds": {"scale": 1, "offset": [0, 0]}},
         "version": 0.4,
@@ -310,7 +328,7 @@ WORKFLOWS = [
             {"id": 2, "type": "SeedanceIdentity",
              "title": "2. Pick a saved person — resolves from disk, nothing uploaded",
              "pos": [40, 180], "size": [400, 150],
-             "widgets": [EXAMPLE_IDENTITY, "reference_image", 0]},
+             "widgets": [EXAMPLE_IDENTITY, "reference_image", 0, ""]},
             gen(3, "3. Generate — @image1 places the reference", [500, 40], "seedance-2.0",
                 "Portrait in warm afternoon light, shallow depth of field @image1", duration=5),
             save(4, "seedance_identity_reuse", [990, 120]),
@@ -325,7 +343,7 @@ WORKFLOWS = [
             API_KEY,
             {"id": 2, "type": "SeedanceIdentity", "title": "2. Who is speaking",
              "pos": [40, 180], "size": [400, 150],
-             "widgets": [EXAMPLE_IDENTITY, "reference_image", 0]},
+             "widgets": [EXAMPLE_IDENTITY, "reference_image", 0, ""]},
             {"id": 3, "type": "SeedanceReferenceAudio",
              "title": "3. Voice sample to clone (2-15s)",
              "pos": [40, 380], "size": [400, 180],
@@ -395,7 +413,7 @@ WORKFLOWS = [
             API_KEY,
             {"id": 2, "type": "SeedanceIdentity", "title": "2. Who appears",
              "pos": [40, 180], "size": [400, 150],
-             "widgets": [EXAMPLE_IDENTITY, "reference_image", 0]},
+             "widgets": [EXAMPLE_IDENTITY, "reference_image", 0, ""]},
             {"id": 3, "type": "SeedanceReferenceVideo",
              "title": "3. Motion to copy",
              "pos": [40, 380], "size": [400, 180],
@@ -479,10 +497,20 @@ WORKFLOWS = [
     },
     {
         "file": "13_style_journey_v25.json",
-        "what": "Seedance 2.5 at full 30s: one subject morphing through 8 art styles across 5 locations",
+        "what": "Seedance 2.5 at 30s: build the identity in PART 1, reuse it in PART 2",
+        "groups": [
+            {"title": "PART 1 - FIRST TIME: put your images here. Already-uploaded ones are "
+                      "cached, so this stays fast on later runs.",
+             "bounding": [10, -60, 880, 3020], "color": "#3f789e"},
+            {"title": "PART 2 - ONCE PART 1 HAS RUN: same images, by name. Muted - press "
+                      "Ctrl+M on these two and connect Identity to anyfast_refs.",
+             "bounding": [10, 3010, 880, 620], "color": "#88639e"},
+            {"title": "THE PLACES + GENERATE",
+             "bounding": [10, 3660, 1900, 2100], "color": "#597d3f"},
+        ],
         "nodes": [
             API_KEY,
-            # --- the subject, one image per art style -------------------------
+            # --- PART 1: the subject, one image per art style -------------------
             # Slot order IS the @image order, so it must match the prompt.
             {"id": 2,  "type": "LoadImage", "title": "@image1 - SUBJECT, real photo",
              "pos": [40, 40], "widgets": ["me_real.png", "image"]},
@@ -501,27 +529,37 @@ WORKFLOWS = [
             {"id": 9,  "type": "LoadImage", "title": "@image8 - anime warrior",
              "pos": [40, 2560], "widgets": ["me_anime.png", "image"]},
             {"id": 10, "type": "SeedanceFaceRef",
-             "title": "All 8 subject images -> asset:// (needed: the real photo would be "
-                      "rejected as base64). Named once, reloadable from the Identity node.",
+             "title": "Uploads once and SAVES the identity. Rename 'my-journey' to whatever "
+                      "you like - that name is what PART 2 will ask for.",
              "pos": [430, 40], "size": [420, 520],
-             "widgets": ["style-journey", False, "style-journey-subject"]},
-            # --- the places ---------------------------------------------------
-            {"id": 11, "type": "LoadImage", "title": "@image9 - paramo, frailejones",
-             "pos": [40, 2960], "widgets": ["loc_paramo.png", "image"]},
-            {"id": 12, "type": "LoadImage", "title": "@image10 - andean condor",
-             "pos": [40, 3320], "widgets": ["loc_condor.png", "image"]},
-            {"id": 13, "type": "LoadImage", "title": "@image11 - Cano Cristales",
-             "pos": [40, 3680], "widgets": ["loc_canocristales.png", "image"]},
-            {"id": 14, "type": "LoadImage", "title": "@image12 - jaguar in the river",
-             "pos": [40, 4040], "widgets": ["loc_jaguar.png", "image"]},
-            {"id": 15, "type": "LoadImage", "title": "@image13 - Ciudad Perdida",
-             "pos": [40, 4400], "widgets": ["loc_ciudadperdida.png", "image"]},
-            {"id": 16, "type": "SeedanceRefImages",
-             "title": "Places -> base64 (no real faces here, so the fast route is fine)",
-             "pos": [430, 2960], "size": [420, 340], "widgets": []},
-            # --- generation ----------------------------------------------------
-            gen(17, "Seedance 2.5 - 30s is the single-pass maximum; 720p is its ceiling",
-                [910, 40], "seedance-2.5",
+             "widgets": ["style-journey", False, "my-journey"]},
+            {"id": 11, "type": "SeedanceShowText",
+             "title": "group_id - keep it to skip liveness next time",
+             "pos": [430, 620], "size": [420, 90], "widgets": []},
+            # --- PART 2: the same images by name, muted until PART 1 has run -----
+            {"id": 12, "type": "SeedanceIdentity", "mode": 2,
+             "title": "Same 8 images, no upload. 'select' empty = all; '1,4,8' = only those.",
+             "pos": [40, 3080], "size": [420, 200],
+             "widgets": ["my-journey", "reference_image", 0, ""]},
+            {"id": 13, "type": "PreviewImage", "mode": 2,
+             "title": "SEE what it holds - the order shown IS the numbering 'select' uses",
+             "pos": [500, 3080], "size": [380, 340], "widgets": []},
+            # --- the places -----------------------------------------------------
+            {"id": 14, "type": "LoadImage", "title": "@image9 - paramo, frailejones",
+             "pos": [40, 3720], "widgets": ["loc_paramo.png", "image"]},
+            {"id": 15, "type": "LoadImage", "title": "@image10 - andean condor",
+             "pos": [40, 4080], "widgets": ["loc_condor.png", "image"]},
+            {"id": 16, "type": "LoadImage", "title": "@image11 - Cano Cristales",
+             "pos": [40, 4440], "widgets": ["loc_canocristales.png", "image"]},
+            {"id": 17, "type": "LoadImage", "title": "@image12 - jaguar in the river",
+             "pos": [40, 4800], "widgets": ["loc_jaguar.png", "image"]},
+            {"id": 18, "type": "LoadImage", "title": "@image13 - Ciudad Perdida",
+             "pos": [40, 5160], "widgets": ["loc_ciudadperdida.png", "image"]},
+            {"id": 19, "type": "SeedanceRefImages",
+             "title": "Places -> base64. No real faces here, so the fast route is correct.",
+             "pos": [430, 3720], "size": [420, 340], "widgets": []},
+            gen(20, "Seedance 2.5 - 30s is the single-pass maximum, 720p its ceiling",
+                [910, 3720], "seedance-2.5",
                 "A 30-second journey across realities. The same man crosses from world to "
                 "world and is rebuilt in a different art style at every crossing, travelling "
                 "through the landscapes of Colombia. Seamless morph transitions, no hard "
@@ -560,67 +598,25 @@ WORKFLOWS = [
                 "IMPORTANT: no dialogue, no voices, no narration, no singing and no lyrics at "
                 "any point. Ambient sound design and instrumental music only.",
                 resolution="720p", ratio="16:9", duration=30, audio=True),
-            save(18, "style_journey", [1400, 40]),
-            {"id": 19, "type": "SeedanceShowText",
-             "title": "group_id - save it, then wire it to existing_group_id to skip liveness",
-             "pos": [910, 460], "size": [440, 90], "widgets": []},
+            save(21, "style_journey", [1400, 3720]),
         ],
         "links": [
-            (1, "api", 10, "api"), (1, "api", 17, "api"),
+            (1, "api", 10, "api"), (1, "api", 20, "api"),
             (2, "IMAGE", 10, "ref_image_1"), (3, "IMAGE", 10, "ref_image_2"),
             (4, "IMAGE", 10, "ref_image_3"), (5, "IMAGE", 10, "ref_image_4"),
             (6, "IMAGE", 10, "ref_image_5"), (7, "IMAGE", 10, "ref_image_6"),
             (8, "IMAGE", 10, "ref_image_7"), (9, "IMAGE", 10, "ref_image_8"),
-            (11, "IMAGE", 16, "image_1"), (12, "IMAGE", 16, "image_2"),
-            (13, "IMAGE", 16, "image_3"), (14, "IMAGE", 16, "image_4"),
-            (15, "IMAGE", 16, "image_5"),
-            (10, "anyfast_refs", 17, "anyfast_refs"),
-            (16, "reference_images", 17, "reference_images"),
-            (17, "video_url", 18, "video_url"),
-            (10, "group_id", 19, "text"),
-        ],
-    },
-    {
-        "file": "14_style_journey_reuse.json",
-        "what": "The same 30s journey once the identity exists: 10 nodes instead of 19, zero uploads",
-        "nodes": [
-            API_KEY,
-            {"id": 2, "type": "SeedanceIdentity",
-             "title": "The 8 subject images, by name -> @image1..@image8. Nothing uploaded.",
-             "pos": [40, 180], "size": [420, 160],
-             "widgets": ["style-journey-subject", "reference_image", 0]},
-            # The places deliberately stay on the direct route. They contain no real
-            # faces, so uploading them as assets would buy nothing: base64 encoding
-            # from disk is instant and costs no API call. Only the subject — the
-            # expensive part, 8 uploads — is worth turning into an identity.
-            {"id": 3,  "type": "LoadImage", "title": "@image9 - paramo, frailejones",
-             "pos": [40, 420], "widgets": ["loc_paramo.png", "image"]},
-            {"id": 4,  "type": "LoadImage", "title": "@image10 - andean condor",
-             "pos": [40, 780], "widgets": ["loc_condor.png", "image"]},
-            {"id": 5,  "type": "LoadImage", "title": "@image11 - Cano Cristales",
-             "pos": [40, 1140], "widgets": ["loc_canocristales.png", "image"]},
-            {"id": 6,  "type": "LoadImage", "title": "@image12 - jaguar in the river",
-             "pos": [40, 1500], "widgets": ["loc_jaguar.png", "image"]},
-            {"id": 7,  "type": "LoadImage", "title": "@image13 - Ciudad Perdida",
-             "pos": [40, 1860], "widgets": ["loc_ciudadperdida.png", "image"]},
-            {"id": 8,  "type": "SeedanceRefImages", "title": "Places -> base64, instant",
-             "pos": [500, 420], "size": [420, 340], "widgets": []},
-            gen(9, "Same prompt, same 30s, none of the waiting", [980, 40],
-                "seedance-2.5",
-                "PASTE THE PROMPT FROM 13_style_journey_v25.json HERE - it is identical, and "
-                "the @image1..@image13 numbering still lines up: the identity supplies the "
-                "8 subject images first, the places follow.",
-                resolution="720p", ratio="16:9", duration=30, audio=True),
-            save(10, "style_journey_reuse", [1470, 40]),
-        ],
-        "links": [
-            (1, "api", 9, "api"),
-            (2, "anyfast_refs", 9, "anyfast_refs"),
-            (3, "IMAGE", 8, "image_1"), (4, "IMAGE", 8, "image_2"),
-            (5, "IMAGE", 8, "image_3"), (6, "IMAGE", 8, "image_4"),
-            (7, "IMAGE", 8, "image_5"),
-            (8, "reference_images", 9, "reference_images"),
-            (9, "video_url", 10, "video_url"),
+            (10, "group_id", 11, "text"),
+            # PART 2 is wired only to its own preview. To switch over, unmute both
+            # and drag Identity's anyfast_refs onto the generation node, which
+            # replaces the link coming from FaceRef.
+            (12, "preview", 13, "images"),
+            (14, "IMAGE", 19, "image_1"), (15, "IMAGE", 19, "image_2"),
+            (16, "IMAGE", 19, "image_3"), (17, "IMAGE", 19, "image_4"),
+            (18, "IMAGE", 19, "image_5"),
+            (10, "anyfast_refs", 20, "anyfast_refs"),
+            (19, "reference_images", 20, "reference_images"),
+            (20, "video_url", 21, "video_url"),
         ],
     },
     {
