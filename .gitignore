@@ -17,6 +17,9 @@ nodes-check.pyc*
 .build_cache/
 seedance/
 seedance_asset_cache.json
-# Unrelated scratch work that lives alongside this repo
+# Unrelated scratch work that lives alongside this repo. The repo tracks the
+# node pack and nothing else: nodes, web assets, examples, docs, tooling.
 cropstitch-nb2-work/
 fal-flux-nodes-work/
+SKILL_*.md
+skills/
