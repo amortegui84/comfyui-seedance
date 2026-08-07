@@ -129,6 +129,20 @@ Each one demonstrates exactly one capability.
 | `09_v25_audio_only.json` | Seedance 2.5 — generate from audio alone, `duration: -1` |
 | `10_v25_multi_reference.json` | Seedance 2.5 — identity + motion video + music together |
 | `11_v25_web_search.json` | Seedance 2.5 — `web_search` grounding |
+| `12_cast_and_references.json` | **Ready to use** — one or more faces *plus* several object/style references |
+
+`12_cast_and_references.json` is the one to start from for casting work. It comes
+pre-wired: drop a face into `FACE 1`, up to three objects/styles into `REF A/B/C`,
+and run. A second `LoadImage` sits ready but **unconnected** — drag its output to
+`FaceRef > ref_image_2` for a two-person scene. An unwired LoadImage is never
+executed, so a missing file there cannot break the run.
+
+Numbering follows the wiring: faces come first, then the plain references. With
+one face and three refs the prompt tags are `@image1` (person), `@image2..@image4`
+(the rest). Add a second face and everything after it shifts by one.
+
+Switch the `model` dropdown to `seedance-2.5` if you need more than 9 images
+(it takes 30) or a clip longer than 15s — at the cost of dropping to 720p.
 
 To load: in ComfyUI go to **Load** → select the JSON file.
 

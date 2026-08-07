@@ -429,6 +429,54 @@ WORKFLOWS = [
         ],
         "links": [(1, "api", 2, "api"), (2, "video_url", 3, "video_url")],
     },
+    {
+        "file": "12_cast_and_references.json",
+        "what": "Ready-to-use: one or more faces PLUS several object/style references",
+        "nodes": [
+            API_KEY,
+            {"id": 2, "type": "LoadImage", "title": "FACE 1 - the person",
+             "pos": [40, 180], "widgets": ["face1.png", "image"]},
+            {"id": 3, "type": "LoadImage",
+             "title": "FACE 2 (optional) - drag its IMAGE output to FaceRef > ref_image_2",
+             "pos": [40, 540], "widgets": ["face2.png", "image"]},
+            {"id": 4, "type": "SeedanceFaceRef",
+             "title": "Faces -> asset:// (name it once and the Identity node can reload it)",
+             "pos": [420, 180], "size": [400, 460],
+             "widgets": ["comfyui-assets", False, "my-subject"]},
+            {"id": 5, "type": "LoadImage", "title": "REF A - object / product",
+             "pos": [40, 900], "widgets": ["ref_a.png", "image"]},
+            {"id": 6, "type": "LoadImage", "title": "REF B - wardrobe / material",
+             "pos": [40, 1260], "widgets": ["ref_b.png", "image"]},
+            {"id": 7, "type": "LoadImage", "title": "REF C - location / style board",
+             "pos": [40, 1620], "widgets": ["ref_c.png", "image"]},
+            {"id": 8, "type": "SeedanceRefImages",
+             "title": "Objects and styles -> base64 (NEVER put a real face here)",
+             "pos": [420, 900], "size": [400, 300], "widgets": []},
+            gen(9, "Generate - faces are @image1.. then the plain refs follow",
+                [880, 180], "seedance-2.0",
+                "@image1 holds @image2, wearing @image3, in a setting like @image4. "
+                "Cinematic, shallow depth of field, natural light",
+                resolution="1080p", duration=8),
+            save(10, "seedance_cast", [1370, 180]),
+            {"id": 11, "type": "SeedanceShowText",
+             "title": "group_id - reconnect to existing_group_id to skip liveness next run",
+             "pos": [880, 600], "size": [440, 90], "widgets": []},
+        ],
+        "links": [
+            (1, "api", 4, "api"), (1, "api", 9, "api"),
+            (2, "IMAGE", 4, "ref_image_1"),
+            # FACE 2 is deliberately left unconnected: an unwired LoadImage is not
+            # executed, so a missing face2.png cannot break the run. Connect it to
+            # ref_image_2 when you want a second person.
+            (5, "IMAGE", 8, "image_1"),
+            (6, "IMAGE", 8, "image_2"),
+            (7, "IMAGE", 8, "image_3"),
+            (4, "anyfast_refs", 9, "anyfast_refs"),
+            (8, "reference_images", 9, "reference_images"),
+            (9, "video_url", 10, "video_url"),
+            (4, "group_id", 11, "text"),
+        ],
+    },
 ]
 
 
