@@ -623,6 +623,59 @@ WORKFLOWS = [
             (9, "video_url", 10, "video_url"),
         ],
     },
+    {
+        "file": "15_two_people.json",
+        "what": "Two different people in one shot: one FaceRef per person, chained",
+        "nodes": [
+            API_KEY,
+            # --- person A ------------------------------------------------------
+            {"id": 2, "type": "LoadImage", "title": "PERSON A - front",
+             "pos": [40, 40], "widgets": ["person_a_1.png", "image"]},
+            {"id": 3, "type": "LoadImage", "title": "PERSON A - profile",
+             "pos": [40, 400], "widgets": ["person_a_2.png", "image"]},
+            {"id": 4, "type": "LoadImage", "title": "PERSON A - full body",
+             "pos": [40, 760], "widgets": ["person_a_3.png", "image"]},
+            {"id": 5, "type": "SeedanceFaceRef",
+             "title": "PERSON A -> identity 'person-a'  =  @image1 @image2 @image3",
+             "pos": [430, 40], "size": [420, 460],
+             "widgets": ["comfyui-assets", False, "person-a"]},
+            # --- person B, chained onto A -------------------------------------
+            {"id": 6, "type": "LoadImage", "title": "PERSON B - front",
+             "pos": [40, 1160], "widgets": ["person_b_1.png", "image"]},
+            {"id": 7, "type": "LoadImage", "title": "PERSON B - profile",
+             "pos": [40, 1520], "widgets": ["person_b_2.png", "image"]},
+            {"id": 8, "type": "LoadImage", "title": "PERSON B - full body",
+             "pos": [40, 1880], "widgets": ["person_b_3.png", "image"]},
+            {"id": 9, "type": "SeedanceFaceRef",
+             "title": "PERSON B -> identity 'person-b'. existing_refs carries A in first, "
+                      "so B becomes @image4 @image5 @image6",
+             "pos": [430, 1160], "size": [420, 460],
+             "widgets": ["comfyui-assets", False, "person-b"]},
+            gen(10, "Name each person by their tag so the model keeps them apart",
+                [910, 40], "seedance-2.0",
+                "Two people meet at a rooftop bar at dusk. The man from @image1 @image2 "
+                "@image3 raises a glass while the woman from @image4 @image5 @image6 laughs "
+                "beside him. Warm string lights, city skyline behind them, cinematic",
+                resolution="1080p", duration=8),
+            save(11, "two_people", [1400, 40]),
+            {"id": 12, "type": "SeedanceShowText",
+             "title": "group_id",
+             "pos": [910, 470], "size": [440, 90], "widgets": []},
+        ],
+        "links": [
+            (1, "api", 5, "api"), (1, "api", 9, "api"), (1, "api", 10, "api"),
+            (2, "IMAGE", 5, "ref_image_1"), (3, "IMAGE", 5, "ref_image_2"),
+            (4, "IMAGE", 5, "ref_image_3"),
+            (6, "IMAGE", 9, "ref_image_1"), (7, "IMAGE", 9, "ref_image_2"),
+            (8, "IMAGE", 9, "ref_image_3"),
+            # A feeds into B: whatever arrives on existing_refs is kept ahead of
+            # this node's own images, so the chain order is the @image order.
+            (5, "anyfast_refs", 9, "existing_refs"),
+            (9, "anyfast_refs", 10, "anyfast_refs"),
+            (10, "video_url", 11, "video_url"),
+            (9, "group_id", 12, "text"),
+        ],
+    },
 ]
 
 
