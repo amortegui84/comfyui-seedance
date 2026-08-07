@@ -477,6 +477,109 @@ WORKFLOWS = [
             (4, "group_id", 11, "text"),
         ],
     },
+    {
+        "file": "13_style_journey_v25.json",
+        "what": "Seedance 2.5 at full 30s: one subject morphing through 8 art styles across 5 locations",
+        "nodes": [
+            API_KEY,
+            # --- the subject, one image per art style -------------------------
+            # Slot order IS the @image order, so it must match the prompt.
+            {"id": 2,  "type": "LoadImage", "title": "@image1 - SUBJECT, real photo",
+             "pos": [40, 40], "widgets": ["me_real.png", "image"]},
+            {"id": 3,  "type": "LoadImage", "title": "@image2 - low-poly game",
+             "pos": [40, 400], "widgets": ["me_lowpoly.png", "image"]},
+            {"id": 4,  "type": "LoadImage", "title": "@image3 - tin man / vintage film",
+             "pos": [40, 760], "widgets": ["me_tinman.png", "image"]},
+            {"id": 5,  "type": "LoadImage", "title": "@image4 - noir comic",
+             "pos": [40, 1120], "widgets": ["me_noir.png", "image"]},
+            {"id": 6,  "type": "LoadImage", "title": "@image5 - claymation",
+             "pos": [40, 1480], "widgets": ["me_clay.png", "image"]},
+            {"id": 7,  "type": "LoadImage", "title": "@image6 - pixel art",
+             "pos": [40, 1840], "widgets": ["me_pixel.png", "image"]},
+            {"id": 8,  "type": "LoadImage", "title": "@image7 - blocky toy avatar",
+             "pos": [40, 2200], "widgets": ["me_blocky.png", "image"]},
+            {"id": 9,  "type": "LoadImage", "title": "@image8 - anime warrior",
+             "pos": [40, 2560], "widgets": ["me_anime.png", "image"]},
+            {"id": 10, "type": "SeedanceFaceRef",
+             "title": "All 8 subject images -> asset:// (needed: the real photo would be "
+                      "rejected as base64). Named once, reloadable from the Identity node.",
+             "pos": [430, 40], "size": [420, 520],
+             "widgets": ["style-journey", False, "style-journey-subject"]},
+            # --- the places ---------------------------------------------------
+            {"id": 11, "type": "LoadImage", "title": "@image9 - paramo, frailejones",
+             "pos": [40, 2960], "widgets": ["loc_paramo.png", "image"]},
+            {"id": 12, "type": "LoadImage", "title": "@image10 - andean condor",
+             "pos": [40, 3320], "widgets": ["loc_condor.png", "image"]},
+            {"id": 13, "type": "LoadImage", "title": "@image11 - Cano Cristales",
+             "pos": [40, 3680], "widgets": ["loc_canocristales.png", "image"]},
+            {"id": 14, "type": "LoadImage", "title": "@image12 - jaguar in the river",
+             "pos": [40, 4040], "widgets": ["loc_jaguar.png", "image"]},
+            {"id": 15, "type": "LoadImage", "title": "@image13 - Ciudad Perdida",
+             "pos": [40, 4400], "widgets": ["loc_ciudadperdida.png", "image"]},
+            {"id": 16, "type": "SeedanceRefImages",
+             "title": "Places -> base64 (no real faces here, so the fast route is fine)",
+             "pos": [430, 2960], "size": [420, 340], "widgets": []},
+            # --- generation ----------------------------------------------------
+            gen(17, "Seedance 2.5 - 30s is the single-pass maximum; 720p is its ceiling",
+                [910, 40], "seedance-2.5",
+                "A 30-second journey across realities. The same man crosses from world to "
+                "world and is rebuilt in a different art style at every crossing, travelling "
+                "through the landscapes of Colombia. Seamless morph transitions, no hard "
+                "cuts, continuous cinematic camera movement.\n\n"
+                "0-4s: @image1, the real man in his kitchen holding a white coffee mug, steam "
+                "rising, half-smiling at camera. The air behind him ripples and tears open. "
+                "Sound: quiet kitchen hum, a low rising drone.\n\n"
+                "4-8s: he steps through and becomes @image2, a low-poly game character, "
+                "standing among the giant woolly frailejones of the high-altitude paramo of "
+                "@image9, mist drifting over a still lagoon. Sound: thin cold wind, hollow "
+                "digital chimes.\n\n"
+                "8-12s: the world shatters into ink lines and he becomes @image8, an armoured "
+                "anime warrior, glowing sword raised, leaping from a ridge as an Andean condor "
+                "sweeps past the snow-streaked peaks of @image10. Sound: heavy wingbeats, a "
+                "soaring orchestral swell.\n\n"
+                "12-16s: reality pixelates and he becomes @image6, a 16-bit sprite wading into "
+                "the impossible reds, blues and golds of the Cano Cristales river of @image11, "
+                "the colours snapping into square pixels around him. Sound: chiptune arpeggios, "
+                "bubbling water.\n\n"
+                "16-20s: colour drains to black, white and blood red, and he becomes @image4, "
+                "a noir comic figure standing in hard rain while a jaguar swims silently past "
+                "him through the muddy river of @image12. Sound: pouring rain, a low growl, a "
+                "lone distant trumpet.\n\n"
+                "20-24s: the world snaps into plastic blocks and he becomes @image7, a blocky "
+                "toy avatar climbing the round green stone terraces of the lost city of "
+                "@image13, jungle mountains stacked behind him. Sound: hollow plastic clicks, "
+                "dense jungle birds.\n\n"
+                "24-27s: everything softens into clay and he becomes @image5, a stop-motion "
+                "figure with fingerprints pressed into his skin, then hardens into @image3, a "
+                "riveted tin man in a painted autumn forest. Sound: squelching clay, creaking "
+                "metal, a wind-up music box slowing down.\n\n"
+                "27-30s: the tear closes behind him and he is @image1 again, back in his "
+                "kitchen, mug still steaming, one small impossible detail left over from the "
+                "journey. Sound: everything collapses into a beat of silence, then the quiet "
+                "kitchen hum returns.\n\n"
+                "IMPORTANT: no dialogue, no voices, no narration, no singing and no lyrics at "
+                "any point. Ambient sound design and instrumental music only.",
+                resolution="720p", ratio="16:9", duration=30, audio=True),
+            save(18, "style_journey", [1400, 40]),
+            {"id": 19, "type": "SeedanceShowText",
+             "title": "group_id - save it, then wire it to existing_group_id to skip liveness",
+             "pos": [910, 460], "size": [440, 90], "widgets": []},
+        ],
+        "links": [
+            (1, "api", 10, "api"), (1, "api", 17, "api"),
+            (2, "IMAGE", 10, "ref_image_1"), (3, "IMAGE", 10, "ref_image_2"),
+            (4, "IMAGE", 10, "ref_image_3"), (5, "IMAGE", 10, "ref_image_4"),
+            (6, "IMAGE", 10, "ref_image_5"), (7, "IMAGE", 10, "ref_image_6"),
+            (8, "IMAGE", 10, "ref_image_7"), (9, "IMAGE", 10, "ref_image_8"),
+            (11, "IMAGE", 16, "image_1"), (12, "IMAGE", 16, "image_2"),
+            (13, "IMAGE", 16, "image_3"), (14, "IMAGE", 16, "image_4"),
+            (15, "IMAGE", 16, "image_5"),
+            (10, "anyfast_refs", 17, "anyfast_refs"),
+            (16, "reference_images", 17, "reference_images"),
+            (17, "video_url", 18, "video_url"),
+            (10, "group_id", 19, "text"),
+        ],
+    },
 ]
 
 

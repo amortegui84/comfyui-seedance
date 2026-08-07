@@ -1,0 +1,1096 @@
+{
+  "last_node_id": 19,
+  "last_link_id": 19,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "SeedanceApiKey",
+      "title": "1. API key",
+      "pos": [
+        40,
+        40
+      ],
+      "size": [
+        380,
+        100
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "outputs": [
+        {
+          "name": "api",
+          "type": "SEEDANCE_API",
+          "links": [
+            1,
+            2
+          ],
+          "slot_index": 0
+        }
+      ],
+      "inputs": [],
+      "properties": {
+        "Node name for S&R": "SeedanceApiKey"
+      },
+      "widgets_values": [
+        "",
+        "https://www.anyfast.ai"
+      ]
+    },
+    {
+      "id": 2,
+      "type": "LoadImage",
+      "title": "@image1 - SUBJECT, real photo",
+      "pos": [
+        40,
+        40
+      ],
+      "size": [
+        315,
+        315
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            3
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": [],
+          "slot_index": 1
+        }
+      ],
+      "inputs": [],
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "me_real.png",
+        "image"
+      ]
+    },
+    {
+      "id": 3,
+      "type": "LoadImage",
+      "title": "@image2 - low-poly game",
+      "pos": [
+        40,
+        400
+      ],
+      "size": [
+        315,
+        315
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            4
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": [],
+          "slot_index": 1
+        }
+      ],
+      "inputs": [],
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "me_lowpoly.png",
+        "image"
+      ]
+    },
+    {
+      "id": 4,
+      "type": "LoadImage",
+      "title": "@image3 - tin man / vintage film",
+      "pos": [
+        40,
+        760
+      ],
+      "size": [
+        315,
+        315
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            5
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": [],
+          "slot_index": 1
+        }
+      ],
+      "inputs": [],
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "me_tinman.png",
+        "image"
+      ]
+    },
+    {
+      "id": 5,
+      "type": "LoadImage",
+      "title": "@image4 - noir comic",
+      "pos": [
+        40,
+        1120
+      ],
+      "size": [
+        315,
+        315
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            6
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": [],
+          "slot_index": 1
+        }
+      ],
+      "inputs": [],
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "me_noir.png",
+        "image"
+      ]
+    },
+    {
+      "id": 6,
+      "type": "LoadImage",
+      "title": "@image5 - claymation",
+      "pos": [
+        40,
+        1480
+      ],
+      "size": [
+        315,
+        315
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            7
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": [],
+          "slot_index": 1
+        }
+      ],
+      "inputs": [],
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "me_clay.png",
+        "image"
+      ]
+    },
+    {
+      "id": 7,
+      "type": "LoadImage",
+      "title": "@image6 - pixel art",
+      "pos": [
+        40,
+        1840
+      ],
+      "size": [
+        315,
+        315
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            8
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": [],
+          "slot_index": 1
+        }
+      ],
+      "inputs": [],
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "me_pixel.png",
+        "image"
+      ]
+    },
+    {
+      "id": 8,
+      "type": "LoadImage",
+      "title": "@image7 - blocky toy avatar",
+      "pos": [
+        40,
+        2200
+      ],
+      "size": [
+        315,
+        315
+      ],
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            9
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": [],
+          "slot_index": 1
+        }
+      ],
+      "inputs": [],
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "me_blocky.png",
+        "image"
+      ]
+    },
+    {
+      "id": 9,
+      "type": "LoadImage",
+      "title": "@image8 - anime warrior",
+      "pos": [
+        40,
+        2560
+      ],
+      "size": [
+        315,
+        315
+      ],
+      "flags": {},
+      "order": 8,
+      "mode": 0,
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            10
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": [],
+          "slot_index": 1
+        }
+      ],
+      "inputs": [],
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "me_anime.png",
+        "image"
+      ]
+    },
+    {
+      "id": 10,
+      "type": "SeedanceFaceRef",
+      "title": "All 8 subject images -> asset:// (needed: the real photo would be rejected as base64). Named once, reloadable from the Identity node.",
+      "pos": [
+        430,
+        40
+      ],
+      "size": [
+        420,
+        520
+      ],
+      "flags": {},
+      "order": 9,
+      "mode": 0,
+      "outputs": [
+        {
+          "name": "anyfast_refs",
+          "type": "ANYFAST_IMAGE_REFS",
+          "links": [
+            16
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "group_id",
+          "type": "STRING",
+          "links": [
+            19
+          ],
+          "slot_index": 1
+        },
+        {
+          "name": "asset_ids",
+          "type": "STRING",
+          "links": [],
+          "slot_index": 2
+        }
+      ],
+      "inputs": [
+        {
+          "name": "api",
+          "type": "SEEDANCE_API",
+          "link": 1
+        },
+        {
+          "name": "existing_group_id",
+          "type": "STRING",
+          "link": null
+        },
+        {
+          "name": "first_frame",
+          "type": "IMAGE",
+          "link": null
+        },
+        {
+          "name": "last_frame",
+          "type": "IMAGE",
+          "link": null
+        },
+        {
+          "name": "ref_image_1",
+          "type": "IMAGE",
+          "link": 3
+        },
+        {
+          "name": "ref_image_2",
+          "type": "IMAGE",
+          "link": 4
+        },
+        {
+          "name": "ref_image_3",
+          "type": "IMAGE",
+          "link": 5
+        },
+        {
+          "name": "ref_image_4",
+          "type": "IMAGE",
+          "link": 6
+        },
+        {
+          "name": "ref_image_5",
+          "type": "IMAGE",
+          "link": 7
+        },
+        {
+          "name": "ref_image_6",
+          "type": "IMAGE",
+          "link": 8
+        },
+        {
+          "name": "ref_image_7",
+          "type": "IMAGE",
+          "link": 9
+        },
+        {
+          "name": "ref_image_8",
+          "type": "IMAGE",
+          "link": 10
+        },
+        {
+          "name": "ref_image_9",
+          "type": "IMAGE",
+          "link": null
+        },
+        {
+          "name": "existing_refs",
+          "type": "ANYFAST_IMAGE_REFS",
+          "link": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SeedanceFaceRef"
+      },
+      "widgets_values": [
+        "style-journey",
+        false,
+        "style-journey-subject"
+      ]
+    },
+    {
+      "id": 11,
+      "type": "LoadImage",
+      "title": "@image9 - paramo, frailejones",
+      "pos": [
+        40,
+        2960
+      ],
+      "size": [
+        315,
+        315
+      ],
+      "flags": {},
+      "order": 10,
+      "mode": 0,
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            11
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": [],
+          "slot_index": 1
+        }
+      ],
+      "inputs": [],
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "loc_paramo.png",
+        "image"
+      ]
+    },
+    {
+      "id": 12,
+      "type": "LoadImage",
+      "title": "@image10 - andean condor",
+      "pos": [
+        40,
+        3320
+      ],
+      "size": [
+        315,
+        315
+      ],
+      "flags": {},
+      "order": 11,
+      "mode": 0,
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            12
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": [],
+          "slot_index": 1
+        }
+      ],
+      "inputs": [],
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "loc_condor.png",
+        "image"
+      ]
+    },
+    {
+      "id": 13,
+      "type": "LoadImage",
+      "title": "@image11 - Cano Cristales",
+      "pos": [
+        40,
+        3680
+      ],
+      "size": [
+        315,
+        315
+      ],
+      "flags": {},
+      "order": 12,
+      "mode": 0,
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            13
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": [],
+          "slot_index": 1
+        }
+      ],
+      "inputs": [],
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "loc_canocristales.png",
+        "image"
+      ]
+    },
+    {
+      "id": 14,
+      "type": "LoadImage",
+      "title": "@image12 - jaguar in the river",
+      "pos": [
+        40,
+        4040
+      ],
+      "size": [
+        315,
+        315
+      ],
+      "flags": {},
+      "order": 13,
+      "mode": 0,
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            14
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": [],
+          "slot_index": 1
+        }
+      ],
+      "inputs": [],
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "loc_jaguar.png",
+        "image"
+      ]
+    },
+    {
+      "id": 15,
+      "type": "LoadImage",
+      "title": "@image13 - Ciudad Perdida",
+      "pos": [
+        40,
+        4400
+      ],
+      "size": [
+        315,
+        315
+      ],
+      "flags": {},
+      "order": 14,
+      "mode": 0,
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            15
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": [],
+          "slot_index": 1
+        }
+      ],
+      "inputs": [],
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "loc_ciudadperdida.png",
+        "image"
+      ]
+    },
+    {
+      "id": 16,
+      "type": "SeedanceRefImages",
+      "title": "Places -> base64 (no real faces here, so the fast route is fine)",
+      "pos": [
+        430,
+        2960
+      ],
+      "size": [
+        420,
+        340
+      ],
+      "flags": {},
+      "order": 15,
+      "mode": 0,
+      "outputs": [
+        {
+          "name": "reference_images",
+          "type": "SEEDANCE_IMAGE_LIST",
+          "links": [
+            17
+          ],
+          "slot_index": 0
+        }
+      ],
+      "inputs": [
+        {
+          "name": "image_1",
+          "type": "IMAGE",
+          "link": 11
+        },
+        {
+          "name": "existing_images",
+          "type": "SEEDANCE_IMAGE_LIST",
+          "link": null
+        },
+        {
+          "name": "image_2",
+          "type": "IMAGE",
+          "link": 12
+        },
+        {
+          "name": "image_3",
+          "type": "IMAGE",
+          "link": 13
+        },
+        {
+          "name": "image_4",
+          "type": "IMAGE",
+          "link": 14
+        },
+        {
+          "name": "image_5",
+          "type": "IMAGE",
+          "link": 15
+        },
+        {
+          "name": "image_6",
+          "type": "IMAGE",
+          "link": null
+        },
+        {
+          "name": "image_7",
+          "type": "IMAGE",
+          "link": null
+        },
+        {
+          "name": "image_8",
+          "type": "IMAGE",
+          "link": null
+        },
+        {
+          "name": "image_9",
+          "type": "IMAGE",
+          "link": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SeedanceRefImages"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 17,
+      "type": "SeedanceVideo",
+      "title": "Seedance 2.5 - 30s is the single-pass maximum; 720p is its ceiling",
+      "pos": [
+        910,
+        40
+      ],
+      "size": [
+        440,
+        360
+      ],
+      "flags": {},
+      "order": 16,
+      "mode": 0,
+      "outputs": [
+        {
+          "name": "video_url",
+          "type": "STRING",
+          "links": [
+            18
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "task_id",
+          "type": "STRING",
+          "links": [],
+          "slot_index": 1
+        },
+        {
+          "name": "first_frame",
+          "type": "IMAGE",
+          "links": [],
+          "slot_index": 2
+        }
+      ],
+      "inputs": [
+        {
+          "name": "api",
+          "type": "SEEDANCE_API",
+          "link": 2
+        },
+        {
+          "name": "first_frame",
+          "type": "IMAGE",
+          "link": null
+        },
+        {
+          "name": "last_frame",
+          "type": "IMAGE",
+          "link": null
+        },
+        {
+          "name": "reference_images",
+          "type": "SEEDANCE_IMAGE_LIST",
+          "link": 17
+        },
+        {
+          "name": "reference_video",
+          "type": "STRING",
+          "link": null
+        },
+        {
+          "name": "reference_audio",
+          "type": "STRING",
+          "link": null
+        },
+        {
+          "name": "anyfast_refs",
+          "type": "ANYFAST_IMAGE_REFS",
+          "link": 16
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SeedanceVideo"
+      },
+      "widgets_values": [
+        "seedance-2.5",
+        "A 30-second journey across realities. The same man crosses from world to world and is rebuilt in a different art style at every crossing, travelling through the landscapes of Colombia. Seamless morph transitions, no hard cuts, continuous cinematic camera movement.\n\n0-4s: @image1, the real man in his kitchen holding a white coffee mug, steam rising, half-smiling at camera. The air behind him ripples and tears open. Sound: quiet kitchen hum, a low rising drone.\n\n4-8s: he steps through and becomes @image2, a low-poly game character, standing among the giant woolly frailejones of the high-altitude paramo of @image9, mist drifting over a still lagoon. Sound: thin cold wind, hollow digital chimes.\n\n8-12s: the world shatters into ink lines and he becomes @image8, an armoured anime warrior, glowing sword raised, leaping from a ridge as an Andean condor sweeps past the snow-streaked peaks of @image10. Sound: heavy wingbeats, a soaring orchestral swell.\n\n12-16s: reality pixelates and he becomes @image6, a 16-bit sprite wading into the impossible reds, blues and golds of the Cano Cristales river of @image11, the colours snapping into square pixels around him. Sound: chiptune arpeggios, bubbling water.\n\n16-20s: colour drains to black, white and blood red, and he becomes @image4, a noir comic figure standing in hard rain while a jaguar swims silently past him through the muddy river of @image12. Sound: pouring rain, a low growl, a lone distant trumpet.\n\n20-24s: the world snaps into plastic blocks and he becomes @image7, a blocky toy avatar climbing the round green stone terraces of the lost city of @image13, jungle mountains stacked behind him. Sound: hollow plastic clicks, dense jungle birds.\n\n24-27s: everything softens into clay and he becomes @image5, a stop-motion figure with fingerprints pressed into his skin, then hardens into @image3, a riveted tin man in a painted autumn forest. Sound: squelching clay, creaking metal, a wind-up music box slowing down.\n\n27-30s: the tear closes behind him and he is @image1 again, back in his kitchen, mug still steaming, one small impossible detail left over from the journey. Sound: everything collapses into a beat of silence, then the quiet kitchen hum returns.\n\nIMPORTANT: no dialogue, no voices, no narration, no singing and no lyrics at any point. Ambient sound design and instrumental music only.",
+        "720p",
+        "16:9",
+        30,
+        true,
+        false,
+        -1,
+        false
+      ]
+    },
+    {
+      "id": 18,
+      "type": "SeedanceSaveVideo",
+      "title": "Save video",
+      "pos": [
+        1400,
+        40
+      ],
+      "size": [
+        320,
+        100
+      ],
+      "flags": {},
+      "order": 17,
+      "mode": 0,
+      "outputs": [
+        {
+          "name": "saved_path",
+          "type": "STRING",
+          "links": [],
+          "slot_index": 0
+        }
+      ],
+      "inputs": [
+        {
+          "name": "video_url",
+          "type": "STRING",
+          "link": 18
+        },
+        {
+          "name": "reference_audio",
+          "type": "STRING",
+          "link": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SeedanceSaveVideo"
+      },
+      "widgets_values": [
+        "style_journey",
+        "output"
+      ]
+    },
+    {
+      "id": 19,
+      "type": "SeedanceShowText",
+      "title": "group_id - save it, then wire it to existing_group_id to skip liveness",
+      "pos": [
+        910,
+        460
+      ],
+      "size": [
+        440,
+        90
+      ],
+      "flags": {},
+      "order": 18,
+      "mode": 0,
+      "outputs": [
+        {
+          "name": "text",
+          "type": "STRING",
+          "links": [],
+          "slot_index": 0
+        }
+      ],
+      "inputs": [
+        {
+          "name": "text",
+          "type": "STRING",
+          "link": 19
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SeedanceShowText"
+      },
+      "widgets_values": []
+    }
+  ],
+  "links": [
+    [
+      1,
+      1,
+      0,
+      10,
+      0,
+      "SEEDANCE_API"
+    ],
+    [
+      2,
+      1,
+      0,
+      17,
+      0,
+      "SEEDANCE_API"
+    ],
+    [
+      3,
+      2,
+      0,
+      10,
+      4,
+      "IMAGE"
+    ],
+    [
+      4,
+      3,
+      0,
+      10,
+      5,
+      "IMAGE"
+    ],
+    [
+      5,
+      4,
+      0,
+      10,
+      6,
+      "IMAGE"
+    ],
+    [
+      6,
+      5,
+      0,
+      10,
+      7,
+      "IMAGE"
+    ],
+    [
+      7,
+      6,
+      0,
+      10,
+      8,
+      "IMAGE"
+    ],
+    [
+      8,
+      7,
+      0,
+      10,
+      9,
+      "IMAGE"
+    ],
+    [
+      9,
+      8,
+      0,
+      10,
+      10,
+      "IMAGE"
+    ],
+    [
+      10,
+      9,
+      0,
+      10,
+      11,
+      "IMAGE"
+    ],
+    [
+      11,
+      11,
+      0,
+      16,
+      0,
+      "IMAGE"
+    ],
+    [
+      12,
+      12,
+      0,
+      16,
+      2,
+      "IMAGE"
+    ],
+    [
+      13,
+      13,
+      0,
+      16,
+      3,
+      "IMAGE"
+    ],
+    [
+      14,
+      14,
+      0,
+      16,
+      4,
+      "IMAGE"
+    ],
+    [
+      15,
+      15,
+      0,
+      16,
+      5,
+      "IMAGE"
+    ],
+    [
+      16,
+      10,
+      0,
+      17,
+      6,
+      "ANYFAST_IMAGE_REFS"
+    ],
+    [
+      17,
+      16,
+      0,
+      17,
+      3,
+      "SEEDANCE_IMAGE_LIST"
+    ],
+    [
+      18,
+      17,
+      0,
+      18,
+      0,
+      "STRING"
+    ],
+    [
+      19,
+      10,
+      1,
+      19,
+      0,
+      "STRING"
+    ]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 1,
+      "offset": [
+        0,
+        0
+      ]
+    }
+  },
+  "version": 0.4
+}
