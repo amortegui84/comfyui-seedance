@@ -240,6 +240,50 @@ for mid, spec in nodes.MODEL_SPECS.items():
           and js_min == spec["duration_min"],
           f"js={js_res}/{js_min}-{js_max} py={spec['resolutions']}/{spec['duration_min']}-{spec['duration_max']}")
 
+print("\n=== mixing asset refs with plain image refs ===")
+
+
+class _RealTensor:
+    """Minimal stand-in for a torch IMAGE tensor that _tensor_to_b64 accepts."""
+    def __init__(self, seed):
+        self._arr = np.random.default_rng(seed).random((8, 8, 3))
+
+    def __getitem__(self, _idx):
+        return self
+
+    def numpy(self):
+        return self._arr
+
+
+_face = [{"type": "image_url", "image_url": {"url": "asset://face1"}, "role": "reference_image"}]
+run(v25, prompt="a scene", anyfast_refs=_face, reference_images=[_RealTensor(7), _RealTensor(8)])
+_p = captured["payload"]
+_imgs = [c for c in _p["content"] if c["type"] == "image_url"]
+check("asset ref survives the mix", any(c["image_url"]["url"] == "asset://face1" for c in _imgs))
+check("plain image refs are no longer dropped", len(_imgs) == 3, len(_imgs))
+check("asset entries come first", _imgs[0]["image_url"]["url"] == "asset://face1", _imgs[0])
+check("plain refs are sent as base64",
+      all(c["image_url"]["url"].startswith("data:") for c in _imgs[1:]), _imgs[1:])
+_txt = _p["content"][0]["text"]
+check("@image1..@image3 span both sources",
+      all(f"@image{i}" in _txt for i in (1, 2, 3)) and "@image4" not in _txt, _txt)
+
+# The combined count is what gets checked against the model's cap.
+_many = [_RealTensor(i) for i in range(30)]
+ok, msg = expect_error(v25, "at most 30 image", anyfast_refs=_face, reference_images=_many)
+check("combined count enforces the per-model cap", ok, msg)
+
+# Frame control still cannot be mixed with references, from either door.
+_ff = [{"type": "image_url", "image_url": {"url": "asset://f1"}, "role": "first_frame"}]
+ok, msg = expect_error(v25, "cannot be combined", anyfast_refs=_ff,
+                       reference_images=[_RealTensor(1)])
+check("asset first_frame + plain refs is rejected, not silently merged", ok, msg)
+
+# Plain refs alone must behave exactly as before.
+run(v25, prompt="a scene", reference_images=[_RealTensor(7)])
+_imgs = [c for c in captured["payload"]["content"] if c["type"] == "image_url"]
+check("plain refs alone unchanged", len(_imgs) == 1 and _imgs[0]["role"] == "reference_image", _imgs)
+
 print("\n=== widget order (saved-workflow compatibility) ===")
 # ComfyUI serialises widget values as a POSITIONAL array. Inserting a widget
 # anywhere but the end shifts every saved workflow's values by one — which is

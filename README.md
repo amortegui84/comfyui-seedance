@@ -368,7 +368,55 @@ The `reference_video` and `reference_audio` sockets on the generation nodes acce
 
 ---
 
-## Mixing References
+## Wiring references into the generation node
+
+The generation node has six reference sockets. Which one you use depends on
+**what the image is of**, not on what you want it to do:
+
+| What you have | Node to use | Socket |
+|---|---|---|
+| A real person's face | `Face / Person Reference` (first time) or `Identity` (after) | `anyfast_refs` |
+| An object, product, place, style board | `Reference Images` | `reference_images` |
+| The exact frame the video starts on | `LoadImage` straight in | `first_frame` |
+| The exact frame it ends on | `LoadImage` straight in | `last_frame` |
+| A video to copy motion from | `Reference Video` | `reference_video` |
+| Audio to drive rhythm or clone a voice | `Reference Audio` | `reference_audio` |
+
+### Why real faces need a different socket
+
+The asset system (`asset://` IDs) is **not face-specific** — it can carry any
+image. But Volcano Engine rejects real-person photos sent inline as base64, so
+faces *must* go through it. Objects can go either way, and the direct route is
+faster: no upload, no waiting for the asset to become Active.
+
+So the rule is simply: **people → `anyfast_refs`, everything else →
+`reference_images`.** Use `Upload Asset` + `Asset Reference` if you ever want a
+non-face image on the asset route too (e.g. to reuse a product shot by ID).
+
+### They can be combined
+
+Connecting a face to `anyfast_refs` **and** product shots to `reference_images`
+in the same generation works. The images are numbered together for the prompt:
+asset entries first, then the plain ones.
+
+```
+Identity (person)      → anyfast_refs      → @image1
+Reference Images (2)   → reference_images  → @image2, @image3
+```
+
+Write the prompt using those tags — `"@image1 holding @image2 in a @image3
+setting"`. If you leave the tags out entirely they are appended automatically,
+but then the model decides what each image is for.
+
+> Before v0.3.0 this combination silently discarded everything on
+> `reference_images` whenever `anyfast_refs` was connected — no error, just a
+> video generated without them. Fixed; there is a regression test.
+
+### What still cannot be combined
+
+`first_frame` / `last_frame` are **frame control**, and AnyFast does not accept
+frame control together with references in one request. The node rejects it up
+front rather than letting the API fail. Pick one mode:
 
 Two **mutually exclusive** modes:
 

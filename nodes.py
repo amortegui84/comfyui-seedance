@@ -1836,10 +1836,15 @@ class _V2Base:
         video_urls = _split_ref_urls(reference_video)
         audio_urls = _split_ref_urls(reference_audio)
 
-        if anyfast_refs:
-            image_ref_count = sum(1 for e in anyfast_refs if e.get("role") == "reference_image")
-        else:
-            image_ref_count = len(reference_images) if reference_images else 0
+        # Images can arrive through both doors at once: asset:// entries for real
+        # people, plain tensors for objects and styles. They are counted and tagged
+        # together — @image1..N spans the combined list, assets first.
+        asset_image_count = (
+            sum(1 for e in anyfast_refs if e.get("role") == "reference_image")
+            if anyfast_refs else 0
+        )
+        direct_image_count = len(reference_images) if reference_images else 0
+        image_ref_count = asset_image_count + direct_image_count
 
         limits = spec["ref_limits"]
         for kind, count in (("image", image_ref_count),
@@ -1853,21 +1858,12 @@ class _V2Base:
         # Seedance requires @image1, @video1, @audio1 tags in the prompt so the
         # model knows how to use each reference. Auto-append any missing tags.
         prompt_lower = prompt.lower()
-        img_start = 1
-        if anyfast_refs:
-            # Count only reference_image role entries; first/last frame don't use @image tags
-            ref_img_count = sum(1 for e in anyfast_refs if e.get("role") == "reference_image")
-            for i in range(img_start, img_start + ref_img_count):
-                tag = f"@image{i}"
-                if tag not in prompt_lower:
-                    prompt = prompt + f" {tag}"
-                    prompt_lower = prompt.lower()
-        elif reference_images:
-            for i in range(img_start, img_start + len(reference_images)):
-                tag = f"@image{i}"
-                if tag not in prompt_lower:
-                    prompt = prompt + f" {tag}"
-                    prompt_lower = prompt.lower()
+        # Only reference_image entries get an @imageN tag; first/last frame do not.
+        for i in range(1, image_ref_count + 1):
+            tag = f"@image{i}"
+            if tag not in prompt_lower:
+                prompt = prompt + f" {tag}"
+                prompt_lower = prompt.lower()
         for i in range(1, len(video_urls) + 1):
             tag = f"@video{i}"
             if tag not in prompt_lower:
@@ -1919,6 +1915,11 @@ class _V2Base:
                 and not (reference_video and reference_video.strip())
                 and not (reference_audio and reference_audio.strip())
             )
+            if only_first_frame and direct_image_count:
+                raise ValueError(
+                    "A single first_frame from anyfast_refs cannot be combined with "
+                    "reference_images. Use frame control or references, not both."
+                )
             for entry in anyfast_refs:
                 normalized = dict(entry)
                 if only_first_frame:
@@ -1937,13 +1938,18 @@ class _V2Base:
                     "image_url": {"url": _tensor_to_b64(last_frame)},
                     "role":      "last_frame",
                 })
-            if reference_images is not None:
-                for img_tensor in reference_images:
-                    content.append({
-                        "type":      "image_url",
-                        "image_url": {"url": _tensor_to_b64(img_tensor)},
-                        "role":      "reference_image",
-                    })
+
+        # Plain-tensor references are appended in BOTH cases. They used to sit in
+        # the else branch, so connecting a face through anyfast_refs silently threw
+        # away everything on reference_images — no error, just a video generated
+        # without the object references the user wired in.
+        if reference_images:
+            for img_tensor in reference_images:
+                content.append({
+                    "type":      "image_url",
+                    "image_url": {"url": _tensor_to_b64(img_tensor)},
+                    "role":      "reference_image",
+                })
 
         for url_value in video_urls:
             content.append({
