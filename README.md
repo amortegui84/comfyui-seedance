@@ -1,6 +1,6 @@
 # ComfyUI AnyFast Seedance
 
-Generate videos with **ByteDance Seedance 2.0** (and preview nodes for **Seedance 2.5**) inside ComfyUI, powered by [AnyFast](https://www.anyfast.ai).
+Generate videos with **ByteDance Seedance 2.0 and 2.5** inside ComfyUI, powered by [AnyFast](https://www.anyfast.ai).
 
 Supports text-to-video, image-to-video, face/person references (with automatic moderation bypass), reference images, reference video, and reference audio.
 
@@ -42,34 +42,71 @@ Connect the API Key node output (`api`) to every generation node you use.
 
 ## Model Variants
 
-| Node | Model ID | Resolutions | Max duration | Best for |
+There is **one generation node** — `Seedance AM - Video`. Pick the model in its
+`model` dropdown; the `resolution` list and `duration` range narrow to whatever
+that model supports.
+
+| `model` | Resolutions | Duration | Refs (img / vid / aud) | Best for |
 |---|---|---|---|---|
-| `Seedance AM 2.0 - Standard` | `seedance` | 480p / 720p / 1080p | 15s | General use |
-| `Seedance AM 2.0 - Fast` | `seedance-fast` | 480p / 720p / 1080p | 15s | Quick iterations |
-| `Seedance AM 2.0 - Ultra` | `seedance-2.0-ultra` | 720p / 1080p / 2k | 15s | Highest quality |
-| `Seedance AM 2.5 - Standard` | `seedance-2.5` ⚠️ | 480p / 720p / 1080p | 30s | Long single-pass clips |
-| `Seedance AM 2.5 - Pro` | `seedance-2.5-pro` ⚠️ | 720p / 1080p / 2k / 4k ⚠️ | 30s | Highest-res 2.5 |
+| `seedance-2.0` | 480p / 720p / 1080p | 4–15s | 9 / 3 / 3 | General use |
+| `seedance-2.0-fast` | 480p / 720p / 1080p | 4–15s | 9 / 3 / 3 | Quick iterations |
+| `seedance-2.0-mini` | 480p / 720p / 1080p | 4–15s | 9 / 3 / 3 | Cheapest 2.0 |
+| `seedance-2.0-ultra` | 720p / 1080p / 2k | 4–15s | 9 / 3 / 3 | Highest resolution |
+| `seedance-2.5` | **480p / 720p only** | **`-1` or 4–30s** | **30 / 10 / 10** | Long clips, many references, audio-only |
 
-All nodes share the same inputs — only the underlying model differs.
+If you pick a combination the model does not support, the node says so before
+sending the request — it never fails halfway through a paid generation.
 
-> ⚠️ **Seedance 2.5 is not generally available yet.** It was announced 2026-06-23
-> (public launch targeted for early July 2026) and is **not on AnyFast yet**. The
-> model IDs (`seedance-2.5`, `seedance-2.5-pro`), the Pro tier, and 4K support are
-> **placeholders based on launch coverage** — confirmed: up to **30s** single-pass
-> clips and up to **50** multimodal references. Update the model IDs / resolutions
-> in `nodes.py` once AnyFast publishes the real values. The 2.5 nodes are additive;
-> all 2.0 workflows keep working unchanged.
+> **Upgrading from an earlier version?** The old per-model nodes
+> (`Seedance AM 2.0 - Standard / Fast / Ultra`, `Seedance AM 2.5`) still exist and
+> still work, so saved workflows keep loading. They are marked deprecated and
+> hidden from the Add Node menu. Replace them with `Seedance AM - Video` when
+> convenient — same inputs, same outputs, one extra `model` dropdown.
+
+### Choosing between 2.0 and 2.5
+
+**2.5 trades resolution for length.** It is not a strict upgrade:
+
+| | Seedance 2.0 | Seedance 2.5 |
+|---|---|---|
+| Resolution | up to 1080p (2k on Ultra) | **480p / 720p only** |
+| Duration | 4–15s | 4–30s, or `-1` to let the model choose |
+| References | 9 images / 3 videos / 3 audio | 50 total — 30 images / 10 videos / 10 audio |
+| Audio-only generation | not supported | **supported** — generate from an audio reference with no image or video |
+| Tiers | Standard / Fast / Ultra | one model, no tiers |
+| `web_search` grounding | — | available on text-to-video |
+
+Reach for **2.0 Ultra** when you need 1080p or 2k. Reach for **2.5** when you need
+a clip longer than 15s, more than 9 references, or audio-driven generation.
+
+### Seedance 2.5 task families
+
+The AnyFast guide splits 2.5 into five task types. Some of them constrain `ratio`
+and `duration` — the node does not force these for you, so set them yourself:
+
+| Task | What you connect | Required settings |
+|---|---|---|
+| Text-to-video | prompt only | any `ratio`, `duration` `-1` or 4–30 |
+| Reference-to-video | `reference_images` / `reference_video` / `reference_audio` | any `ratio`, `duration` `-1` or 4–30 |
+| Video editing (add / remove / replace / repair) | reference media + editing intent in the prompt | `ratio: adaptive` **and** `duration: -1` |
+| Video extension (continue a clip) | reference media + "continue / extend" intent | `ratio: adaptive` |
+| First / last frame | `first_frame`, optionally `last_frame` | `ratio: adaptive` |
+
+Frame-guided workflows cannot be combined with editing or extension intents.
+
+Spoken and sung audio is generated in 11 languages: Chinese, English, Spanish,
+Indonesian, Malay, Thai, Arabic, Portuguese, Vietnamese, Japanese and Korean.
 
 ---
 
 ## Quick Start: Text to Video
 
 ```
-Seedance AM - API Key  →  Seedance AM 2.0 - Standard  →  Seedance AM - Save Video
+Seedance AM - API Key  →  Seedance AM - Video  →  Seedance AM - Save Video
 ```
 
 1. Add **Seedance AM - API Key** and paste your key.
-2. Add **Seedance AM 2.0 - Standard** and write a prompt.
+2. Add **Seedance AM - Video**, pick a `model`, and write a prompt.
 3. Connect `video_url` → **Seedance AM - Save Video**.
 4. Queue. The node submits the job and polls until the video is ready.
 
@@ -77,15 +114,64 @@ Seedance AM - API Key  →  Seedance AM 2.0 - Standard  →  Seedance AM - Save 
 
 ## Example Workflows
 
-| File | Mode | Description |
-|---|---|---|
-| `examples/01_text_to_video.json` | T2V | Minimal baseline — prompt only |
-| `examples/02_image_to_video.json` | I2V | Animate an image from its first frame |
-| `examples/04_face_reference.json` | R2V | Face/person as identity reference (`@image1` in prompt) |
-| `examples/05_face_audio.json` | R2V | **Lip-sync with cloned voice** — face + voice sample + quoted dialogue |
-| `examples/07_extend_video.json` | Extend | Continue a generated clip using its `task_id` |
+Each one demonstrates exactly one capability.
+
+| File | Shows |
+|---|---|
+| `01_text_to_video.json` | The baseline — prompt only |
+| `02_image_to_video.json` | Animate a still from an exact first frame |
+| `03_first_last_frame.json` | Interpolate between a start and an end image |
+| `04_save_identity.json` | Upload a real person **and save them as a named identity** |
+| `05_reuse_identity.json` | **Reuse that identity** — no image, no upload, resolves from disk |
+| `06_lip_sync.json` | Identity + voice sample + quoted dialogue |
+| `07_extend_video.json` | Continue a clip via its `task_id` (2.0 only) |
+| `08_v25_long_clip.json` | Seedance 2.5 — 30s in a single pass |
+| `09_v25_audio_only.json` | Seedance 2.5 — generate from audio alone, `duration: -1` |
+| `10_v25_multi_reference.json` | Seedance 2.5 — identity + motion video + music together |
+| `11_v25_web_search.json` | Seedance 2.5 — `web_search` grounding |
 
 To load: in ComfyUI go to **Load** → select the JSON file.
+
+Examples 04, 05, 06 and 10 use a placeholder identity called `my-subject`. Run
+example 04 once to create it, or pick one of your own from the dropdown — a
+missing identity behaves like a missing checkpoint: the rest of the graph is fine.
+
+### Regenerating them
+
+```bash
+python build_examples.py --write
+```
+
+The workflows are **generated**, not hand-written. Hand-written ComfyUI JSON
+carries its own copy of every node's input list plus a positional array of widget
+values, so it silently rots whenever a node changes — that is how an older example
+ended up asking Seedance 2.5 for 1080p. `build_examples.py` describes each graph
+compactly and derives the sockets and slot indices by introspecting the real node
+classes, then validates widget values against each node's own `INPUT_TYPES`,
+including the per-model resolution and duration limits. Run it without `--write`
+to validate only. `test_nodes.py` re-checks the files on disk, so a hand-edit that
+breaks one is caught too.
+
+---
+
+## Tests
+
+```bash
+python test_nodes.py
+```
+
+Offline — it builds request payloads and asserts on them without calling AnyFast,
+so it costs nothing. It covers:
+
+- per-model resolution / duration / reference limits, on both the unified and the deprecated nodes
+- that the deprecated nodes still produce byte-identical payloads
+- **widget order**, which ComfyUI serialises positionally — inserting a widget anywhere but the end silently corrupts every saved workflow
+- the identity store, including that re-uploading one image does not reshuffle `@image1`/`@image2`
+- that a fully-cached FaceRef run makes zero asset-API calls
+- that `web/js/model_variants.js` has not drifted from `MODEL_SPECS`
+- that every workflow in `examples/` still matches the nodes it uses
+
+Run it after touching `nodes.py`, the `.js`, or the examples.
 
 ---
 
@@ -219,27 +305,42 @@ API Key → Seedance2 → SeedanceSaveVideo (original)
 | Node | What it does |
 |---|---|
 | `Seedance AM - API Key` | Stores your AnyFast API key and base URL. Connect its output to every generation and reference-video node. |
-| `Seedance AM 2.0 - Standard` | Main generation node (`seedance` model). |
-| `Seedance AM 2.0 - Fast` | Same as Standard but faster (`seedance-fast` model). |
-| `Seedance AM 2.0 - Ultra` | Highest quality (`seedance-2.0-ultra` model, supports 2k). Requires Direct plan. |
-| `Seedance AM 2.5 - Standard` | Seedance 2.5 generation up to 30s (`seedance-2.5` ⚠️ placeholder). Not on AnyFast yet — see Model Variants note. |
-| `Seedance AM 2.5 - Pro` | Higher-res 2.5 variant up to 30s, offers 4k (`seedance-2.5-pro` ⚠️ placeholder). Not on AnyFast yet. |
-| `Seedance AM - Extend Video` | Continue a previous generation by wiring its `task_id`. Pick the same model and resolution as the original. |
+| `Seedance AM - Video` | The generation node. Pick any Seedance 2.x model in the `model` dropdown — resolution and duration follow it. |
+| `Seedance AM 2.0 - Standard / Fast / Ultra (legacy)`, `Seedance AM 2.5 (legacy)` | Deprecated one-model-per-node versions, hidden from the Add Node menu. Kept only so saved workflows keep loading. |
+| `Seedance AM - Extend Video` | **2.0 only.** Continue a previous generation by wiring its `task_id`. Pick the same model and resolution as the original. On 2.5, extend natively instead: feed the clip back as `reference_video` with a "continue" intent and `ratio: adaptive`. |
 | `Seedance AM - Save Video` | Download and save the generated mp4. Optional `reference_audio` input: connect the same `SeedanceReferenceAudio` output here to auto-mux your audio into the final video (requires ffmpeg). |
 
 ### References
 
 | Node | What it does |
 |---|---|
-| `Seedance AM - Reference Images (9 slots)` | Collect up to 9 non-face images as a `SEEDANCE_IMAGE_LIST` for `reference_images`. Do not use for real people — use `SeedanceFaceRef` instead. |
+| `Seedance AM - Reference Images (9 per node, chainable)` | Collect up to 9 non-face images as a `SEEDANCE_IMAGE_LIST` for `reference_images`. Chain nodes via `existing_images` to reach 2.5's 30-image limit. Do not use for real people — use `SeedanceFaceRef` instead. |
 | `Seedance AM - Reference Video` | Upload a video file to AnyFast assets and return an `asset://` URI. Requires `api` connection. Minimum ~640×640 px, maximum ~1920×1088 px. |
-| `Seedance AM - Reference Audio` | Encode or upload an audio file and return a data URI or public URL. No API key required. |
+| `Seedance AM - Reference Audio` | Encode or upload an audio file and return a data URI or public URL. No API key required. **See the privacy note below.** |
+
+> ⚠️ **Audio over 10 MB leaves your machine via a public file host.**
+> `Seedance AM - Reference Audio` inlines files up to 10 MB as a base64 data URI,
+> which never leaves the AnyFast request. Anything larger is uploaded to
+> **catbox.moe**, falling back to litterbox and 0x0.st, and the resulting public
+> URL is what gets sent. Those hosts are not private and Catbox uploads are
+> permanent. If the clip is someone's voice, keep it under 10 MB — trimming to the
+> 2–15s the API accepts anyway is usually enough — or host it yourself and paste
+> your own URL.
+
+The `reference_video` and `reference_audio` sockets on the generation nodes accept
+**one URL per line**, so a single socket can carry several references (2.0: 3 each;
+2.5: 10 each). `@video1…@videoN` and `@audio1…@audioN` are tagged automatically.
+
+> Note: media uploaded through the AnyFast **asset** system is still capped at
+> 2–15s (video ≤50 MB, audio ≤15 MB) regardless of model. 2.5's longer 2–30s
+> video references (≤200 MB) only apply to references passed as direct URLs.
 
 ### Face / Asset (real people)
 
 | Node | What it does |
 |---|---|
-| `Seedance AM - Face / Person Reference (asset)` | Upload real-person images through the AnyFast asset system to bypass face moderation. Caches asset IDs locally. Outputs `anyfast_refs`, `group_id`, and `asset_ids`. Requires Direct plan. |
+| `Seedance AM - Face / Person Reference (asset)` | Upload real-person images through the AnyFast asset system to bypass face moderation. Caches asset IDs locally. Set `identity` to also save them as a reusable named identity. Outputs `anyfast_refs`, `group_id`, and `asset_ids`. Requires Direct plan. |
+| `Seedance AM - Identity (saved person)` | Pick a previously saved person by name from a dropdown and get their `anyfast_refs` instantly — no image connected, no upload, nothing sent to AnyFast. See [Identities](#identities). |
 | `Seedance AM - Asset Reference` | Wrap a raw `asset://` ID string into an `ANYFAST_IMAGE_REFS` entry. For manual asset management. |
 | `Seedance AM - Upload Asset` | Manually upload a single image to AnyFast Asset Management. For bulk face uploads use `SeedanceFaceRef` instead. |
 
@@ -248,7 +349,7 @@ API Key → Seedance2 → SeedanceSaveVideo (original)
 | Node | What it does |
 |---|---|
 | `Seedance AM - Show Text` | Display any string value (asset_id, group_id, video_url…) inside the node body for easy copy-paste. |
-| `Seedance AM - Mux Audio into Video` | Merge an audio file into a saved video using ffmpeg. Use after SaveVideo when you want your reference audio embedded in the final mp4. |
+| `Seedance AM - Mux Audio into Video` | Merge **any** audio file into an already-saved video using ffmpeg — background music, a separate voiceover, a second audio pass. For the common case of embedding the reference audio you used during generation, `SaveVideo`'s own `reference_audio` input already does it. |
 
 ---
 
@@ -256,13 +357,14 @@ API Key → Seedance2 → SeedanceSaveVideo (original)
 
 | Parameter | Values | Notes |
 |---|---|---|
-| `prompt` | text | `@image1`…`@image9`, `@video1`, `@audio1` are auto-appended when needed |
-| `resolution` | `480p` / `720p` / `1080p` (Standard/Fast); `720p` / `1080p` / `2k` (Ultra); 2.5 Pro adds `4k` ⚠️ | |
-| `ratio` | `16:9` `9:16` `4:3` `3:4` `1:1` `21:9` `adaptive` | |
-| `duration` | 4 – 15 seconds (2.0); 4 – 30 seconds (2.5) | |
+| `prompt` | text | `@image1`…`@imageN`, `@video1`…`@videoN`, `@audio1`…`@audioN` are auto-appended when needed |
+| `resolution` | `480p` / `720p` / `1080p` (2.0 Standard/Fast); `720p` / `1080p` / `2k` (2.0 Ultra); `480p` / `720p` (2.5) | 2.5 has no 1080p or higher |
+| `ratio` | `16:9` `9:16` `4:3` `3:4` `1:1` `21:9` `adaptive` | 2.5 edit / extend / frame tasks require `adaptive` |
+| `duration` | 4 – 15 seconds (2.0); `-1` or 4 – 30 seconds (2.5) | `-1` lets 2.5 choose the length; required for edit tasks |
 | `generate_audio` | true / false | Auto-generates synced voice, sound effects, and music. Turn off when using `reference_audio`. |
 | `watermark` | true / false | ByteDance watermark |
 | `seed` | -1 or integer | `-1` = random; any positive integer = reproducible |
+| `web_search` (2.5 only) | true / false | Text-to-video only — grounds the prompt in current information before generating |
 
 ---
 
@@ -289,13 +391,87 @@ You cannot combine I2V and R2V inputs in the same request.
 | `anyfast_refs` + `reference_audio` + `reference_video` | R2V |
 | `reference_video` | R2V |
 | `reference_images` | R2V |
+| `reference_audio` alone | R2V — **Seedance 2.5 only** |
 
 ### Invalid combinations
 
 | Combination | Why |
 |---|---|
-| `reference_audio` alone | AnyFast requires at least one image or video ref alongside audio |
+| `reference_audio` alone on a **2.0** node | 2.0 requires at least one image or video ref alongside audio. Use the 2.5 node for audio-only generation. |
 | `first_frame` + any R2V input | Cannot mix I2V frame control with R2V references |
+| More refs than the model allows | 2.0: 9 images / 3 videos / 3 audio. 2.5: 30 / 10 / 10. |
+
+---
+
+## Identities
+
+Real-person references have to go through the AnyFast asset system, which returns
+opaque IDs like `asset://asset-20260427034723-fd8qt`. Identities put a name on
+them so you never have to keep that mapping yourself.
+
+**Saving one:** set `identity` on `Seedance AM - Face / Person Reference` (e.g.
+`my-subject`) and run once. The images upload as usual and the asset IDs are written to
+an identity file.
+
+**Reusing it:** add `Seedance AM - Identity`, pick `my-subject` from the dropdown, wire
+`anyfast_refs` into the generation node. No image, no upload, no waiting — it
+resolves from disk. Restart ComfyUI after creating a new identity for it to show
+up in the dropdown.
+
+### Where the files live
+
+```
+ComfyUI/user/seedance/identities/my-subject.json
+```
+
+One file per identity, so a single identity can be copied to another machine, and
+renaming the file renames the identity. Override the folder with the
+`SEEDANCE_IDENTITIES_DIR` environment variable — **point it at a synced folder
+(OneDrive, Dropbox) and your identities follow you between machines.**
+
+It has to be an environment variable rather than a node input because the dropdown
+is built in `INPUT_TYPES`, before any node connection exists.
+
+```json
+{
+  "identity": "my-subject",
+  "group_id": "group-20260427034718-89l4z",
+  "notes": "",
+  "assets": [
+    {
+      "asset_id": "asset://asset-20260427034723-fd8qt",
+      "role": "reference_image",
+      "image_sha": "ad870a802cbe...",
+      "uploaded_at": "2026-08-07T09:43:26"
+    }
+  ]
+}
+```
+
+The file is plain JSON on purpose: open it and copy an `asset_id` into a script,
+into `Seedance AM - Asset Reference`, or anywhere else you need the raw ID.
+The order of `assets` decides which one becomes `@image1`, `@image2` … so it is
+preserved when an image is re-uploaded.
+
+### Importing what you already have
+
+```bash
+python migrate_identities.py
+```
+
+Shows what it would import from the old hash cache, grouped by AnyFast asset
+group. Add `--apply` to write the files as `unnamed-1`, `unnamed-2`… then rename
+them. Nothing is deleted and the hash cache keeps working, so it is safe to run
+and safe to skip.
+
+### Two caches, two jobs
+
+| Store | Question it answers |
+|---|---|
+| `seedance_asset_cache.json` (hash cache) | "Have I already uploaded *this exact image*?" — skips redundant uploads |
+| `seedance/identities/*.json` | "What is *my-subject's* asset ID?" — the question you ask when building a workflow |
+
+Leaving `identity` empty keeps the old hash-cache-only behaviour exactly as before.
 
 ---
 

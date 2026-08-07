@@ -12,3 +12,11 @@ __pycache__/
 .claude/
 nodes-check.pyc*
 *.tmp
+# Written by the identity store / example builder if ComfyUI's user directory
+# is not available (running the scripts standalone).
+.build_cache/
+seedance/
+seedance_asset_cache.json
+# Unrelated scratch work that lives alongside this repo
+cropstitch-nb2-work/
+fal-flux-nodes-work/

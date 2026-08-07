@@ -5,14 +5,14 @@
     {
       "id": 1,
       "type": "SeedanceApiKey",
-      "title": "1. Paste your AnyFast API key here",
+      "title": "1. API key",
       "pos": [
-        50,
-        280
+        40,
+        40
       ],
       "size": [
         380,
-        120
+        100
       ],
       "flags": {},
       "order": 0,
@@ -38,15 +38,15 @@
     },
     {
       "id": 2,
-      "type": "Seedance2",
-      "title": "2. Write your prompt \u2014 no image needed for T2V",
+      "type": "SeedanceVideo",
+      "title": "2. Pick a model and write a prompt",
       "pos": [
-        500,
-        150
+        460,
+        40
       ],
       "size": [
-        430,
-        340
+        440,
+        360
       ],
       "flags": {},
       "order": 1,
@@ -111,25 +111,27 @@
         }
       ],
       "properties": {
-        "Node name for S&R": "Seedance2"
+        "Node name for S&R": "SeedanceVideo"
       },
       "widgets_values": [
-        "A beautiful sunset over the ocean, cinematic, 4K",
+        "seedance-2.0",
+        "A beautiful sunset over the ocean, cinematic",
         "720p",
         "16:9",
         5,
         true,
         false,
-        -1
+        -1,
+        false
       ]
     },
     {
       "id": 3,
       "type": "SeedanceSaveVideo",
-      "title": "3. Video saved to ComfyUI output folder",
+      "title": "Save video",
       "pos": [
-        1010,
-        280
+        950,
+        120
       ],
       "size": [
         320,
@@ -151,6 +153,11 @@
           "name": "video_url",
           "type": "STRING",
           "link": 2
+        },
+        {
+          "name": "reference_audio",
+          "type": "STRING",
+          "link": null
         }
       ],
       "properties": {

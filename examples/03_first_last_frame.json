@@ -1,5 +1,5 @@
 {
-  "last_node_id": 4,
+  "last_node_id": 5,
   "last_link_id": 4,
   "nodes": [
     {
@@ -22,8 +22,7 @@
           "name": "api",
           "type": "SEEDANCE_API",
           "links": [
-            1,
-            2
+            1
           ],
           "slot_index": 0
         }
@@ -39,8 +38,88 @@
     },
     {
       "id": 2,
+      "type": "LoadImage",
+      "title": "2. Start frame",
+      "pos": [
+        40,
+        180
+      ],
+      "size": [
+        315,
+        315
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            2
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": [],
+          "slot_index": 1
+        }
+      ],
+      "inputs": [],
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "start.png",
+        "image"
+      ]
+    },
+    {
+      "id": 3,
+      "type": "LoadImage",
+      "title": "3. End frame",
+      "pos": [
+        40,
+        540
+      ],
+      "size": [
+        315,
+        315
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            3
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": [],
+          "slot_index": 1
+        }
+      ],
+      "inputs": [],
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "end.png",
+        "image"
+      ]
+    },
+    {
+      "id": 4,
       "type": "SeedanceVideo",
-      "title": "2. First clip",
+      "title": "4. Generate between the two frames",
       "pos": [
         460,
         40
@@ -50,96 +129,7 @@
         360
       ],
       "flags": {},
-      "order": 1,
-      "mode": 0,
-      "outputs": [
-        {
-          "name": "video_url",
-          "type": "STRING",
-          "links": [],
-          "slot_index": 0
-        },
-        {
-          "name": "task_id",
-          "type": "STRING",
-          "links": [
-            3
-          ],
-          "slot_index": 1
-        },
-        {
-          "name": "first_frame",
-          "type": "IMAGE",
-          "links": [],
-          "slot_index": 2
-        }
-      ],
-      "inputs": [
-        {
-          "name": "api",
-          "type": "SEEDANCE_API",
-          "link": 1
-        },
-        {
-          "name": "first_frame",
-          "type": "IMAGE",
-          "link": null
-        },
-        {
-          "name": "last_frame",
-          "type": "IMAGE",
-          "link": null
-        },
-        {
-          "name": "reference_images",
-          "type": "SEEDANCE_IMAGE_LIST",
-          "link": null
-        },
-        {
-          "name": "reference_video",
-          "type": "STRING",
-          "link": null
-        },
-        {
-          "name": "reference_audio",
-          "type": "STRING",
-          "link": null
-        },
-        {
-          "name": "anyfast_refs",
-          "type": "ANYFAST_IMAGE_REFS",
-          "link": null
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "SeedanceVideo"
-      },
-      "widgets_values": [
-        "seedance-2.0",
-        "A car driving down a coastal road at sunset",
-        "720p",
-        "16:9",
-        5,
-        true,
-        false,
-        -1,
-        false
-      ]
-    },
-    {
-      "id": 3,
-      "type": "SeedanceExtend",
-      "title": "3. Continue it — same model and resolution as the original",
-      "pos": [
-        950,
-        40
-      ],
-      "size": [
-        420,
-        260
-      ],
-      "flags": {},
-      "order": 2,
+      "order": 3,
       "mode": 0,
       "outputs": [
         {
@@ -167,31 +157,60 @@
         {
           "name": "api",
           "type": "SEEDANCE_API",
+          "link": 1
+        },
+        {
+          "name": "first_frame",
+          "type": "IMAGE",
           "link": 2
         },
         {
-          "name": "task_id",
-          "type": "STRING",
+          "name": "last_frame",
+          "type": "IMAGE",
           "link": 3
+        },
+        {
+          "name": "reference_images",
+          "type": "SEEDANCE_IMAGE_LIST",
+          "link": null
+        },
+        {
+          "name": "reference_video",
+          "type": "STRING",
+          "link": null
+        },
+        {
+          "name": "reference_audio",
+          "type": "STRING",
+          "link": null
+        },
+        {
+          "name": "anyfast_refs",
+          "type": "ANYFAST_IMAGE_REFS",
+          "link": null
         }
       ],
       "properties": {
-        "Node name for S&R": "SeedanceExtend"
+        "Node name for S&R": "SeedanceVideo"
       },
       "widgets_values": [
-        "seedance",
-        "The car turns inland toward the mountains",
-        5,
+        "seedance-2.0",
+        "Smooth transformation between the two framings, cinematic",
         "720p",
-        true
+        "16:9",
+        5,
+        true,
+        false,
+        -1,
+        false
       ]
     },
     {
-      "id": 4,
+      "id": 5,
       "type": "SeedanceSaveVideo",
       "title": "Save video",
       "pos": [
-        1420,
+        950,
         120
       ],
       "size": [
@@ -199,7 +218,7 @@
         100
       ],
       "flags": {},
-      "order": 3,
+      "order": 4,
       "mode": 0,
       "outputs": [
         {
@@ -225,7 +244,7 @@
         "Node name for S&R": "SeedanceSaveVideo"
       },
       "widgets_values": [
-        "seedance_extended",
+        "seedance_first_last",
         "output"
       ]
     }
@@ -235,31 +254,31 @@
       1,
       1,
       0,
-      2,
+      4,
       0,
       "SEEDANCE_API"
     ],
     [
       2,
-      1,
-      0,
-      3,
-      0,
-      "SEEDANCE_API"
-    ],
-    [
-      3,
       2,
+      0,
+      4,
       1,
-      3,
-      1,
-      "STRING"
+      "IMAGE"
     ],
     [
-      4,
+      3,
       3,
       0,
       4,
+      2,
+      "IMAGE"
+    ],
+    [
+      4,
+      4,
+      0,
+      5,
       0,
       "STRING"
     ]

@@ -249,7 +249,7 @@ def _payload_uses_anyfast_assets(payload):
     return False
 
 
-def _submit_and_poll(api, payload):
+def _submit_and_poll(api, payload, poll_timeout=1200):
     base_url = api["base_url"].rstrip("/")
     api_key  = api["api_key"].strip()
 
@@ -307,13 +307,6 @@ def _submit_and_poll(api, payload):
             )
         if "model_not_found" in r.text.lower() or "no available channel" in r.text.lower():
             model_name = payload.get("model", "?")
-            if str(model_name).startswith("seedance-2.5"):
-                raise RuntimeError(
-                    f"AnyFast has no channel for '{model_name}' yet.\n"
-                    "Seedance 2.5 is not generally available on AnyFast (public launch ~early July 2026),\n"
-                    "so the 2.5 nodes will fail until AnyFast enables the models. Use a Seedance 2.0\n"
-                    "node for now, and update the 2.5 model IDs in nodes.py once AnyFast publishes them."
-                )
             raise RuntimeError(
                 f"AnyFast has no available channel for model '{model_name}'.\n"
                 "Enable the model's channel in the AnyFast Console (some models require the Direct plan)."
@@ -327,7 +320,7 @@ def _submit_and_poll(api, payload):
     task_id = _extract_id(resp_json, "id", "Id", "task_id", "taskId", "ID")
     print(f"[Seedance] Job submitted — task_id={task_id}")
 
-    video_url = _poll_v2(base_url, api_key, task_id)
+    video_url = _poll_v2(base_url, api_key, task_id, timeout=poll_timeout)
     frame     = _first_frame(video_url)
     return video_url, task_id, frame
 
@@ -775,11 +768,31 @@ def _wait_for_asset_active(api, asset_id, group_id, timeout=300, interval=5):
     )
 
 
+# Seconds to wait after an asset reports Active, per asset type. Only images
+# needed it; see _stabilize_anyfast_asset for why this is now 5 and not 20.
+ASSET_SETTLE_DEFAULTS = {"Image": 5}
+
+
 def _stabilize_anyfast_asset(asset_type):
-    """Allow extra backend propagation time after Active for some asset types."""
-    settle_delays = {
-        "Image": 20,
-    }
+    """Allow extra backend propagation time after Active for some asset types.
+
+    This is the fourth layer of insurance against the same race: _upload_asset
+    already sleeps 5s, _wait_for_asset_active polls until the asset reports
+    Active, and _submit_and_poll retries the generation up to 12 times when
+    AnyFast answers "asset not ready". Paying a fixed 20s here on top of all
+    that cost ~35-40s per new image — six minutes for a batch of nine.
+
+    Now 5s by default: enough to cover the common case, with the existing submit
+    retry absorbing the rare miss (a retry costs ~10s once, versus 20s always).
+    Raise SEEDANCE_ASSET_SETTLE if your channel turns out to need the old
+    behaviour; setting it to 20 restores the previous timing exactly.
+    """
+    settle_delays = dict(ASSET_SETTLE_DEFAULTS)
+    try:
+        override = int(os.environ.get("SEEDANCE_ASSET_SETTLE", "").strip())
+        settle_delays = {k: override for k in settle_delays}
+    except (TypeError, ValueError):
+        pass
     delay = settle_delays.get(asset_type, 0)
     if delay > 0:
         print(
@@ -821,6 +834,122 @@ def _save_asset_cache(cache):
         print(f"[Seedance Assets] Warning: could not save asset cache: {e}")
 
 
+# --------------------------------------------------------------------------- #
+# Identity store — one JSON file per named person/subject
+#
+# The hash cache below answers "have I uploaded THIS exact image before?".
+# The identity store answers "what is my-subject's asset id?", which is the question
+# you actually ask when building a workflow. One file per identity so a single
+# identity can be copied to another machine, renamed by renaming the file, and
+# synced through a shared folder without merge conflicts.
+#
+# Location: $SEEDANCE_IDENTITIES_DIR, else ComfyUI/user/seedance/identities.
+# It has to be an environment variable rather than a node input because the
+# identity dropdown is built in INPUT_TYPES, before any node connection exists.
+# Point it at a synced folder (OneDrive, Dropbox) to carry identities between
+# machines.
+# --------------------------------------------------------------------------- #
+
+def _identities_dir():
+    override = os.environ.get("SEEDANCE_IDENTITIES_DIR", "").strip()
+    if override:
+        path = override
+    else:
+        try:
+            base = folder_paths.get_user_directory()
+        except Exception:
+            base = os.path.dirname(os.path.abspath(__file__))
+        path = os.path.join(base, "seedance", "identities")
+    try:
+        os.makedirs(path, exist_ok=True)
+    except Exception as e:
+        print(f"[Seedance Identity] Warning: could not create {path}: {e}")
+    return path
+
+
+def _identity_slug(name):
+    """Filesystem-safe file stem. Keeps the name readable so the folder stays
+    browsable — 'Ana María' becomes 'ana-maria.json'.
+
+    Accents are folded to ASCII on purpose: these files are meant to be synced
+    between machines, and non-ASCII filenames still trip up cloud sync clients
+    and cross-OS copies. The display name inside the file keeps its accents."""
+    import unicodedata
+    decomposed = unicodedata.normalize("NFKD", str(name))
+    ascii_only = "".join(c for c in decomposed if not unicodedata.combining(c))
+    slug = re.sub(r"[^A-Za-z0-9\-_. ]+", "", ascii_only).strip()
+    slug = re.sub(r"\s+", "-", slug).strip("-.")
+    return slug.lower() or "unnamed"
+
+
+def _list_identities():
+    """Identity names available for the dropdown, from the store on disk."""
+    try:
+        names = []
+        for fn in os.listdir(_identities_dir()):
+            if fn.lower().endswith(".json"):
+                names.append(os.path.splitext(fn)[0])
+        return sorted(names)
+    except Exception:
+        return []
+
+
+def _load_identity(name):
+    path = os.path.join(_identities_dir(), f"{_identity_slug(name)}.json")
+    if not os.path.exists(path):
+        return None
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception as e:
+        print(f"[Seedance Identity] Could not read {path}: {e}")
+        return None
+
+
+def _save_identity(record):
+    path = os.path.join(_identities_dir(), f"{_identity_slug(record['identity'])}.json")
+    try:
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(record, f, indent=2, ensure_ascii=False)
+        print(f"[Seedance Identity] Saved {record['identity']} → {path}")
+    except Exception as e:
+        print(f"[Seedance Identity] Warning: could not save {path}: {e}")
+    return path
+
+
+def _record_identity_asset(identity, asset_uri, role, group_id, image_hash=None):
+    """Add or refresh one asset inside an identity's record, keeping the file
+    stable so it stays readable and diffable."""
+    record = _load_identity(identity) or {
+        "identity": identity,
+        "group_id": group_id,
+        "notes":    "",
+        "assets":   [],
+    }
+    if group_id:
+        record["group_id"] = group_id
+
+    entry = {
+        "asset_id":    asset_uri,
+        "role":        role,
+        "image_sha":   image_hash,
+        "uploaded_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
+    }
+    # Update in place rather than remove-and-append: the list order decides which
+    # asset becomes @image1, @image2 ... so re-recording one image of an identity
+    # must not silently reshuffle the prompt tags of every workflow using it.
+    assets = record.get("assets", [])
+    for i, existing in enumerate(assets):
+        if existing.get("asset_id") == asset_uri:
+            assets[i] = entry
+            break
+    else:
+        assets.append(entry)
+    record["assets"] = assets
+    _save_identity(record)
+    return record
+
+
 def _image_asset_cache_key(img_tensor, base_url):
     """SHA-256 of PNG bytes + AnyFast base URL → unique cache key per image+server."""
     img_np = (img_tensor[0].numpy() * 255).clip(0, 255).astype(np.uint8)
@@ -842,6 +971,12 @@ class SeedanceFaceRef:
 
     Asset IDs are cached locally — if you run again with the same images the upload
     is skipped entirely. Use force_reupload to override.
+
+    Set `identity` to name the subject (e.g. 'my-subject'). That writes an identity file
+    you can reload later from the Identity node by picking the name from a dropdown,
+    with no image connected and no upload — and the file holds the raw asset:// ids
+    so you can copy one into a script or into SeedanceAssetRef. See the Identity
+    node for where the files live and how to sync them between machines.
 
     Roles:
       ref_image_1…9 → style/identity reference (R2V, use @image1…N in prompt,
@@ -878,6 +1013,14 @@ class SeedanceFaceRef:
                 "ref_image_8":   ("IMAGE",),
                 "ref_image_9":   ("IMAGE",),
                 "existing_refs": ("ANYFAST_IMAGE_REFS", {"forceInput": True}),
+                # Declared LAST on purpose. ComfyUI serialises widget values as a
+                # positional array, so inserting a widget anywhere but the end
+                # shifts every saved workflow's values by one.
+                "identity": ("STRING", {"default": "",
+                                        "tooltip": "Name this person/subject (e.g. 'my-subject'). Saves the "
+                                                   "asset ids to an identity file you can reuse later "
+                                                   "with the Identity node, on any machine. Leave empty "
+                                                   "to keep the old hash-cache-only behaviour."}),
             }
         }
 
@@ -886,7 +1029,7 @@ class SeedanceFaceRef:
     OUTPUT_NODE   = True
     FUNCTION      = "upload"
 
-    def upload(self, api, group_name, existing_group_id=None, force_reupload=False,
+    def upload(self, api, group_name, identity="", existing_group_id=None, force_reupload=False,
                first_frame=None, last_frame=None,
                ref_image_1=None, ref_image_2=None, ref_image_3=None,
                ref_image_4=None, ref_image_5=None, ref_image_6=None,
@@ -910,8 +1053,23 @@ class SeedanceFaceRef:
                 "to SeedanceFaceRef."
             )
 
+        # Defensive: a workflow saved against a build with a different widget order
+        # could hand us a non-string here. Treat anything that is not text as unset.
+        identity = identity.strip() if isinstance(identity, str) else ""
         cache    = {} if force_reupload else _load_asset_cache()
-        group_id = _ensure_group(api, group_name, existing_group_id)
+
+        # Resolve the group lazily. Creating one costs an API call plus a 3s
+        # propagation wait, and the old code paid it on every run even when every
+        # image came straight from cache — which is how 28 images ended up spread
+        # across 8 throwaway groups. Prefer, in order: an explicitly wired group,
+        # the group this identity already lives in, and only then a new one.
+        group_id = existing_group_id.strip() if existing_group_id else None
+        if not group_id and identity:
+            saved = _load_identity(identity)
+            if saved and saved.get("group_id"):
+                group_id = saved["group_id"]
+                print(f"[Seedance Assets] Reusing group from identity '{identity}': {group_id}")
+
         refs     = list(existing_refs) if existing_refs else []
         asset_id_list = []
 
@@ -920,9 +1078,12 @@ class SeedanceFaceRef:
 
             if not force_reupload and cache_key in cache:
                 asset_uri = cache[cache_key]["asset_id"]
+                group_id  = group_id or cache[cache_key].get("group_id")
                 print(f"[Seedance Assets] Cache hit — reusing {asset_uri} (role={role}, skipping upload)")
             else:
-                asset_name = f"face_{role}_{idx + 1}"
+                # First real upload of this run — now a group is actually needed.
+                group_id   = _ensure_group(api, group_name, group_id)
+                asset_name = f"{identity or 'face'}_{role}_{idx + 1}"
                 asset_uri, _verify_url, group_id = _upload_asset(
                     api, "Image", asset_name, group_id, image_tensor=img_tensor
                 )
@@ -934,6 +1095,9 @@ class SeedanceFaceRef:
                     "uploaded_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
                 }
                 _save_asset_cache(cache)
+
+            if identity:
+                _record_identity_asset(identity, asset_uri, role, group_id, image_hash=cache_key)
 
             asset_id_list.append(asset_uri)
             entry = {
@@ -951,6 +1115,99 @@ class SeedanceFaceRef:
         asset_ids_text = "\n".join(asset_id_list)
         print(f"[Seedance/AnyFast] {len(refs)} face ref(s) ready via asset://")
         ui_text = f"group_id: {group_id}\n{asset_ids_text}" if group_id else asset_ids_text
+        return {"ui": {"text": [ui_text]}, "result": (refs, group_id, asset_ids_text)}
+
+
+class SeedanceIdentity:
+    """Reuse a saved person/subject by name — no image, no upload, no pasting IDs.
+
+    Pick an identity that SeedanceFaceRef saved earlier and this emits the same
+    anyfast_refs a fresh upload would, instantly. Nothing is sent to AnyFast.
+
+    Identities live as one JSON file each in
+    $SEEDANCE_IDENTITIES_DIR (default: ComfyUI/user/seedance/identities).
+    Point that variable at a synced folder to use the same identities on
+    another machine. Each file also carries the raw asset:// ids, so you can
+    open it and copy an id into a script or into SeedanceAssetRef.
+
+    Chain several of these via existing_refs to combine identities in one shot.
+    Restart ComfyUI (or refresh the node list) after adding a new identity for
+    it to appear in the dropdown."""
+
+    CATEGORY = "Seedance AM/References"
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        known = _list_identities()
+        return {
+            "required": {
+                "identity": (known if known else ["<no identities saved yet>"], {
+                    "tooltip": "Saved identities. Create them with SeedanceFaceRef's identity field.",
+                }),
+                "role": (["reference_image", "first_frame", "last_frame"], {
+                    "tooltip": "How the model should use these images. reference_image = "
+                               "identity/style (@imageN); first/last_frame = literal frame.",
+                }),
+            },
+            "optional": {
+                "existing_refs": ("ANYFAST_IMAGE_REFS", {"forceInput": True,
+                                                         "tooltip": "Chain another Identity or FaceRef node here."}),
+                "limit": ("INT", {"default": 0, "min": 0, "max": 30,
+                                  "tooltip": "Use at most this many of the identity's images. 0 = all."}),
+            }
+        }
+
+    RETURN_TYPES = ("ANYFAST_IMAGE_REFS", "STRING", "STRING")
+    RETURN_NAMES = ("anyfast_refs", "group_id", "asset_ids")
+    OUTPUT_NODE  = True
+    FUNCTION     = "load"
+
+    @classmethod
+    def IS_CHANGED(cls, identity, **kwargs):
+        # Re-run when the identity file changes on disk (e.g. a new image was
+        # added to it) instead of serving a stale cached execution.
+        path = os.path.join(_identities_dir(), f"{_identity_slug(identity)}.json")
+        try:
+            return f"{path}:{os.path.getmtime(path)}"
+        except Exception:
+            return identity
+
+    def load(self, identity, role, existing_refs=None, limit=0):
+        record = _load_identity(identity)
+        if not record:
+            known = _list_identities()
+            raise ValueError(
+                f"No saved identity called '{identity}'.\n"
+                f"Folder: {_identities_dir()}\n"
+                + (f"Available: {', '.join(known)}" if known else
+                   "Nothing saved yet — run SeedanceFaceRef once with an identity name set.")
+            )
+
+        assets = record.get("assets", [])
+        if not assets:
+            raise ValueError(f"Identity '{identity}' has no assets recorded in its file.")
+        if limit:
+            assets = assets[:limit]
+
+        refs = list(existing_refs) if existing_refs else []
+        asset_id_list = []
+        for asset in assets:
+            asset_uri = asset["asset_id"]
+            asset_id_list.append(asset_uri)
+            entry = {
+                "type":      "image_url",
+                "image_url": {"url": asset_uri},
+                "role":      role,
+            }
+            if role in ("first_frame", "last_frame"):
+                refs.insert(0, entry)
+            else:
+                refs.append(entry)
+
+        group_id = record.get("group_id") or ""
+        asset_ids_text = "\n".join(asset_id_list)
+        print(f"[Seedance Identity] '{identity}' → {len(asset_id_list)} asset(s), role={role} (no upload)")
+        ui_text = f"{identity}\ngroup_id: {group_id}\n{asset_ids_text}"
         return {"ui": {"text": [ui_text]}, "result": (refs, group_id, asset_ids_text)}
 
 
@@ -1011,20 +1268,53 @@ class SeedanceAssetRef:
 
 RES_V2       = ["1080p", "720p", "480p"]
 RES_V2_ULTRA = ["2k", "1080p", "720p"]
-# Seedance 2.5 — AnyFast docs (docs.anyfast.ai) state it is "Coming soon to Anyfast"
-# (announced 2026-06-23, public launch early July 2026), so the model is NOT on
-# AnyFast yet and these IDs return model_not_found until it ships.
-# Naming: AnyFast's canonical 2.0 id is "seedance-2.0" (dotted), so "seedance-2.5"
-# below follows the documented convention. The "-pro" variant is SPECULATIVE — the
-# 2.0 schema exposes only one id (no Standard/Fast/Ultra split), so a 2.5 "Pro" may
-# not exist. Confirmed (press, not yet AnyFast): up to 30s single-pass, up to 50 refs.
-# AnyFast's seedance-2.0 schema already lists 4k, so 4k for 2.5 is likely too.
-# Update RES_V25*/MODEL_ID/MAX_DURATION_V25 when AnyFast publishes the real 2.5 specs.
-RES_V25      = ["1080p", "720p", "480p"]        # standard tier (conservative until specs land)
-RES_V25_PRO  = ["4k", "2k", "1080p", "720p"]    # higher-res variant; 4k = reported, unconfirmed
+# Seedance 2.5 — LIVE on AnyFast. Verified 2026-08-07 against GET /v1/models and
+# docs.anyfast.ai/guides/model-api/bytedance/seedance-2-5.
+#   * Exactly ONE model id: "seedance-2.5". There is no Fast / Ultra / Pro tier.
+#   * 2.5 trades resolution for length: 480p / 720p ONLY (no 1080p, 2k or 4k),
+#     but up to 30s in a single pass and up to 50 references.
+#   * duration accepts -1 (model picks the length) or 4–30.
+RES_V25      = ["720p", "480p"]
 RATIO_V2     = ["16:9", "9:16", "4:3", "3:4", "1:1", "21:9", "adaptive"]
 MAX_DURATION     = 15   # Seedance 2.0
-MAX_DURATION_V25 = 30   # Seedance 2.5 — confirmed 30s single-pass max
+MAX_DURATION_V25 = 30   # Seedance 2.5 — 30s single-pass max
+
+# Content-array reference caps, per AnyFast's per-model schema. Exceeding them is a
+# 400 from the API, so the nodes reject it locally with a message that names the cap.
+REF_LIMITS_V2  = {"image": 9,  "video": 3,  "audio": 3}    # content: 1–16 items
+REF_LIMITS_V25 = {"image": 30, "video": 10, "audio": 10}   # content: 1–51 items
+
+# Every model AnyFast exposes for Seedance 2.x, with the limits that differ between
+# them. This is the single source of truth: the unified `SeedanceVideo` node reads
+# it at request time, and web/js/model_variants.js mirrors it to narrow the
+# resolution dropdown in the UI. Adding a future Seedance model = one entry here
+# (plus the matching entry in the .js).
+_SPEC_V2 = {
+    "resolutions":  RES_V2,
+    "duration_min": 4,
+    "duration_max": MAX_DURATION,
+    "ref_limits":   REF_LIMITS_V2,
+    "audio_only":   False,
+    "poll_timeout": 1200,
+}
+MODEL_SPECS = {
+    "seedance-2.0":       dict(_SPEC_V2),
+    "seedance-2.0-fast":  dict(_SPEC_V2),
+    "seedance-2.0-mini":  dict(_SPEC_V2),
+    "seedance-2.0-ultra": dict(_SPEC_V2, resolutions=RES_V2_ULTRA),
+    "seedance-2.5":       {
+        "resolutions":  RES_V25,
+        "duration_min": -1,          # -1 = let the model choose the length
+        "duration_max": MAX_DURATION_V25,
+        "ref_limits":   REF_LIMITS_V25,
+        "audio_only":   True,        # 2.5 can generate from audio alone
+        "poll_timeout": 2400,        # 30s clips outlast the 2.0 20-minute budget
+    },
+}
+
+# Union of every resolution any model supports, 720p first so the default is valid
+# for all of them. The per-model list is enforced in generate().
+RES_ALL = ["720p", "1080p", "480p", "2k"]
 
 
 # --------------------------------------------------------------------------- #
@@ -1056,9 +1346,14 @@ class SeedanceApiKey:
 # --------------------------------------------------------------------------- #
 
 class SeedanceRefImages:
-    """Send up to 9 reference images to any Seedance 2.0 node.
+    """Send reference images to any Seedance generation node.
 
-    image_1 is required. Connect image_2 through image_9 as needed."""
+    image_1 is required. Connect image_2 through image_9 as needed.
+
+    For more than 9 images, chain collectors: wire this node's output into the
+    next one's existing_images input. Seedance 2.0 caps out at 9 reference
+    images, Seedance 2.5 at 30 — the generation node rejects anything over its
+    own limit before the request is sent."""
 
     CATEGORY = "Seedance AM/References"
 
@@ -1069,6 +1364,9 @@ class SeedanceRefImages:
                 "image_1": ("IMAGE",),
             },
             "optional": {
+                "existing_images": ("SEEDANCE_IMAGE_LIST", {"forceInput": True,
+                                                            "tooltip": "Chain another Reference Images node here "
+                                                                       "to go past 9 images (Seedance 2.5)."}),
                 "image_2": ("IMAGE",),
                 "image_3": ("IMAGE",),
                 "image_4": ("IMAGE",),
@@ -1085,8 +1383,10 @@ class SeedanceRefImages:
     FUNCTION     = "collect"
 
     def collect(self, image_1, image_2=None, image_3=None, image_4=None,
-                image_5=None, image_6=None, image_7=None, image_8=None, image_9=None):
-        images = [image_1]
+                image_5=None, image_6=None, image_7=None, image_8=None, image_9=None,
+                existing_images=None):
+        images = list(existing_images) if existing_images else []
+        images.append(image_1)
         for img in [image_2, image_3, image_4, image_5, image_6, image_7, image_8, image_9]:
             if img is not None:
                 images.append(img)
@@ -1407,12 +1707,44 @@ class SeedanceUploadAsset:
 # — AnyFast: images are embedded as base64 data URIs automatically
 # --------------------------------------------------------------------------- #
 
+def _split_ref_urls(value):
+    """Split a reference STRING input into a list of URLs.
+
+    Seedance 2.5 accepts up to 10 video and 10 audio references, but the node
+    exposes a single STRING socket for each. Accepting one URL per line (commas
+    also work) lets a single socket carry several references without adding new
+    inputs — a lone URL still behaves exactly as before."""
+    if not value:
+        return []
+    return [part.strip() for part in re.split(r"[\r\n,]+", str(value)) if part.strip()]
+
+
 class _V2Base:
     CATEGORY         = "Seedance AM/Core"
     RESOLUTIONS      = RES_V2
     MODEL_ID         = "seedance"
     DURATION_DEFAULT = 5          # 2.5 subclasses raise this — longer durations supported
     DURATION_MAX     = MAX_DURATION
+    DURATION_MIN     = 4          # 2.5 lowers this to -1 ("let the model choose")
+    REF_LIMITS       = REF_LIMITS_V2
+    AUDIO_ONLY_OK    = False      # 2.5 can generate from an audio reference alone
+    POLL_TIMEOUT     = 1200       # 2.5 raises this — 30s clips take longer to render
+
+    def _spec(self, model=None):
+        """Limits to enforce for this request.
+
+        The legacy one-model-per-node classes answer from their class attributes.
+        The unified SeedanceVideo node overrides this to look the limits up from
+        the model the user picked in the dropdown."""
+        return {
+            "model_id":     self.MODEL_ID,
+            "resolutions":  self.RESOLUTIONS,
+            "duration_min": self.DURATION_MIN,
+            "duration_max": self.DURATION_MAX,
+            "ref_limits":   self.REF_LIMITS,
+            "audio_only":   self.AUDIO_ONLY_OK,
+            "poll_timeout": self.POLL_TIMEOUT,
+        }
 
     @classmethod
     def INPUT_TYPES(cls):
@@ -1422,7 +1754,10 @@ class _V2Base:
                 "prompt":         ("STRING", {"multiline": True, "default": ""}),
                 "resolution":     (cls.RESOLUTIONS,),
                 "ratio":          (RATIO_V2,),
-                "duration":       ("INT", {"default": cls.DURATION_DEFAULT, "min": 4, "max": cls.DURATION_MAX, "step": 1}),
+                "duration":       ("INT", {"default": cls.DURATION_DEFAULT, "min": cls.DURATION_MIN,
+                                           "max": cls.DURATION_MAX, "step": 1,
+                                           "tooltip": "Clip length in seconds. On Seedance 2.5, -1 lets the "
+                                                      "model choose (required for edit tasks)."}),
                 "generate_audio": ("BOOLEAN", {"default": True}),
                 "watermark":      ("BOOLEAN", {"default": False}),
                 "seed":           ("INT", {"default": -1, "min": -1, "max": 2147483647}),
@@ -1436,8 +1771,12 @@ class _V2Base:
                 # reference_audio: voice/rhythm style reference — does NOT become the audio track.
                 # For lip-sync: keep generate_audio=True, write dialogue in double quotes in prompt.
                 # To embed exact audio: set generate_audio=False + connect to SaveVideo too.
-                "reference_video":  ("STRING", {"forceInput": True}),
-                "reference_audio":  ("STRING", {"forceInput": True}),
+                "reference_video":  ("STRING", {"forceInput": True,
+                                                "tooltip": "Video reference URL. One URL per line to send several "
+                                                           "(2.0: up to 3, 2.5: up to 10)."}),
+                "reference_audio":  ("STRING", {"forceInput": True,
+                                                "tooltip": "Audio reference URL. One URL per line to send several "
+                                                           "(2.0: up to 3, 2.5: up to 10)."}),
                 # Face/person refs — connect SeedanceFaceRef (routes through AnyFast asset system)
                 "anyfast_refs":     ("ANYFAST_IMAGE_REFS", {"forceInput": True,
                                                              "tooltip": "AnyFast only — prepared face/person refs from SeedanceFaceRef"}),
@@ -1452,7 +1791,7 @@ class _V2Base:
     def generate(self, api, prompt, resolution, ratio, duration, generate_audio,
                  watermark, seed, first_frame=None, last_frame=None,
                  reference_images=None, reference_video=None, reference_audio=None,
-                 anyfast_refs=None):
+                 anyfast_refs=None, **kwargs):
 
         # I2V (start the video from a literal first_frame) and R2V (style/identity,
         # video or audio references) are mutually exclusive — they cannot be mixed in
@@ -1465,6 +1804,51 @@ class _V2Base:
                 "Cannot mix I2V (first_frame) with R2V references (reference_images, "
                 "anyfast_refs, reference_video, reference_audio). Use one mode at a time."
             )
+
+        spec     = self._spec(kwargs.get("model"))
+        model_id = spec["model_id"]
+
+        # The unified node offers every resolution any model supports, so the one
+        # the user picked may not be valid for the model they picked.
+        if resolution not in spec["resolutions"]:
+            raise ValueError(
+                f"{model_id} does not support {resolution}. "
+                f"Supported: {', '.join(spec['resolutions'])}."
+            )
+
+        # duration = -1 means "let the model choose the length" and is 2.5-only. The
+        # widget min already blocks it on 2.0, but a converted/primitive input can
+        # still feed any integer, so validate the value itself.
+        if duration == -1:
+            if spec["duration_min"] != -1:
+                raise ValueError(
+                    f"duration = -1 (automatic length) is only supported by Seedance 2.5. "
+                    f"Use 4–{spec['duration_max']} seconds on {model_id}."
+                )
+        elif not (4 <= duration <= spec["duration_max"]):
+            raise ValueError(
+                f"duration must be between 4 and {spec['duration_max']} seconds"
+                + (" (or -1 for automatic)." if spec["duration_min"] == -1 else ".")
+                + f" Got {duration}."
+            )
+
+        # One socket can carry several video/audio references (one URL per line).
+        video_urls = _split_ref_urls(reference_video)
+        audio_urls = _split_ref_urls(reference_audio)
+
+        if anyfast_refs:
+            image_ref_count = sum(1 for e in anyfast_refs if e.get("role") == "reference_image")
+        else:
+            image_ref_count = len(reference_images) if reference_images else 0
+
+        limits = spec["ref_limits"]
+        for kind, count in (("image", image_ref_count),
+                            ("video", len(video_urls)),
+                            ("audio", len(audio_urls))):
+            if count > limits[kind]:
+                raise ValueError(
+                    f"{model_id} accepts at most {limits[kind]} {kind} reference(s), got {count}."
+                )
 
         # Seedance requires @image1, @video1, @audio1 tags in the prompt so the
         # model knows how to use each reference. Auto-append any missing tags.
@@ -1484,25 +1868,27 @@ class _V2Base:
                 if tag not in prompt_lower:
                     prompt = prompt + f" {tag}"
                     prompt_lower = prompt.lower()
-        if reference_video and reference_video.strip():
-            if "@video1" not in prompt_lower:
-                prompt = prompt + " @video1"
+        for i in range(1, len(video_urls) + 1):
+            tag = f"@video{i}"
+            if tag not in prompt_lower:
+                prompt = prompt + f" {tag}"
                 prompt_lower = prompt.lower()
-        if reference_audio and reference_audio.strip():
-            if "@audio1" not in prompt_lower:
-                prompt = prompt + " @audio1"
+        for i in range(1, len(audio_urls) + 1):
+            tag = f"@audio{i}"
+            if tag not in prompt_lower:
+                prompt = prompt + f" {tag}"
                 prompt_lower = prompt.lower()
-            # AnyFast requires at least one image or video reference alongside audio
-            has_other_ref = (
-                anyfast_refs
-                or reference_images
-                or (reference_video and reference_video.strip())
-            )
+
+        if audio_urls and not spec["audio_only"]:
+            # Seedance 2.0 needs at least one image or video reference alongside audio.
+            # Seedance 2.5 lifted this — it can generate from an audio reference alone.
+            has_other_ref = anyfast_refs or reference_images or video_urls
             if not has_other_ref:
                 raise ValueError(
-                    "AnyFast requires at least one image (or video) reference alongside reference_audio.\n"
+                    "Seedance 2.0 requires at least one image (or video) reference alongside reference_audio.\n"
                     "Connect a reference image via anyfast_refs (SeedanceFaceRef)\n"
-                    "or via reference_images (SeedanceRefImages), or add a reference_video as well."
+                    "or via reference_images (SeedanceRefImages), add a reference_video,\n"
+                    "or switch to the Seedance 2.5 node, which supports audio-only generation."
                 )
 
         print(f"[Seedance] Final prompt: {prompt}")
@@ -1559,21 +1945,21 @@ class _V2Base:
                         "role":      "reference_image",
                     })
 
-        if reference_video and reference_video.strip():
+        for url_value in video_urls:
             content.append({
                 "type":      "video_url",
-                "video_url": {"url": reference_video.strip()},
+                "video_url": {"url": url_value},
                 "role":      "reference_video",
             })
-        if reference_audio and reference_audio.strip():
+        for url_value in audio_urls:
             content.append({
                 "type":      "audio_url",
-                "audio_url": {"url": reference_audio.strip()},
+                "audio_url": {"url": url_value},
                 "role":      "reference_audio",
             })
 
         payload = {
-            "model":          self.MODEL_ID,
+            "model":          model_id,
             "content":        content,
             "resolution":     resolution,
             "ratio":          ratio,
@@ -1583,71 +1969,155 @@ class _V2Base:
         }
         if seed != -1:
             payload["seed"] = seed
+        payload.update(self.extra_payload(**kwargs))
 
-        url, task_id, frame = _submit_and_poll(api, payload)
+        url, task_id, frame = _submit_and_poll(api, payload, poll_timeout=spec["poll_timeout"])
         return (url, task_id, frame)
 
+    def extra_payload(self, **kwargs):
+        """Model-specific payload fields. Overridden by the 2.5 node."""
+        return {}
+
+
+class SeedanceVideo(_V2Base):
+    """Generate a video with any Seedance 2.x model.
+
+    One node for the whole family — pick the model in the `model` dropdown
+    instead of swapping nodes. The dropdown narrows `resolution` to what the
+    selected model actually supports; the same limits are enforced server-side,
+    so the node still refuses an impossible combination if the UI script is not
+    loaded.
+
+    | model              | resolution         | duration   | refs img/vid/aud |
+    |--------------------|--------------------|------------|------------------|
+    | seedance-2.0       | 480p/720p/1080p    | 4-15s      | 9 / 3 / 3        |
+    | seedance-2.0-fast  | 480p/720p/1080p    | 4-15s      | 9 / 3 / 3        |
+    | seedance-2.0-mini  | 480p/720p/1080p    | 4-15s      | 9 / 3 / 3        |
+    | seedance-2.0-ultra | 720p/1080p/2k      | 4-15s      | 9 / 3 / 3        |
+    | seedance-2.5       | 480p/720p          | -1 or 4-30 | 30 / 10 / 10     |
+
+    Seedance 2.5 additionally supports audio-only generation and `web_search`.
+    """
+
+    CATEGORY    = "Seedance AM"
+    MODEL_IDS   = list(MODEL_SPECS.keys())
+    # The widgets span the UNION of what every model allows; generate() then
+    # rejects a combination the selected model does not support, and the .js
+    # narrows the widgets in the UI. Without the union here the widget itself
+    # would clamp — a 4-15 duration slider makes 2.5's 30s unreachable whenever
+    # the UI script has not loaded.
+    RESOLUTIONS  = RES_ALL
+    DURATION_MIN = min(s["duration_min"] for s in MODEL_SPECS.values())
+    DURATION_MAX = max(s["duration_max"] for s in MODEL_SPECS.values())
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        types = super().INPUT_TYPES()
+        required = {"api": types["required"].pop("api"),
+                    "model": (cls.MODEL_IDS, {"default": "seedance-2.0",
+                                              "tooltip": "Which Seedance model to call. Narrows the "
+                                                         "resolution list and the duration range."})}
+        required.update(types["required"])
+        types["required"] = required
+        types["optional"]["web_search"] = ("BOOLEAN", {
+            "default": False,
+            "tooltip": "Text-to-video only — let the model look up current information "
+                       "(products, events, weather) before generating.",
+        })
+        return types
+
+    def _spec(self, model=None):
+        if model not in MODEL_SPECS:
+            raise ValueError(
+                f"Unknown model '{model}'. Pick one of: {', '.join(self.MODEL_IDS)}."
+            )
+        return dict(MODEL_SPECS[model], model_id=model)
+
+    def extra_payload(self, web_search=False, **_ignored):
+        return {"tools": [{"type": "web_search"}]} if web_search else {}
+
+
+# --------------------------------------------------------------------------- #
+# Legacy one-model-per-node classes.
+# Superseded by SeedanceVideo. They stay registered so workflows saved against
+# them keep loading and keep their exact previous behaviour (note the older
+# `seedance` / `seedance-fast` aliases rather than the documented dotted ids).
+# DEPRECATED hides them from the Add Node menu on ComfyUI versions that honour it.
+# --------------------------------------------------------------------------- #
 
 class Seedance2(_V2Base):
     """Seedance 2.0 — Text/Image to Video (480 / 720 / 1080p, up to 15s, with audio)."""
     RESOLUTIONS = RES_V2
     MODEL_ID    = "seedance"
+    DEPRECATED  = True
 
 
 class Seedance2Fast(_V2Base):
     """Seedance 2.0 Fast — Same capabilities as standard, faster generation."""
     RESOLUTIONS = RES_V2
     MODEL_ID    = "seedance-fast"
+    DEPRECATED  = True
 
 
 class Seedance2Ultra(_V2Base):
     """Seedance 2.0 Ultra — Highest quality (720p / 1080p / 2k, up to 15s, with audio)."""
     RESOLUTIONS = RES_V2_ULTRA
     MODEL_ID    = "seedance-2.0-ultra"
+    DEPRECATED  = True
 
 
 # --------------------------------------------------------------------------- #
-# Seedance 2.5 generation nodes
-# — Announced 2026-06-23; public launch early July 2026. NOT on AnyFast yet.
-# — Confirmed specs: up to 30s single-pass clips (no stitching) and up to 50
-#   multimodal references (images + audio + video + style/3D refs).
-# — Model IDs (seedance-2.5 / seedance-2.5-pro) and the Pro/tier structure are
-#   PLACEHOLDERS — ByteDance has not published them. Confirm with AnyFast when live.
-# — Same workflow as 2.0 (T2V / I2V / R2V) and same reference + asset system, so
-#   these subclass _V2Base and reuse all payload/polling/reference logic with zero
-#   duplication — only model ID, resolutions, duration range and category differ.
+# Seedance 2.5 generation node
+# AnyFast exposes exactly ONE 2.5 model id — "seedance-2.5". There is no Fast,
+# Ultra or Pro tier (verified against GET /v1/models, 2026-08-07), so 2.5 is a
+# single node rather than the three-node family 2.0 needs.
+# Same request shape as 2.0 (T2V / I2V / R2V, same reference + asset system), so
+# it subclasses _V2Base and only adjusts the model-specific limits.
 # --------------------------------------------------------------------------- #
 
-class SeedanceV25Standard(_V2Base):
-    """Seedance 2.5 Standard — 30s single-pass clips, up to 50 references.
+class SeedanceV25(_V2Base):
+    """Seedance 2.5 — up to 30s in a single pass, up to 50 references.
 
-    Not yet on AnyFast (public launch early July 2026). Model ID: seedance-2.5
-    (PLACEHOLDER — ByteDance has not published the real ID).
-    Same workflow as 2.0: T2V, I2V, R2V — same reference modes apply.
-    Confirmed improvements vs 2.0: up to 30s in one pass and up to 50 multimodal
-    references. (4K is reported but unconfirmed for 2.5 — see the Pro variant.)"""
+    Differences vs 2.0:
+      * duration up to 30s (2.0: 15s); -1 lets the model choose the length
+      * up to 50 references — 30 images, 10 videos, 10 audio (2.0: 9 / 3 / 3)
+      * generates from an audio reference alone, with no image or video
+      * resolution is 480p or 720p ONLY — 2.5 trades resolution for length,
+        so use a 2.0 node when you need 1080p / 2k / 4k
+      * web_search can ground text-to-video prompts in current information
+
+    Task families (from the AnyFast guide) and the parameters they need:
+      text-to-video / reference-to-video → any ratio, duration -1 or 4-30
+      video editing (add/remove/replace)  → ratio "adaptive" AND duration -1
+      video extension (continue a clip)   → ratio "adaptive"
+      first/last-frame                    → ratio "adaptive"
+    """
 
     CATEGORY         = "Seedance AM/2.5"
     RESOLUTIONS      = RES_V25
     MODEL_ID         = "seedance-2.5"
     DURATION_DEFAULT = 10
+    DURATION_MIN     = -1            # -1 = let the model choose the length
     DURATION_MAX     = MAX_DURATION_V25
+    REF_LIMITS       = REF_LIMITS_V25
+    AUDIO_ONLY_OK    = True
+    POLL_TIMEOUT     = 2400          # 30s clips render well past the 2.0 20-min budget
+    DEPRECATED       = True          # superseded by SeedanceVideo (model = seedance-2.5)
 
+    @classmethod
+    def INPUT_TYPES(cls):
+        types = super().INPUT_TYPES()
+        types["optional"]["web_search"] = ("BOOLEAN", {
+            "default": False,
+            "tooltip": "Text-to-video only — let the model look up current information "
+                       "(products, events, weather) before generating.",
+        })
+        return types
 
-class SeedanceV25Pro(_V2Base):
-    """Seedance 2.5 Pro — higher-resolution 2.5 variant (PLACEHOLDER).
-
-    Not yet on AnyFast. Model ID: seedance-2.5-pro (PLACEHOLDER — ByteDance has
-    not confirmed any 2.5 tier structure; the real higher-res variant may be
-    named differently, e.g. '-ultra', or may not exist as a separate model).
-    Offers 4K as a resolution option (reported for 2.5, not officially confirmed).
-    Same 30s / 50-reference workflow and asset system as 2.5 Standard."""
-
-    CATEGORY         = "Seedance AM/2.5"
-    RESOLUTIONS      = RES_V25_PRO
-    MODEL_ID         = "seedance-2.5-pro"
-    DURATION_DEFAULT = 10
-    DURATION_MAX     = MAX_DURATION_V25
+    def extra_payload(self, web_search=False, **_ignored):
+        if not web_search:
+            return {}
+        return {"tools": [{"type": "web_search"}]}
 
 
 # --------------------------------------------------------------------------- #
@@ -2017,19 +2487,21 @@ class SeedanceMuxAudio:
 NODE_CLASS_MAPPINGS = {
     # Config
     "SeedanceApiKey":      SeedanceApiKey,
-    # 2.0 generation
+    # Generation — one node for every Seedance 2.x model
+    "SeedanceVideo":       SeedanceVideo,
+    # Legacy one-model-per-node classes. Kept registered (and marked DEPRECATED)
+    # so saved workflows keep loading; SeedanceVideo replaces all of them.
     "Seedance2":           Seedance2,
     "Seedance2Fast":       Seedance2Fast,
     "Seedance2Ultra":      Seedance2Ultra,
-    # 2.5 generation (placeholder model IDs — coming soon on AnyFast)
-    "SeedanceV25Standard": SeedanceV25Standard,
-    "SeedanceV25Pro":      SeedanceV25Pro,
+    "SeedanceV25Standard": SeedanceV25,
     # References
     "SeedanceReferenceVideo":   SeedanceReferenceVideo,
     "SeedanceReferenceAudio":   SeedanceReferenceAudio,
     "SeedanceRefImages":        SeedanceRefImages,
     # Face / asset
     "SeedanceFaceRef":          SeedanceFaceRef,
+    "SeedanceIdentity":         SeedanceIdentity,
     "SeedanceAssetRef":         SeedanceAssetRef,
     "SeedanceUploadAsset":      SeedanceUploadAsset,
     # Extend
@@ -2043,19 +2515,20 @@ NODE_CLASS_MAPPINGS = {
 NODE_DISPLAY_NAME_MAPPINGS = {
     # Config
     "SeedanceApiKey":      "Seedance AM - API Key",
-    # 2.0 generation
-    "Seedance2":           "Seedance AM 2.0 - Standard",
-    "Seedance2Fast":       "Seedance AM 2.0 - Fast",
-    "Seedance2Ultra":      "Seedance AM 2.0 - Ultra",
-    # 2.5 generation
-    "SeedanceV25Standard": "Seedance AM 2.5 - Standard",
-    "SeedanceV25Pro":      "Seedance AM 2.5 - Pro",
+    # Generation
+    "SeedanceVideo":       "Seedance AM - Video",
+    # Legacy (deprecated — use Seedance AM - Video)
+    "Seedance2":           "Seedance AM 2.0 - Standard (legacy)",
+    "Seedance2Fast":       "Seedance AM 2.0 - Fast (legacy)",
+    "Seedance2Ultra":      "Seedance AM 2.0 - Ultra (legacy)",
+    "SeedanceV25Standard": "Seedance AM 2.5 (legacy)",
     # References
     "SeedanceReferenceVideo":   "Seedance AM - Reference Video",
     "SeedanceReferenceAudio":   "Seedance AM - Reference Audio",
-    "SeedanceRefImages":        "Seedance AM - Reference Images (9 slots)",
+    "SeedanceRefImages":        "Seedance AM - Reference Images (9 per node, chainable)",
     # Face / asset
     "SeedanceFaceRef":          "Seedance AM - Face / Person Reference (asset)",
+    "SeedanceIdentity":         "Seedance AM - Identity (saved person)",
     "SeedanceAssetRef":         "Seedance AM - Asset Reference",
     "SeedanceUploadAsset":      "Seedance AM - Upload Asset",
     # Extend
