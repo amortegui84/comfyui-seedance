@@ -130,6 +130,23 @@ Each one demonstrates exactly one capability.
 | `10_v25_multi_reference.json` | Seedance 2.5 — identity + motion video + music together |
 | `11_v25_web_search.json` | Seedance 2.5 — `web_search` grounding |
 | `12_cast_and_references.json` | **Ready to use** — one or more faces *plus* several object/style references |
+| `13_style_journey_v25.json` | Seedance 2.5 at full stretch — 30s, 13 references, one subject morphing through 8 art styles across 5 locations |
+| `14_style_journey_reuse.json` | **The same video, re-run from a saved identity** — 10 nodes instead of 19, no uploads |
+
+### 13 and 14 are a pair
+
+Read them together, because they show the point of identities. `13` is the first
+run: eight subject images go up through the asset system, which takes a few
+minutes and is unavoidable — you cannot reuse what does not exist yet. It also
+saves them under one name.
+
+`14` is every run after that. The eight subject images arrive from a single
+`Identity` node picked off a dropdown: no `LoadImage` nodes for the subject, no
+uploads, no waiting. Nineteen nodes become ten, and the slow part disappears.
+
+The five locations stay on the direct route in both. They contain no real faces,
+so turning them into assets would buy nothing — encoding them from disk is
+instant and costs no API call. Only the expensive half is worth naming.
 
 `12_cast_and_references.json` is the one to start from for casting work. It comes
 pre-wired: drop a face into `FACE 1`, up to three objects/styles into `REF A/B/C`,

@@ -580,6 +580,49 @@ WORKFLOWS = [
             (10, "group_id", 19, "text"),
         ],
     },
+    {
+        "file": "14_style_journey_reuse.json",
+        "what": "The same 30s journey once the identity exists: 10 nodes instead of 19, zero uploads",
+        "nodes": [
+            API_KEY,
+            {"id": 2, "type": "SeedanceIdentity",
+             "title": "The 8 subject images, by name -> @image1..@image8. Nothing uploaded.",
+             "pos": [40, 180], "size": [420, 160],
+             "widgets": ["style-journey-subject", "reference_image", 0]},
+            # The places deliberately stay on the direct route. They contain no real
+            # faces, so uploading them as assets would buy nothing: base64 encoding
+            # from disk is instant and costs no API call. Only the subject — the
+            # expensive part, 8 uploads — is worth turning into an identity.
+            {"id": 3,  "type": "LoadImage", "title": "@image9 - paramo, frailejones",
+             "pos": [40, 420], "widgets": ["loc_paramo.png", "image"]},
+            {"id": 4,  "type": "LoadImage", "title": "@image10 - andean condor",
+             "pos": [40, 780], "widgets": ["loc_condor.png", "image"]},
+            {"id": 5,  "type": "LoadImage", "title": "@image11 - Cano Cristales",
+             "pos": [40, 1140], "widgets": ["loc_canocristales.png", "image"]},
+            {"id": 6,  "type": "LoadImage", "title": "@image12 - jaguar in the river",
+             "pos": [40, 1500], "widgets": ["loc_jaguar.png", "image"]},
+            {"id": 7,  "type": "LoadImage", "title": "@image13 - Ciudad Perdida",
+             "pos": [40, 1860], "widgets": ["loc_ciudadperdida.png", "image"]},
+            {"id": 8,  "type": "SeedanceRefImages", "title": "Places -> base64, instant",
+             "pos": [500, 420], "size": [420, 340], "widgets": []},
+            gen(9, "Same prompt, same 30s, none of the waiting", [980, 40],
+                "seedance-2.5",
+                "PASTE THE PROMPT FROM 13_style_journey_v25.json HERE - it is identical, and "
+                "the @image1..@image13 numbering still lines up: the identity supplies the "
+                "8 subject images first, the places follow.",
+                resolution="720p", ratio="16:9", duration=30, audio=True),
+            save(10, "style_journey_reuse", [1470, 40]),
+        ],
+        "links": [
+            (1, "api", 9, "api"),
+            (2, "anyfast_refs", 9, "anyfast_refs"),
+            (3, "IMAGE", 8, "image_1"), (4, "IMAGE", 8, "image_2"),
+            (5, "IMAGE", 8, "image_3"), (6, "IMAGE", 8, "image_4"),
+            (7, "IMAGE", 8, "image_5"),
+            (8, "reference_images", 9, "reference_images"),
+            (9, "video_url", 10, "video_url"),
+        ],
+    },
 ]
 
 
