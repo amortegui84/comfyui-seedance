@@ -18,23 +18,33 @@ import os
 import sys
 import types
 
+# Windows consoles default to cp1252 and cannot encode the arrows in the output.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError):
+        pass
+
 # Stub ComfyUI's folder_paths so nodes.py imports outside ComfyUI. get_user_directory
 # is what decides where both stores live, so resolve it the same way ComfyUI would.
-_DEFAULT_USER_DIRS = [
-    r"D:\ComfyUI_windows_portable_nvidia\ComfyUI_windows_portable\ComfyUI\user",
-]
-
-
 def _resolve_user_dir(explicit=None):
+    """Locate ComfyUI's user/ directory.
+
+    Order: --user-dir, then $COMFYUI_USER_DIR, then derived from where this file
+    sits. A custom node lives at ComfyUI/custom_nodes/<repo>/, so ComfyUI's user
+    directory is two levels up — which holds for every install layout rather than
+    for one particular machine."""
     if explicit:
         return explicit
     env = os.environ.get("COMFYUI_USER_DIR", "").strip()
     if env:
         return env
-    for candidate in _DEFAULT_USER_DIRS:
-        if os.path.isdir(candidate):
-            return candidate
-    return os.path.dirname(os.path.abspath(__file__))
+
+    here = os.path.dirname(os.path.abspath(__file__))
+    derived = os.path.normpath(os.path.join(here, "..", "..", "user"))
+    if os.path.isdir(derived):
+        return derived
+    return here
 
 
 def main():

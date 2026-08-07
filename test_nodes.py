@@ -12,6 +12,15 @@ Exits non-zero if anything fails.
 import sys, types, json, os, tempfile, shutil, atexit
 import numpy as np
 
+# Windows consoles default to cp1252, which cannot encode the arrows and dashes
+# in these messages — without this the suite dies with UnicodeEncodeError instead
+# of reporting results.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError):
+        pass
+
 # --- stub ComfyUI's folder_paths so nodes.py imports outside ComfyUI ---
 # get_user_directory points at a scratch dir so the test never reads or writes
 # the real asset cache / identity store.

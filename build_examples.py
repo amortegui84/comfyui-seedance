@@ -25,6 +25,14 @@ import types
 
 REPO = os.path.dirname(os.path.abspath(__file__))
 
+# Windows consoles default to cp1252 and cannot encode the dashes in the
+# workflow descriptions below.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError):
+        pass
+
 # Introspecting the nodes touches the identity store, which creates its folder.
 # Point it at a scratch dir so building examples never writes inside the repo.
 _SCRATCH = tempfile.mkdtemp(prefix="seedance_build_")

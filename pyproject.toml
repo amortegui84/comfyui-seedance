@@ -1,14 +1,14 @@
 [project]
 name = "comfyui-anyfast-seedance"
-version = "0.2.0"
-description = "Seedance AM nodes for ComfyUI — generate videos with ByteDance Seedance 2.0 powered by AnyFast"
+version = "0.3.0"
+description = "Seedance AM nodes for ComfyUI — generate videos with ByteDance Seedance 2.0 and 2.5 powered by AnyFast"
 authors = [{name = "Aaron Ortega"}]
 license = {text = "Apache-2.0"}
-dependencies = ["requests", "Pillow"]
+dependencies = ["requests", "Pillow", "numpy"]
 
 [project.urls]
-Repository = "https://github.com/amortegui84/comfyui-anyfast-seedance"
-Documentation = "https://github.com/amortegui84/comfyui-anyfast-seedance#readme"
+Repository = "https://github.com/amortegui84/comfyui-seedance"
+Documentation = "https://github.com/amortegui84/comfyui-seedance#readme"
 
 [tool.comfy]
 PublisherId = "amortegui84"
