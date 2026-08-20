@@ -150,7 +150,8 @@
       },
       "widgets_values": [
         "",
-        "motion.mp4"
+        "motion.mp4",
+        "seedance-2.5 (max 30s)"
       ]
     },
     {
@@ -190,7 +191,8 @@
       },
       "widgets_values": [
         "music.mp3",
-        ""
+        "",
+        "seedance-2.5 (max 30s)"
       ]
     },
     {

@@ -284,6 +284,55 @@ run(v25, prompt="a scene", reference_images=[_RealTensor(7)])
 _imgs = [c for c in captured["payload"]["content"] if c["type"] == "image_url"]
 check("plain refs alone unchanged", len(_imgs) == 1 and _imgs[0]["role"] == "reference_image", _imgs)
 
+print("\n=== data URIs survive the multi-reference socket ===")
+# Regression: splitting on commas tore 'data:audio/mpeg;base64,AAAA' in two and
+# sent the tail as a second, malformed reference. AnyFast answered
+# "content[N].audio_url.url ... is not valid: invalid url".
+_data_uri = "data:audio/mpeg;base64,SUQzBAAAAAA/////AAAA"
+check("a data URI stays whole", nodes._split_ref_urls(_data_uri) == [_data_uri],
+      nodes._split_ref_urls(_data_uri))
+check("a URL with commas stays whole",
+      nodes._split_ref_urls("https://x/a.mp4?t=1,2,3") == ["https://x/a.mp4?t=1,2,3"])
+check("newlines still split",
+      nodes._split_ref_urls("https://x/1.mp4\nhttps://x/2.mp4") ==
+      ["https://x/1.mp4", "https://x/2.mp4"])
+check("blank lines ignored", nodes._split_ref_urls("a\n\n  \nb") == ["a", "b"])
+
+run(v25, prompt="a scene @audio1", reference_images=[_RealTensor(3)],
+    reference_audio=_data_uri)
+_p = captured["payload"]
+_auds = [c for c in _p["content"] if c["type"] == "audio_url"]
+check("exactly one audio entry from one data URI", len(_auds) == 1, len(_auds))
+check("the data URI reaches the payload intact",
+      _auds[0]["audio_url"]["url"] == _data_uri, _auds[0])
+check("no phantom @audio2 appended", "@audio2" not in _p["content"][0]["text"],
+      _p["content"][0]["text"][-60:])
+
+print("\n=== reference media limits per model ===")
+check("2.0 audio ceiling is 15s", nodes.MEDIA_LIMITS["seedance-2.0"]["audio_max"] == 15)
+check("2.5 audio ceiling is 30s", nodes.MEDIA_LIMITS["seedance-2.5"]["audio_max"] == 30)
+check("2.0 video is capped at 50 MB", nodes.MEDIA_LIMITS["seedance-2.0"]["video_mb"] == 50)
+check("2.5 video is capped at 200 MB", nodes.MEDIA_LIMITS["seedance-2.5"]["video_mb"] == 200)
+check("floor is 2s", nodes.MEDIA_MIN_SECONDS == 2.0)
+check("default target is the safe 2.0 one", nodes.MEDIA_TARGETS[0].startswith("seedance-2.0"))
+check("2.5 target resolves to the 30s limits",
+      nodes._target_limits(nodes.MEDIA_TARGETS[1])["audio_max"] == 30)
+check("'no trim' disables preparation", nodes._target_limits(nodes.MEDIA_TARGETS[2]) is None)
+check("an unknown target falls back to the safe limits",
+      nodes._target_limits("something else")["audio_max"] == 15)
+
+# The 2s floor must be reported before a request is spent, not after.
+try:
+    nodes._check_media_floor("x.mp3", 1.2, "Audio")
+    check("a clip under 2s is rejected", False, "no error")
+except ValueError as e:
+    check("a clip under 2s is rejected", "at least 2" in str(e), str(e))
+try:
+    nodes._check_media_floor("x.mp3", 5.0, "Audio")
+    check("a clip over 2s passes", True)
+except ValueError as e:
+    check("a clip over 2s passes", False, str(e))
+
 print("\n=== widget order (saved-workflow compatibility) ===")
 # ComfyUI serialises widget values as a POSITIONAL array. Inserting a widget
 # anywhere but the end shifts every saved workflow's values by one — which is

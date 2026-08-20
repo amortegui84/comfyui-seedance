@@ -1584,13 +1584,89 @@ def _video_input_to_path(video_input):
     return tmp.name, True
 
 
-_AUDIO_MAX_SECONDS = 15.0   # API hard limit is 15.2s; use 15.0 as safe target
+# Reference media limits, per AnyFast's own model docs. 2.5 doubled the length
+# ceiling; the 2-second floor and the format list are the same for both, and a
+# clip under 2s is rejected outright rather than padded.
+MEDIA_LIMITS = {
+    "seedance-2.0": {"audio_max": 15.0, "video_max": 15.0, "video_mb": 50},
+    "seedance-2.5": {"audio_max": 30.0, "video_max": 30.0, "video_mb": 200},
+}
+MEDIA_MIN_SECONDS = 2.0
+AUDIO_MAX_MB      = 15
+
+# Offered on the reference nodes. "seedance-2.0" is the safe default: 15s plays
+# on both models, while a 30s clip prepared for 2.5 is rejected by 2.0.
+MEDIA_TARGETS = ["seedance-2.0 (max 15s — safe for both)",
+                 "seedance-2.5 (max 30s)",
+                 "no trim"]
 
 
-def _audio_dict_to_wav(audio_dict):
+def _target_limits(target):
+    """Map the reference nodes' target dropdown onto MEDIA_LIMITS."""
+    if str(target).startswith("seedance-2.5"):
+        return MEDIA_LIMITS["seedance-2.5"]
+    if str(target).startswith("no trim"):
+        return None
+    return MEDIA_LIMITS["seedance-2.0"]
+
+
+def _media_duration_seconds(file_path):
+    """Duration in seconds, or None if nothing on this machine can read it.
+
+    torchaudio.info was removed in recent torchaudio builds — it raised
+    'module torchaudio has no attribute info' here, which the old code swallowed,
+    so oversized audio sailed straight through to a 400. Each route is tried in
+    turn instead of trusting one."""
+    try:
+        import torchaudio
+        info = torchaudio.info(file_path)
+        return info.num_frames / info.sample_rate
+    except Exception:
+        pass
+    try:
+        import soundfile as sf
+        with sf.SoundFile(file_path) as handle:
+            return len(handle) / handle.samplerate
+    except Exception:
+        pass
+    try:
+        import torchaudio
+        waveform, sample_rate = torchaudio.load(file_path)
+        return waveform.shape[-1] / sample_rate
+    except Exception:
+        pass
+    # ffmpeg prints "Duration: HH:MM:SS.ss" to stderr even with no output file.
+    try:
+        import subprocess
+        ffmpeg = _find_ffmpeg()
+        if ffmpeg:
+            result = subprocess.run([ffmpeg, "-i", file_path], capture_output=True, text=True)
+            match = re.search(r"Duration:\s*(\d+):(\d+):(\d+\.?\d*)", result.stderr or "")
+            if match:
+                hours, minutes, seconds = match.groups()
+                return int(hours) * 3600 + int(minutes) * 60 + float(seconds)
+    except Exception:
+        pass
+    return None
+
+
+def _check_media_floor(file_path, duration, kind):
+    """Seedance rejects references shorter than 2s. Say so before spending a call."""
+    if duration is not None and duration < MEDIA_MIN_SECONDS:
+        raise ValueError(
+            f"{kind} reference is {duration:.2f}s — Seedance requires at least "
+            f"{MEDIA_MIN_SECONDS:.0f}s. Use a longer clip.\n{file_path}"
+        )
+
+
+_AUDIO_MAX_SECONDS = 15.0   # legacy default, kept for the AUDIO-dict path
+
+
+def _audio_dict_to_wav(audio_dict, target="seedance-2.0"):
     """Save a ComfyUI AUDIO dict {waveform, sample_rate} to a temp WAV file.
 
-    Trims to _AUDIO_MAX_SECONDS if needed. Returns temp path — caller deletes it."""
+    Trims to the target model's ceiling if needed. Returns temp path — caller
+    deletes it."""
     import tempfile
     try:
         import torchaudio
@@ -1603,36 +1679,129 @@ def _audio_dict_to_wav(audio_dict):
     if waveform.dim() == 3:
         waveform = waveform[0]
     duration = waveform.shape[-1] / sample_rate
-    if duration > _AUDIO_MAX_SECONDS:
-        print(f"[Seedance] Audio {duration:.2f}s exceeds 15.2s API limit — trimming to {_AUDIO_MAX_SECONDS}s")
-        waveform = waveform[..., :int(_AUDIO_MAX_SECONDS * sample_rate)]
+    if duration < MEDIA_MIN_SECONDS:
+        raise ValueError(
+            f"Audio is {duration:.2f}s — Seedance requires at least "
+            f"{MEDIA_MIN_SECONDS:.0f}s. Use a longer clip."
+        )
+    limits = _target_limits(target)
+    max_seconds = limits["audio_max"] if limits else None
+    if max_seconds and duration > max_seconds:
+        print(f"[Seedance] Audio {duration:.2f}s exceeds the {max_seconds:.0f}s limit for "
+              f"{target} — trimming")
+        waveform = waveform[..., :int(max_seconds * sample_rate)]
     tmp = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
     tmp.close()
     torchaudio.save(tmp.name, waveform.cpu(), sample_rate)
     return tmp.name
 
 
-def _trim_audio_file_if_needed(file_path):
-    """Check audio duration via torchaudio; trim to _AUDIO_MAX_SECONDS if over limit.
+def _trim_audio_file_if_needed(file_path, target="seedance-2.0"):
+    """Prepare an audio file for the chosen Seedance model.
 
-    Returns (path, needs_cleanup). path may be the original or a new temp WAV."""
+    Trims anything over the target's ceiling (15s on 2.0, 30s on 2.5) and
+    refuses anything under the 2s floor. Returns (path, needs_cleanup); path is
+    the original when no work was needed."""
+    limits = _target_limits(target)
+    if limits is None:
+        return file_path, False
+
+    max_seconds = limits["audio_max"]
+    duration = _media_duration_seconds(file_path)
+    if duration is None:
+        print("[Seedance] Could not read the audio duration on this machine — sending as is. "
+              f"If AnyFast rejects it, trim the clip to under {max_seconds:.0f}s yourself.")
+        return file_path, False
+
+    _check_media_floor(file_path, duration, "Audio")
+    if duration <= max_seconds:
+        print(f"[Seedance] Audio {duration:.2f}s — within the {max_seconds:.0f}s limit for {target}")
+        return file_path, False
+
+    print(f"[Seedance] Audio {duration:.2f}s exceeds the {max_seconds:.0f}s limit for "
+          f"{target} — trimming")
     try:
-        import torchaudio
-        info = torchaudio.info(file_path)
-        duration = info.num_frames / info.sample_rate
-        if duration <= 15.2:
-            return file_path, False
-        print(f"[Seedance] Audio {duration:.2f}s exceeds 15.2s API limit — trimming to {_AUDIO_MAX_SECONDS}s")
-        waveform, sr = torchaudio.load(file_path)
-        waveform = waveform[..., :int(_AUDIO_MAX_SECONDS * sr)]
         import tempfile
+        import torchaudio
+        waveform, sample_rate = torchaudio.load(file_path)
+        waveform = waveform[..., :int(max_seconds * sample_rate)]
         tmp = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
         tmp.close()
-        torchaudio.save(tmp.name, waveform.cpu(), sr)
+        torchaudio.save(tmp.name, waveform.cpu(), sample_rate)
         return tmp.name, True
     except Exception as e:
-        print(f"[Seedance] Could not check audio duration: {e}")
+        # ffmpeg can do the same cut without torchaudio.
+        try:
+            import subprocess
+            import tempfile
+            ffmpeg = _find_ffmpeg()
+            if not ffmpeg:
+                raise RuntimeError("ffmpeg not found") from e
+            tmp = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
+            tmp.close()
+            subprocess.run([ffmpeg, "-y", "-i", file_path, "-t", str(max_seconds), tmp.name],
+                           capture_output=True, check=True)
+            return tmp.name, True
+        except Exception as e2:
+            raise RuntimeError(
+                f"Audio is {duration:.2f}s, over the {max_seconds:.0f}s limit for {target}, "
+                f"and it could not be trimmed automatically ({e2}). Trim it yourself, or "
+                f"install ffmpeg (pip install imageio-ffmpeg)."
+            ) from e2
+
+
+def _prepare_video_for_target(file_path, target):
+    """Trim a reference video to the target model's ceiling and check the floor.
+
+    Returns (path, needs_cleanup). Cutting video needs ffmpeg; without it the
+    file goes through untouched and AnyFast decides, which at least fails with a
+    clear message rather than silently truncating."""
+    limits = _target_limits(target)
+    if limits is None:
         return file_path, False
+
+    max_seconds = limits["video_max"]
+    size_mb = os.path.getsize(file_path) / (1024 * 1024)
+    if size_mb > limits["video_mb"]:
+        raise ValueError(
+            f"Reference video is {size_mb:.1f} MB — {target} allows "
+            f"{limits['video_mb']} MB. Re-export it smaller.\n{file_path}"
+        )
+
+    duration = _media_duration_seconds(file_path)
+    if duration is None:
+        print("[Seedance] Could not read the video duration — sending as is.")
+        return file_path, False
+
+    _check_media_floor(file_path, duration, "Video")
+    if duration <= max_seconds:
+        print(f"[Seedance] Video {duration:.2f}s, {size_mb:.1f} MB — within the limits for {target}")
+        return file_path, False
+
+    ffmpeg = _find_ffmpeg()
+    if not ffmpeg:
+        raise ValueError(
+            f"Reference video is {duration:.2f}s — {target} allows {max_seconds:.0f}s, and "
+            f"ffmpeg was not found to trim it. Install it (pip install imageio-ffmpeg) or "
+            f"trim the clip yourself.\n{file_path}"
+        )
+
+    print(f"[Seedance] Video {duration:.2f}s exceeds the {max_seconds:.0f}s limit for "
+          f"{target} — trimming")
+    import subprocess
+    import tempfile
+    tmp = tempfile.NamedTemporaryFile(suffix=".mp4", delete=False)
+    tmp.close()
+    # Re-encode rather than stream-copy: a copy cuts at the nearest keyframe and
+    # can overshoot the limit, which is exactly what we are trying to avoid.
+    result = subprocess.run(
+        [ffmpeg, "-y", "-i", file_path, "-t", str(max_seconds),
+         "-c:v", "libx264", "-preset", "veryfast", "-c:a", "aac", tmp.name],
+        capture_output=True, text=True,
+    )
+    if result.returncode != 0 or not os.path.exists(tmp.name):
+        raise RuntimeError(f"ffmpeg could not trim the video:\n{(result.stderr or '')[-500:]}")
+    return tmp.name, True
 
 
 class SeedanceReferenceVideo:
@@ -1661,6 +1830,11 @@ class SeedanceReferenceVideo:
                 "video_path": ("STRING", {"default": "", "placeholder": "C:\\Users\\...\\video.mp4"}),
                 "video_file": (files,),
                 "video":      ("VIDEO", {"forceInput": True}),
+                # Appended last — ComfyUI serialises widget values positionally.
+                "target":     (MEDIA_TARGETS, {
+                    "tooltip": "Which model this clip is for. Seedance 2.0 accepts 2-15s up to "
+                               "50 MB, 2.5 accepts 2-30s up to 200 MB. Over-long clips are "
+                               "trimmed for you when ffmpeg is available."}),
             }
         }
 
@@ -1675,7 +1849,8 @@ class SeedanceReferenceVideo:
             return float("nan")
         return kwargs.get("video_path", "") or kwargs.get("video_file", "")
 
-    def upload(self, api, existing_group_id=None, video_path=None, video_file=None, video=None):
+    def upload(self, api, existing_group_id=None, video_path=None, video_file=None, video=None,
+               target=MEDIA_TARGETS[0]):
         cleanup   = False
         file_path = None
 
@@ -1696,6 +1871,8 @@ class SeedanceReferenceVideo:
             )
 
         try:
+            file_path, prepared = _prepare_video_for_target(file_path, target)
+            cleanup = cleanup or prepared
             filename = os.path.basename(file_path)
             group_id = _ensure_group(api, "seedance-video-refs", existing_group_id)
             asset_uri, _, _ = _upload_asset(api, "Video", filename,
@@ -1742,6 +1919,11 @@ class SeedanceReferenceAudio:
                 "audio_file": (files,),
                 "audio_path": ("STRING", {"default": "", "placeholder": "C:\\Users\\...\\audio.mp3"}),
                 "audio":      ("AUDIO", {"forceInput": True}),
+                # Appended last — ComfyUI serialises widget values positionally.
+                "target":     (MEDIA_TARGETS, {
+                    "tooltip": "Which model this clip is for. Seedance 2.0 accepts 2-15s, "
+                               "2.5 accepts 2-30s; anything longer is trimmed for you. "
+                               "Leave on 2.0 if you might use either."}),
             }
         }
 
@@ -1755,12 +1937,13 @@ class SeedanceReferenceAudio:
             return float("nan")
         return kwargs.get("audio_path", "") or kwargs.get("audio_file", "")
 
-    def upload(self, audio_path=None, audio_file=None, audio=None):
+    def upload(self, audio_path=None, audio_file=None, audio=None,
+               target=MEDIA_TARGETS[0]):
         cleanup   = False
         file_path = None
 
         if audio is not None:
-            file_path = _audio_dict_to_wav(audio)
+            file_path = _audio_dict_to_wav(audio, target=target)
             cleanup   = True
             print(f"[Seedance] Using Load Audio node input (saved to temp WAV)")
         elif audio_path and audio_path.strip().strip('"').strip("'") not in ("", "none"):
@@ -1768,11 +1951,11 @@ class SeedanceReferenceAudio:
             if not os.path.isabs(file_path) and os.sep not in file_path and "/" not in file_path:
                 file_path = os.path.join(folder_paths.get_input_directory(), file_path)
             print(f"[Seedance] Using audio_path: {file_path}")
-            file_path, cleanup = _trim_audio_file_if_needed(file_path)
+            file_path, cleanup = _trim_audio_file_if_needed(file_path, target=target)
         elif audio_file and audio_file != "none":
             file_path = os.path.join(folder_paths.get_input_directory(), audio_file)
             print(f"[Seedance] Using audio_file dropdown: {audio_file}")
-            file_path, cleanup = _trim_audio_file_if_needed(file_path)
+            file_path, cleanup = _trim_audio_file_if_needed(file_path, target=target)
         else:
             raise ValueError(
                 "Provide a file path in 'audio_path', connect a Load Audio node, "
@@ -1865,15 +2048,20 @@ class SeedanceUploadAsset:
 # --------------------------------------------------------------------------- #
 
 def _split_ref_urls(value):
-    """Split a reference STRING input into a list of URLs.
+    """Split a reference STRING input into a list of URLs, ONE PER LINE.
 
     Seedance 2.5 accepts up to 10 video and 10 audio references, but the node
-    exposes a single STRING socket for each. Accepting one URL per line (commas
-    also work) lets a single socket carry several references without adding new
-    inputs — a lone URL still behaves exactly as before."""
+    exposes a single STRING socket for each, so several references travel down
+    one socket separated by newlines. A lone URL is unaffected.
+
+    Newlines only — never commas. A base64 data URI is
+    'data:audio/mpeg;base64,AAAA...', so splitting on commas tore it in half and
+    sent the fragment after the comma as a second, malformed reference. AnyFast
+    answered with 'content[N].audio_url.url ... is not valid: invalid url'.
+    Query strings and some CDN URLs contain commas too."""
     if not value:
         return []
-    return [part.strip() for part in re.split(r"[\r\n,]+", str(value)) if part.strip()]
+    return [part.strip() for part in str(value).splitlines() if part.strip()]
 
 
 class _V2Base:

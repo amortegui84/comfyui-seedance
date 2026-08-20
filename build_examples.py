@@ -239,6 +239,9 @@ def build(workflow):
 # privacy leak and a broken reference on anyone else's machine.
 EXAMPLE_IDENTITY = "my-subject"
 
+# Reference-media target presets, straight from the node so they cannot drift.
+TARGET_20, TARGET_25 = nodes.MEDIA_TARGETS[0], nodes.MEDIA_TARGETS[1]
+
 API_KEY = {"id": 1, "type": "SeedanceApiKey", "title": "1. API key",
            "pos": [40, 40], "size": [380, 100], "widgets": ["", "https://www.anyfast.ai"]}
 
@@ -347,7 +350,7 @@ WORKFLOWS = [
             {"id": 3, "type": "SeedanceReferenceAudio",
              "title": "3. Voice sample to clone (2-15s)",
              "pos": [40, 380], "size": [400, 180],
-             "widgets": ["voice.mp3", ""]},
+             "widgets": ["voice.mp3", "", TARGET_20]},
             gen(4, "4. Dialogue goes in DOUBLE QUOTES; keep generate_audio ON",
                 [500, 40], "seedance-2.0",
                 'The person looks at camera and says "Hello, good to see you again." '
@@ -395,7 +398,7 @@ WORKFLOWS = [
             {"id": 2, "type": "SeedanceReferenceAudio",
              "title": "2. The only reference — no image, no video",
              "pos": [40, 180], "size": [400, 180],
-             "widgets": ["music.mp3", ""]},
+             "widgets": ["music.mp3", "", TARGET_25]},
             gen(3, "3. duration -1 lets the model match the audio", [500, 40],
                 "seedance-2.5",
                 "Abstract visuals that follow the rhythm and mood of @audio1, "
@@ -417,11 +420,11 @@ WORKFLOWS = [
             {"id": 3, "type": "SeedanceReferenceVideo",
              "title": "3. Motion to copy",
              "pos": [40, 380], "size": [400, 180],
-             "widgets": ["", "motion.mp4"]},
+             "widgets": ["", "motion.mp4", TARGET_25]},
             {"id": 4, "type": "SeedanceReferenceAudio",
              "title": "4. Music to pace it (one URL per line for several)",
              "pos": [40, 610], "size": [400, 180],
-             "widgets": ["music.mp3", ""]},
+             "widgets": ["music.mp3", "", TARGET_25]},
             gen(5, "5. 2.5 takes 30 images / 10 videos / 10 audio", [500, 40],
                 "seedance-2.5",
                 "@image1 performs the motion from @video1, paced to @audio1, "
