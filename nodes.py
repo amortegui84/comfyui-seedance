@@ -1596,7 +1596,10 @@ AUDIO_MAX_MB      = 15
 
 # Offered on the reference nodes. "seedance-2.0" is the safe default: 15s plays
 # on both models, while a 30s clip prepared for 2.5 is rejected by 2.0.
-MEDIA_TARGETS = ["seedance-2.0 (max 15s — safe for both)",
+# Plain ASCII on purpose: these strings are compared by value between the saved
+# workflow, the frontend and the backend, and a non-ASCII character in that path
+# is one encoding mismatch away from "value not available".
+MEDIA_TARGETS = ["seedance-2.0 (max 15s, safe for both)",
                  "seedance-2.5 (max 30s)",
                  "no trim"]
 
