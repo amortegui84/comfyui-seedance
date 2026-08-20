@@ -1,6 +1,6 @@
 {
   "last_node_id": 5,
-  "last_link_id": 4,
+  "last_link_id": 5,
   "nodes": [
     {
       "id": 1,
@@ -22,7 +22,8 @@
           "name": "api",
           "type": "SEEDANCE_API",
           "links": [
-            1
+            1,
+            2
           ],
           "slot_index": 0
         }
@@ -56,7 +57,7 @@
           "name": "anyfast_refs",
           "type": "ANYFAST_IMAGE_REFS",
           "links": [
-            2
+            3
           ],
           "slot_index": 0
         },
@@ -116,12 +117,28 @@
           "name": "reference_audio",
           "type": "STRING",
           "links": [
-            3
+            4
           ],
           "slot_index": 0
+        },
+        {
+          "name": "group_id",
+          "type": "STRING",
+          "links": [],
+          "slot_index": 1
         }
       ],
       "inputs": [
+        {
+          "name": "api",
+          "type": "SEEDANCE_API",
+          "link": 2
+        },
+        {
+          "name": "existing_group_id",
+          "type": "STRING",
+          "link": null
+        },
         {
           "name": "audio",
           "type": "AUDIO",
@@ -157,7 +174,7 @@
           "name": "video_url",
           "type": "STRING",
           "links": [
-            4
+            5
           ],
           "slot_index": 0
         },
@@ -203,12 +220,12 @@
         {
           "name": "reference_audio",
           "type": "STRING",
-          "link": 3
+          "link": 4
         },
         {
           "name": "anyfast_refs",
           "type": "ANYFAST_IMAGE_REFS",
-          "link": 2
+          "link": 3
         }
       ],
       "properties": {
@@ -253,7 +270,7 @@
         {
           "name": "video_url",
           "type": "STRING",
-          "link": 4
+          "link": 5
         },
         {
           "name": "reference_audio",
@@ -281,6 +298,14 @@
     ],
     [
       2,
+      1,
+      0,
+      3,
+      0,
+      "SEEDANCE_API"
+    ],
+    [
+      3,
       2,
       0,
       4,
@@ -288,7 +313,7 @@
       "ANYFAST_IMAGE_REFS"
     ],
     [
-      3,
+      4,
       3,
       0,
       4,
@@ -296,7 +321,7 @@
       "STRING"
     ],
     [
-      4,
+      5,
       4,
       0,
       5,

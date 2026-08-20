@@ -1,6 +1,6 @@
 {
   "last_node_id": 6,
-  "last_link_id": 6,
+  "last_link_id": 7,
   "nodes": [
     {
       "id": 1,
@@ -23,7 +23,8 @@
           "type": "SEEDANCE_API",
           "links": [
             1,
-            2
+            2,
+            5
           ],
           "slot_index": 0
         }
@@ -174,12 +175,28 @@
           "name": "reference_audio",
           "type": "STRING",
           "links": [
-            5
+            6
           ],
           "slot_index": 0
+        },
+        {
+          "name": "group_id",
+          "type": "STRING",
+          "links": [],
+          "slot_index": 1
         }
       ],
       "inputs": [
+        {
+          "name": "api",
+          "type": "SEEDANCE_API",
+          "link": 5
+        },
+        {
+          "name": "existing_group_id",
+          "type": "STRING",
+          "link": null
+        },
         {
           "name": "audio",
           "type": "AUDIO",
@@ -215,7 +232,7 @@
           "name": "video_url",
           "type": "STRING",
           "links": [
-            6
+            7
           ],
           "slot_index": 0
         },
@@ -261,7 +278,7 @@
         {
           "name": "reference_audio",
           "type": "STRING",
-          "link": 5
+          "link": 6
         },
         {
           "name": "anyfast_refs",
@@ -311,7 +328,7 @@
         {
           "name": "video_url",
           "type": "STRING",
-          "link": 6
+          "link": 7
         },
         {
           "name": "reference_audio",
@@ -363,6 +380,14 @@
     ],
     [
       5,
+      1,
+      0,
+      4,
+      0,
+      "SEEDANCE_API"
+    ],
+    [
+      6,
       4,
       0,
       5,
@@ -370,7 +395,7 @@
       "STRING"
     ],
     [
-      6,
+      7,
       5,
       0,
       6,

@@ -357,7 +357,8 @@ WORKFLOWS = [
                 'Warm indoor lighting @image1 @audio1', duration=5, audio=True),
             save(5, "seedance_lipsync", [990, 120]),
         ],
-        "links": [(1, "api", 4, "api"), (2, "anyfast_refs", 4, "anyfast_refs"),
+        "links": [(1, "api", 4, "api"), (1, "api", 3, "api"),
+                  (2, "anyfast_refs", 4, "anyfast_refs"),
                   (3, "reference_audio", 4, "reference_audio"), (4, "video_url", 5, "video_url")],
     },
     {
@@ -406,7 +407,8 @@ WORKFLOWS = [
                 resolution="720p", ratio="adaptive", duration=-1),
             save(4, "seedance_v25_audio_only", [990, 120]),
         ],
-        "links": [(1, "api", 3, "api"), (2, "reference_audio", 3, "reference_audio"),
+        "links": [(1, "api", 3, "api"), (1, "api", 2, "api"),
+                  (2, "reference_audio", 3, "reference_audio"),
                   (3, "video_url", 4, "video_url")],
     },
     {
@@ -435,7 +437,8 @@ WORKFLOWS = [
         "links": [(1, "api", 5, "api"), (1, "api", 3, "api"),
                   (2, "anyfast_refs", 5, "anyfast_refs"),
                   (3, "reference_video", 5, "reference_video"),
-                  (4, "reference_audio", 5, "reference_audio"),
+                  (1, "api", 4, "api"),
+            (4, "reference_audio", 5, "reference_audio"),
                   (5, "video_url", 6, "video_url")],
     },
     {

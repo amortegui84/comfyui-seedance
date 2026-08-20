@@ -363,7 +363,14 @@ API Key → Seedance2 → SeedanceSaveVideo (original)
 |---|---|
 | `Seedance AM - Reference Images (9 per node, chainable)` | Collect up to 9 non-face images as a `SEEDANCE_IMAGE_LIST` for `reference_images`. Chain nodes via `existing_images` to reach 2.5's 30-image limit. Do not use for real people — use `SeedanceFaceRef` instead. |
 | `Seedance AM - Reference Video` | Upload a video file to AnyFast assets and return an `asset://` URI. Requires `api` connection. Minimum ~640×640 px, maximum ~1920×1088 px. |
-| `Seedance AM - Reference Audio` | Encode or upload an audio file and return a data URI or public URL. No API key required. **See the privacy note below.** |
+| `Seedance AM - Reference Audio` | Prepare an audio reference. **Connect `api`** and it uploads through the AnyFast asset system and returns an `asset://` id — the reliable route. Without `api` it falls back to a base64 data URI. **See the notes below.** |
+
+> **Connect `api` on Reference Audio.** Base64 audio is listed as supported, but
+> some AnyFast channels reject it with
+> `The parameter audio_url ... is not valid: Invalid base64 audio_url`, even for a
+> perfectly valid MP3. Uploading through the asset system is the same path images
+> and video already take and it does not have this problem. The node still works
+> without `api` — it just uses the route that may be refused.
 
 > ⚠️ **Audio over 10 MB leaves your machine via a public file host.**
 > `Seedance AM - Reference Audio` inlines files up to 10 MB as a base64 data URI,

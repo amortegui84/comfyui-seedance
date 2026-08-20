@@ -1919,6 +1919,10 @@ class SeedanceReferenceAudio:
         return {
             "required": {},
             "optional": {
+                # Link inputs, not widgets — adding them cannot shift the saved
+                # positional widget values of existing workflows.
+                "api":               ("SEEDANCE_API",),
+                "existing_group_id": ("STRING", {"forceInput": True}),
                 "audio_file": (files,),
                 "audio_path": ("STRING", {"default": "", "placeholder": "C:\\Users\\...\\audio.mp3"}),
                 "audio":      ("AUDIO", {"forceInput": True}),
@@ -1930,8 +1934,8 @@ class SeedanceReferenceAudio:
             }
         }
 
-    RETURN_TYPES = ("STRING",)
-    RETURN_NAMES = ("reference_audio",)
+    RETURN_TYPES = ("STRING", "STRING")
+    RETURN_NAMES = ("reference_audio", "group_id")
     FUNCTION     = "upload"
 
     @classmethod
@@ -1940,8 +1944,8 @@ class SeedanceReferenceAudio:
             return float("nan")
         return kwargs.get("audio_path", "") or kwargs.get("audio_file", "")
 
-    def upload(self, audio_path=None, audio_file=None, audio=None,
-               target=MEDIA_TARGETS[0]):
+    def upload(self, api=None, existing_group_id=None, audio_path=None, audio_file=None,
+               audio=None, target=MEDIA_TARGETS[0]):
         cleanup   = False
         file_path = None
 
@@ -1968,17 +1972,41 @@ class SeedanceReferenceAudio:
         try:
             with open(file_path, "rb") as f:
                 file_bytes = f.read()
+            size_mb = len(file_bytes) / (1024 * 1024)
+            if size_mb > AUDIO_MAX_MB:
+                raise ValueError(
+                    f"Audio is {size_mb:.1f} MB — Seedance allows {AUDIO_MAX_MB} MB. "
+                    f"Export it smaller or shorter.\n{file_path}"
+                )
+
+            # Preferred route: the AnyFast asset system, the same one images and
+            # video already use. Base64 audio is listed as supported but is
+            # rejected by some channels with "Invalid base64 audio_url", so it is
+            # only the fallback for when no api is connected.
+            if api is not None:
+                group_id  = _ensure_group(api, "seedance-audio-refs", existing_group_id)
+                name      = os.path.splitext(os.path.basename(file_path))[0] or "reference-audio"
+                asset_uri, _verify, group_id = _upload_asset(
+                    api, "Audio", name, group_id=group_id, file_path=file_path
+                )
+                _wait_for_asset_active(api, asset_uri, group_id)
+                print(f"[Seedance] Reference audio → {asset_uri}  group={group_id}")
+                return {"ui": {"text": [f"{asset_uri}\ngroup_id: {group_id}"]},
+                        "result": (asset_uri, group_id)}
+
             ext      = os.path.splitext(file_path)[1].lower()
             mime_map = {".mp3": "audio/mpeg", ".wav": "audio/wav",
                         ".ogg": "audio/ogg",  ".flac": "audio/flac", ".m4a": "audio/mp4"}
             mime     = mime_map.get(ext, "audio/wav")
             if len(file_bytes) <= 10 * 1024 * 1024:
                 audio_url = f"data:{mime};base64,{base64.b64encode(file_bytes).decode('ascii')}"
-                print(f"[Seedance] Reference audio → base64 ({len(file_bytes)//1024} KB)")
+                print(f"[Seedance] Reference audio → base64 ({len(file_bytes)//1024} KB). "
+                      "Connect 'api' to upload it as an asset instead if this is rejected.")
             else:
                 audio_url = _upload_to_temp_host(file_bytes, os.path.basename(file_path))
                 print(f"[Seedance] Reference audio → {audio_url}")
-            return (audio_url,)
+            return {"ui": {"text": ["base64 (no api connected)"]},
+                    "result": (audio_url, "")}
         finally:
             if cleanup and file_path and os.path.exists(file_path):
                 os.remove(file_path)
