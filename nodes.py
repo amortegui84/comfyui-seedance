@@ -301,9 +301,20 @@ def _submit_and_poll(api, payload, poll_timeout=1200):
                 continue
         if r.status_code == 400 and ("PrivacyInformation" in r.text or "SensitiveContent" in r.text or "real person" in r.text.lower()):
             raise RuntimeError(
-                "AnyFast rejected the image: real-person face detected.\n"
-                "Connect the face image to SeedanceFaceRef → anyfast_refs input.\n"
-                "Do NOT use SeedanceRefImages (reference_images) for faces — that sends base64 which AnyFast blocks."
+                "AnyFast rejected an image: real-person face detected.\n"
+                "\n"
+                "This applies to ANY photograph containing recognisable people — not just\n"
+                "portraits. A location shot with a crowd, bystanders or faces in the\n"
+                "background triggers it too, which is easy to miss when the image is\n"
+                "meant as scenery.\n"
+                "\n"
+                "Every such image has to travel as an asset:// reference. Move it off\n"
+                "reference_images (SeedanceRefImages sends base64, which AnyFast blocks for\n"
+                "real people) and onto SeedanceFaceRef → anyfast_refs.\n"
+                "\n"
+                "To keep your @imageN numbering, chain rather than replace: wire your\n"
+                "existing refs into the new node's existing_refs input, so the images stay\n"
+                "in the same order they are in now."
             )
         if "model_not_found" in r.text.lower() or "no available channel" in r.text.lower():
             model_name = payload.get("model", "?")
