@@ -230,6 +230,14 @@ def _is_anyfast_asset_not_ready_error(response_text):
     # Video/audio asset still uploading: "asset is still processing and is not available yet"
     if "still processing" in txt or "not available yet" in txt:
         return True
+    # AnyFast spreads assets across channels and replicates them lazily. An asset
+    # that is Active can still be missing from the channel the generation lands
+    # on: 'asset "..." copy on channel 391 is not ready (status="Processing")'.
+    # It arrives as a 503, and it clears on its own within a few seconds. This is
+    # the common case for a CACHED asset, because a cache hit skips the
+    # wait-for-Active poll that would otherwise have given it time to settle.
+    if "asset_copy_not_ready" in txt or ("copy on channel" in txt and "not ready" in txt):
+        return True
     return False
 
 
@@ -290,7 +298,9 @@ def _submit_and_poll(api, payload, poll_timeout=1200):
             raise RuntimeError(f"AnyFast submit request failed: {e}") from e
         if r.ok:
             break
-        if r.status_code == 400 and _is_anyfast_asset_not_ready_error(r.text):
+        # 400 for "asset not found", 503 for "copy on channel not ready" — both
+        # mean the same thing: wait and ask again.
+        if r.status_code in (400, 503) and _is_anyfast_asset_not_ready_error(r.text):
             if attempt < max_attempts:
                 delay = retry_delay + (attempt - 1) * 2 if uses_assets else retry_delay
                 print(

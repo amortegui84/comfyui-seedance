@@ -284,6 +284,26 @@ run(v25, prompt="a scene", reference_images=[_RealTensor(7)])
 _imgs = [c for c in captured["payload"]["content"] if c["type"] == "image_url"]
 check("plain refs alone unchanged", len(_imgs) == 1 and _imgs[0]["role"] == "reference_image", _imgs)
 
+print("\n=== transient asset errors are recognised as retryable ===")
+_RETRYABLE = [
+    ('{"code":"asset_copy_not_ready","message":"asset \\"asset-x\\" copy on channel 391 '
+     'is not ready (status=\\"Processing\\")"}', "copy on channel (503)"),
+    ('{"code":"fail_to_fetch_task","message":"InvalidParameter ... asset ... not found"}',
+     "asset not found (400)"),
+    ('{"message":"The specified asset asset-x is not found"}', "specified asset not found"),
+    ('{"message":"asset is still processing and is not available yet"}', "still processing"),
+]
+for _body, _label in _RETRYABLE:
+    check(f"retryable: {_label}", nodes._is_anyfast_asset_not_ready_error(_body), _body[:60])
+
+_NOT_RETRYABLE = [
+    ('{"code":"insufficient_user_quota","message":"user quota not enough"}', "quota"),
+    ('{"message":"real person detected, PrivacyInformation"}', "face moderation"),
+    ('{"code":"model_not_found"}', "unknown model"),
+]
+for _body, _label in _NOT_RETRYABLE:
+    check(f"NOT retryable: {_label}", not nodes._is_anyfast_asset_not_ready_error(_body), _body[:60])
+
 print("\n=== data URIs survive the multi-reference socket ===")
 # Regression: splitting on commas tore 'data:audio/mpeg;base64,AAAA' in two and
 # sent the tail as a second, malformed reference. AnyFast answered
